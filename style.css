@@ -124,3 +124,21 @@ bdi[dir=ltr] { white-space: nowrap; }
   background: color-mix(in srgb, var(--c) 14%, transparent);
 }
 .card.course .progress div { background: var(--c); }
+
+/* Interactive feedback: hover on devices with a mouse, press feedback everywhere. */
+button, summary, .task-check { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.actions button, .btn, nav button, .chip {
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s, transform 0.08s, box-shadow 0.15s;
+}
+@media (hover: hover) {
+  .actions button.attend:hover { background: var(--ok); color: #fff; box-shadow: 0 2px 8px color-mix(in srgb, var(--ok) 35%, transparent); }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary:hover { color: #fff; filter: brightness(1.1); }
+  .btn.danger:hover { background: var(--warn); color: #fff; }
+  nav button:not(.active):hover { background: color-mix(in srgb, var(--accent) 12%, var(--card)); }
+  .link:hover { text-decoration: underline; }
+  .chip:hover { color: var(--accent); }
+}
+.actions button.attend:active { background: var(--ok); color: #fff; transform: scale(0.97); }
+.btn:active, nav button:active { transform: scale(0.97); }
+button:disabled { opacity: 0.6; cursor: default; }
