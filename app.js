@@ -55,6 +55,8 @@ const courseTitle = (c) =>
   `<span class="course-name">${c.emoji} <bdi>${esc(c.short)}</bdi> <span class="code-badge">${esc(c.code)}</span></span>`;
 const courseStyle = (c) => `style="--c:${esc(c.color)}"`;
 
+const roomText = (o) => (o?.room ? ` · 📍 <bdi>${esc(o.room)}</bdi>` : '');
+
 const statusOf = (key) => state.progress[key]?.s || null;
 
 function put(key, entry) {
@@ -218,7 +220,7 @@ function viewTodo(courses, { withSoon = true } = {}) {
       .map((t) => ({ t, u: t.units.find((u) => !u.available) }))
       .filter((x) => x.u);
     const next = upcoming
-      .map(({ t, u }) => `${t.label} ${u.n}${u.topic ? ` (${esc(u.topic)})` : ''}: ${fmt(u.first.start)} · ${u.first.group.lecturer ? esc(u.first.group.lecturer) : 'קב׳ ' + grp(u.first.group.code)}`);
+      .map(({ t, u }) => `${t.label} ${u.n}${u.topic ? ` (${esc(u.topic)})` : ''}: ${fmt(u.first.start)} · ${u.first.group.lecturer ? esc(u.first.group.lecturer) : 'קב׳ ' + grp(u.first.group.code)}${roomText(u.first)}`);
     if (!owed.length && !next.length) return null;
     // Courses with something to catch up on first (longest-waiting first),
     // then the rest by their next session.
@@ -232,7 +234,7 @@ function viewTodo(courses, { withSoon = true } = {}) {
       else {
         where = `התקיים לראשונה: ${fmt(u.first.start)} · ${esc(u.first.group.lecturer)} (קב׳ ${grp(u.first.group.code)})<br>`;
         where += u.own
-          ? `בקבוצה שלך: ${fmt(u.own.start)}${u.own.end > t0 ? ' (עוד לא)' : ''}`
+          ? `בקבוצה שלך: ${fmt(u.own.start)}${u.own.end > t0 ? ` (עוד לא)${roomText(u.own)}` : ''}`
           : 'אין מפגש מקביל בקבוצה שלך (בגלל חג/ביטול)';
       }
       return `<div class="unit">

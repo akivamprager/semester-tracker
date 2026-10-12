@@ -30,7 +30,8 @@ export function dailySummary(sem, progress, now) {
     for (const t of c.types) {
       for (const u of t.units) {
         if (u.own && dayDiff(u.own.start, now) === 0 && !progress[u.key]?.s) {
-          today.push({ start: u.own.start, text: `${c.emoji} ${c.short} ${t.label} ${hm(u.own.start)}` });
+          const room = u.own.room ? ` (${u.own.room})` : '';
+          today.push({ start: u.own.start, text: `${c.emoji} ${c.short} ${t.label} ${hm(u.own.start)}${room}` });
         }
       }
     }
