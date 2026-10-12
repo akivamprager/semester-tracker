@@ -43,6 +43,11 @@ function relDays(d) {
 // Group codes like "2-01" must stay left-to-right inside Hebrew text.
 const grp = (code) => `<bdi dir="ltr">${esc(code)}</bdi>`;
 
+// Course header: emoji + name + course-number badge, colored by the course.
+const courseTitle = (c) =>
+  `<span class="course-name">${c.emoji} <bdi>${esc(c.short)}</bdi> <span class="code-badge">${esc(c.code)}</span></span>`;
+const courseStyle = (c) => `style="--c:${esc(c.color)}"`;
+
 const statusOf = (key) => state.progress[key]?.s || null;
 
 function put(key, entry) {
@@ -117,7 +122,7 @@ function taskRow(t, courses) {
       ? '<span class="task-icon">📝</span>'
       : `<input type="checkbox" class="task-check" data-action="toggle-task" data-id="${esc(t.id)}" ${t.done ? 'checked' : ''}>`}
     <div class="task-body">
-      <div class="name">${esc(t.title)} <span class="course-tag"><bdi>${esc(course?.short || '')}</bdi></span>${t.kind === 'practice' ? ' <span class="course-tag">לא נבדק</span>' : ''}</div>
+      <div class="name">${esc(t.title)} ${course ? `<span class="course-tag colored" ${courseStyle(course)}>${course.emoji} <bdi>${esc(course.short)}</bdi></span>` : ''}${t.kind === 'practice' ? ' <span class="course-tag">לא נבדק</span>' : ''}</div>
       <div class="meta when">${t.kind === 'practice' && t.dueDate ? 'יעד: ' : ''}${when}${t.estimated && t.kind !== 'practice' ? ' · <span class="est">משוער</span>' : ''}</div>
       ${t.note ? `<div class="meta">${esc(t.note)}</div>` : ''}
     </div>
@@ -128,7 +133,7 @@ function taskRow(t, courses) {
 function taskForm(t, courses) {
   const [date, time] = (t.due || '').split('T');
   const opts = courses
-    .map((c) => `<option value="${c.code}" ${c.code === t.course ? 'selected' : ''}>${esc(c.short)}</option>`)
+    .map((c) => `<option value="${c.code}" ${c.code === t.course ? 'selected' : ''}>${c.emoji} ${esc(c.short)}</option>`)
     .join('');
   return `<form class="task-form" data-id="${esc(t.id)}">
     <label>קורס</label><select name="course">${opts}</select>
@@ -226,8 +231,8 @@ function viewTodo(courses) {
         </div>
       </div>`;
     }).join('');
-    return { sortKey, html: `<section class="card">
-      <h2><bdi>${esc(c.short)}</bdi> <small>${owed.length ? owed.length + ' להשלים' : 'מעודכן ✓'}</small></h2>
+    return { sortKey, html: `<section class="card course" ${courseStyle(c)}>
+      <h2>${courseTitle(c)} <small>${owed.length ? owed.length + ' להשלים' : 'מעודכן ✓'}</small></h2>
       ${rows}
       ${next.length ? `<div class="upcoming">הבא: ${next.join('<br>הבא: ')}</div>` : ''}
       ${owed.length > 1 ? `<button class="link" data-action="mark-all" data-course="${c.code}">סמן הכל כבוצע</button>` : ''}
@@ -251,8 +256,8 @@ function viewCourses(courses) {
     const pct = avail ? Math.round((done.length / avail) * 100) : 0;
     const exams = tasks.filter((t) => t.course === c.code && t.kind === 'exam').sort(byDue);
     const syllabus = c.types.filter((t) => t.units.some((u) => u.topic));
-    return `<section class="card">
-      <h2><bdi>${esc(c.short)}</bdi> <small>${done.length} / ${avail} שהתקיימו · ${units.length} בסמסטר</small></h2>
+    return `<section class="card course" ${courseStyle(c)}>
+      <h2>${courseTitle(c)} <small>${done.length} / ${avail} שהתקיימו · ${units.length} בסמסטר</small></h2>
       <div class="progress"><div style="width:${Math.min(pct, 100)}%"></div></div>
       ${exams.length ? `<div class="meta">${exams.map((t) => `📝 ${esc(t.title)}: ${t.dueDate ? fmt(t.dueDate, t.due.includes('T')) : 'טרם נקבע'}`).join('<br>')}</div>` : ''}
       ${c.info.length ? `<details><summary>נהלים ומידע</summary><ul class="info">${c.info.map((i) => `<li>${esc(i)}</li>`).join('')}</ul></details>` : ''}

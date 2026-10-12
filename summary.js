@@ -30,7 +30,7 @@ export function dailySummary(sem, progress, now) {
     for (const t of c.types) {
       for (const u of t.units) {
         if (u.own && dayDiff(u.own.start, now) === 0 && !progress[u.key]?.s) {
-          today.push({ start: u.own.start, text: `${c.short} ${t.label} ${hm(u.own.start)}` });
+          today.push({ start: u.own.start, text: `${c.emoji} ${c.short} ${t.label} ${hm(u.own.start)}` });
         }
       }
     }
@@ -50,12 +50,15 @@ export function dailySummary(sem, progress, now) {
     .filter((x) => x.units.length)
     .sort((a, b) => a.units[0].first.end - b.units[0].first.end);
   if (owed.length) {
-    lines.push('▶ להשלים: ' + owed.map(({ c, units }) => `${c.short} ${units.length}`).join(' · '));
+    lines.push('▶ להשלים: ' + owed.map(({ c, units }) => `${c.emoji} ${c.short} ${units.length}`).join(' · '));
   }
 
   const soon = new Date(now); soon.setDate(soon.getDate() + 3);
   const tasks = mergeTasks(sem, courses, progress, now).filter((t) => !t.done);
-  const short = (code) => courses.find((c) => c.code === code)?.short || '';
+  const short = (code) => {
+    const c = courses.find((x) => x.code === code);
+    return c ? `${c.emoji} ${c.short}` : '';
+  };
   const items = [
     ...tasks
       .filter((t) => t.kind === 'exam' && t.dueDate && t.dueDate >= now && t.dueDate <= soon)

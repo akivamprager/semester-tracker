@@ -3,6 +3,9 @@
 // Works both in the browser (ES module) and in node (tests).
 
 export const TYPE_LABELS = { lecture: 'הרצאה', recitation: 'תרגול', lab: 'מעבדה' };
+// Used when a course in the semester file has no `color`.
+const DEFAULT_COLORS = ['#8b5cf6', '#0d9488', '#d97706', '#16a34a', '#dc2626', '#2563eb', '#db2777'];
+
 export const DAY_LABELS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 
 export function parseDate(s) {
@@ -55,7 +58,7 @@ export function expandGroup(sem, course, group) {
 // material is still covered). Each unit has the earliest time any comparable group held it,
 // the user's own session (if their group has one) and the planned topic (if known).
 export function computeUnits(sem, now) {
-  return sem.courses.map((course) => {
+  return sem.courses.map((course, ci) => {
     const types = Object.entries(course.myGroups || {}).flatMap(([type, myCode]) => {
       const mine = course.groups.find((g) => g.code === myCode && g.type === type);
       if (!mine) return [];
@@ -91,6 +94,8 @@ export function computeUnits(sem, now) {
       code: course.code,
       name: course.name,
       short: course.short || course.name,
+      emoji: course.emoji || '📚',
+      color: course.color || DEFAULT_COLORS[ci % DEFAULT_COLORS.length],
       url: course.url,
       info: course.info || [],
       types,

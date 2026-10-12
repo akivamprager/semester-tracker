@@ -251,6 +251,8 @@
    "code": "80430",
    "name": "מבוא להסתברות למדעי המחשב והנדסה",
    "short": "הסתברות",
+   "emoji": "🎲",
+   "color": "#8b5cf6",
    "url": "https://shnaton.huji.ac.il/course/80430",
    "myGroups": {
     "lecture": "1-01",
@@ -405,6 +407,8 @@
    "code": "83325",
    "name": "גלים ויסודות פיסיקה א",
    "short": "גלים",
+   "emoji": "🌊",
+   "color": "#0d9488",
    "url": "https://shnaton.huji.ac.il/course/83325",
    "myGroups": {
     "lecture": "1-01",
@@ -480,6 +484,8 @@
    "code": "83335",
    "name": "מבוא להנדסת חשמל",
    "short": "מבוא להנדסת חשמל",
+   "emoji": "⚡",
+   "color": "#d97706",
    "url": "https://shnaton.huji.ac.il/course/83335",
    "myGroups": {
     "lecture": "1-01",
@@ -547,6 +553,8 @@
    "code": "67109",
    "name": "מבני נתונים",
    "short": "מבני נתונים",
+   "emoji": "🌳",
+   "color": "#16a34a",
    "url": "https://shnaton.huji.ac.il/course/67109",
    "myGroups": {
     "lecture": "1-03",
@@ -653,6 +661,8 @@
    "code": "67315",
    "name": "סי וסי++ לאלגוריתמיקה מעשית",
    "short": "C/C++",
+   "emoji": "💻",
+   "color": "#dc2626",
    "url": "https://shnaton.huji.ac.il/course/67315",
    "myGroups": {
     "lecture": "1-03",
