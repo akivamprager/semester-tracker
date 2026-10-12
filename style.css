@@ -227,3 +227,8 @@ body.dragging::after {
 }
 body.wide .sched-days { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; align-items: start; }
 body.wide .segmented { max-width: 360px; }
+
+/* Settings: badge options */
+.check-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; margin: 8px 0; }
+.check-row input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }
+.check-row select { width: auto; padding: 4px 8px; font-size: 14px; }

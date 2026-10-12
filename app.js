@@ -1,5 +1,6 @@
 import { computeUnits, mergeTasks, sessionsBetween, DAY_LABELS } from './schedule.js';
 import { dailySummary } from './summary.js';
+import { badgeCount, badgePrefs, PREFS_KEY } from './badge.js';
 import { parseIcs, icsTaskChanges } from './ics.js';
 import * as store from './sync.js';
 
@@ -407,6 +408,7 @@ function viewSettings() {
          <div class="row"><button class="btn primary" data-action="connect">התחבר</button></div>`}
   </section>
   <section class="card" id="push-card"><h2>התראת בוקר</h2><p class="help">טוען…</p></section>
+  ${badgeCard()}
   <section class="card">
     <h2>ייבוא מטלות מהמודל</h2>
     <p class="help">במודל: לוח שנה → ייצוא לוח שנה (כל הקורסים, השבועות הקרובים) → ייצוא. בחר כאן את קובץ ה-<bdi>.ics</bdi>
@@ -436,11 +438,51 @@ const isWide = () => wideQuery.matches;
 // In two-column mode the tasks tab is merged into the to-do tab.
 const shownTab = () => (isWide() && state.tab === 'tasks' ? 'todo' : state.tab);
 
-// Number on the app icon (Dock on Mac, launcher on Android): lessons to catch up on +
-// homework due within 3 days or overdue.
-function updateAppBadge(count) {
-  if (!('setAppBadge' in navigator)) return;
-  (count ? navigator.setAppBadge(count) : navigator.clearAppBadge()).catch(() => {});
+// Number on the app icon (Dock on Mac, home-screen app on iPhone). What it counts is set
+// in Settings (badge.js). Android doesn't support it; there the icon gets a dot while a
+// notification is unread.
+const BADGE_SUPPORTED = 'setAppBadge' in navigator;
+function updateAppBadge(courses) {
+  const { total } = badgeCount(state.sem, courses, state.progress, now());
+  if (BADGE_SUPPORTED) (total ? navigator.setAppBadge(total) : navigator.clearAppBadge()).catch(() => {});
+  return total;
+}
+
+const BADGE_LABELS = {
+  lessons: 'שיעורים להשלים',
+  hw: 'מטלות להגשה',
+  practice: 'תרגול עצמי פתוח',
+  exams: 'בחינות קרובות',
+  today: 'מפגשים שנשארו היום',
+};
+
+function badgePreview(courses) {
+  const { total, parts } = badgeCount(state.sem, courses, state.progress, now());
+  const detail = Object.entries(parts).map(([k, n]) => `${BADGE_LABELS[k]} ${n}`).join(' + ');
+  return `כרגע: <b>${total}</b>${detail ? ` (${detail})` : ' — התג כבוי'}`;
+}
+
+function badgeCard() {
+  const p = badgePrefs(state.progress);
+  const days = (name, value) => `<select class="badge-pref" data-pref="${name}">
+      ${[1, 2, 3, 7, 14].map((n) => `<option value="${n}" ${n === value ? 'selected' : ''}>${n === 1 ? 'יום' : n + ' ימים'}</option>`).join('')}
+    </select>`;
+  const check = (name, label, extra = '') => `<label class="check-row">
+      <input type="checkbox" class="badge-pref" data-pref="${name}" ${p[name] ? 'checked' : ''}>
+      <span>${label}</span>${extra}
+    </label>`;
+  return `<section class="card" id="badge-card">
+    <h2>מספר על אייקון האפליקציה</h2>
+    ${check('lessons', 'הרצאות ותרגולים שהתקיימו ולא סימנתי')}
+    ${check('hw', 'מטלות להגשה שמועדן בעוד', ' ' + days('hwDays', p.hwDays) + ' <span>או שעבר</span>')}
+    ${check('practice', 'תרגול עצמי (לא נבדק) שעוד פתוח')}
+    ${check('exams', 'בחינות ובחנים בעוד', ' ' + days('examDays', p.examDays))}
+    ${check('today', 'מפגשים שנשארו היום (בכל הקבוצות)')}
+    <p class="help" id="badge-preview">${badgePreview(computeUnits(state.sem, now()))}</p>
+    <p class="help">${BADGE_SUPPORTED
+      ? 'המספר מופיע על האייקון ב-Dock (מק) או במסך הבית (אייפון), ומתעדכן גם בהתראת הבוקר. ההגדרה מסונכרנת לכל המכשירים.'
+      : 'הדפדפן הזה לא מציג מספר על האייקון. באנדרואיד מופיעה במקומו נקודה כשיש התראה שלא נקראה. ההגדרה עדיין משפיעה על המק ועל התראת הבוקר.'}</p>
+  </section>`;
 }
 
 function applyTaskFilter() {
@@ -465,7 +507,7 @@ function render() {
   const soon = new Date(t0); soon.setDate(soon.getDate() + 3);
   const urgent = allTasks(courses).filter((t) => t.kind === 'hw' && !t.done && t.dueDate && t.dueDate <= soon).length;
   document.getElementById('task-count').textContent = urgent || '';
-  updateAppBadge(state.owedCount + urgent);
+  updateAppBadge(courses);
   const main = document.getElementById('main');
   const searchFocused = document.activeElement?.id === 'task-search';
   if (shownTab() === 'todo' && wide) {
@@ -594,6 +636,18 @@ document.body.addEventListener('input', (e) => {
 });
 
 document.body.addEventListener('change', async (e) => {
+  if (e.target.classList.contains('badge-pref')) {
+    const prefs = { ...badgePrefs(state.progress) };
+    const name = e.target.dataset.pref;
+    prefs[name] = e.target.type === 'checkbox' ? e.target.checked : Number(e.target.value);
+    state.progress[PREFS_KEY] = { s: 'set', d: prefs, t: Date.now() };
+    store.saveLocal(state.progress);
+    const courses = computeUnits(state.sem, now());
+    updateAppBadge(courses);
+    document.getElementById('badge-preview').innerHTML = badgePreview(courses);
+    scheduleSync();
+    return;
+  }
   if (e.target.id === 'sem-select') {
     localStorage.setItem(LS_SEMESTER, e.target.value);
     await loadSemester();

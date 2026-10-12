@@ -2,6 +2,7 @@
 // and homework/exams coming up. Pure, so both the app (test button) and the GitHub Action
 // (tools/morning.mjs) use it.
 import { computeUnits, mergeTasks, DAY_LABELS } from './schedule.js';
+import { badgeCount } from './badge.js';
 
 const hm = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
@@ -83,11 +84,9 @@ export function dailySummary(sem, progress, now) {
   }
 
   if (!lines.length) return null;
-  const owedCount = owed.reduce((n, { units }) => n + units.length, 0);
-  const urgent = tasks.filter((t) => t.kind === 'hw' && t.dueDate && t.dueDate <= soon).length;
   return {
     title: `בוקר טוב! יום ${DAY_LABELS[now.getDay()]} ${now.getDate()}.${now.getMonth() + 1}`,
     body: lines.join('\n'),
-    badge: owedCount + urgent, // same number the app shows on its icon
+    badge: badgeCount(sem, courses, progress, now).total, // same number the app shows on its icon
   };
 }
