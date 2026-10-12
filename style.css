@@ -261,3 +261,5 @@ body.wco main { padding-top: calc(env(titlebar-area-height, 36px) + 4px); }
   border: solid currentColor; border-width: 0 0 2px 2px; transform: rotate(45deg);
   vertical-align: 0.05em;
 }
+.card.welcome { border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); }
+.card.welcome .help { font-size: 15px; }

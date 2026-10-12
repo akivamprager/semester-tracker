@@ -264,7 +264,17 @@ function viewTodo(courses, { withSoon = true } = {}) {
   document.getElementById('todo-count').textContent = total || '';
   state.owedCount = total;
   const banner = total ? '' : '<div class="empty">אין שיעורים שמחכים לך 🎉</div>';
-  return scheduleStrip(courses) + soonCard + banner + cards;
+  const isNew = !localStorage.getItem('tracker.welcomed')
+    && !Object.keys(state.progress).some((k) => k.startsWith(state.sem.id + '/'));
+  const welcome = isNew ? `<section class="card welcome">
+      <h2>👋 חדש כאן?</h2>
+      <p class="help">כאן מופיעים הרצאות ותרגולים שכבר התקיימו ועוד לא השלמת. מדריך קצר מסביר הכל בדקה.</p>
+      <div class="row">
+        <a class="btn primary" href="guide.html">למדריך</a>
+        <button class="btn" data-action="dismiss-welcome">הבנתי</button>
+      </div>
+    </section>` : '';
+  return welcome + scheduleStrip(courses) + soonCard + banner + cards;
 }
 
 // ---------- timetable: which sessions can I go to ----------
@@ -391,6 +401,14 @@ function viewSettings() {
     .join('');
   const connected = !!store.getToken();
   return `
+  <section class="card">
+    <h2>📖 מדריך</h2>
+    <p class="help">סיור קצר באפליקציה: מה כל לשונית עושה, התקנה בטלפון ובמחשב, סנכרון ויומן.</p>
+    <div class="row">
+      <a class="btn" href="guide.html">לפתוח את המדריך</a>
+      <button class="btn" data-action="share-guide">↗ לשתף עם חבר</button>
+    </div>
+  </section>
   <section class="card">
     <h2>סמסטר</h2>
     <select id="sem-select">${sems}</select>
@@ -588,6 +606,14 @@ document.body.addEventListener('click', async (e) => {
   if (action === 'cal-copy') { await navigator.clipboard.writeText(el.dataset.url); toast('📋 הכתובת הועתקה'); }
   if (action === 'share-day') shareText('אפשרויות', shareDayText(new Date(Number(el.dataset.day))));
   if (action === 'share-tasks') shareText('מטלות', shareTasksText());
+  if (action === 'share-guide') {
+    const url = new URL('guide.html', location.href).href;
+    try {
+      if (navigator.share) await navigator.share({ title: 'מעקב שיעורים', text: 'אפליקציה למעקב אחרי הרצאות, תרגולים והגשות:', url });
+      else { await navigator.clipboard.writeText(url); toast('📋 הקישור למדריך הועתק'); }
+    } catch (err) { if (err.name !== 'AbortError') toast('לא הצלחתי לשתף'); }
+  }
+  if (action === 'dismiss-welcome') { localStorage.setItem('tracker.welcomed', '1'); render(); }
   if (action === 'horizon') { state.horizon = el.dataset.h; render(); }
   if (action === 'push-on' || action === 'push-off' || action === 'push-test') {
     el.disabled = true;

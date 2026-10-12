@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f3f5f9">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111520">
+  <title>מעקב שיעורים — מדריך</title>
+  <meta name="description" content="מדריך קצר לאפליקציית מעקב השיעורים: מה כל לשונית עושה ואיך מתקינים בטלפון, בטאבלט ובמחשב.">
+  <link rel="icon" href="icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .guide { max-width: 720px; margin: 0 auto; padding: 16px 16px 60px; line-height: 1.65; }
+    .hero { text-align: center; padding: 28px 8px 8px; }
+    .hero img { width: 72px; height: 72px; border-radius: 18px; }
+    .hero h1 { font-size: 28px; margin: 10px 0 4px; }
+    .hero p { color: var(--muted); margin: 0 auto; max-width: 520px; font-size: 17px; }
+    .cta { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 16px 0 0; }
+    .cta a { text-decoration: none; padding: 10px 18px; }
+    .toc { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 18px 0 0; }
+    .toc a { font-size: 13px; padding: 4px 10px; border-radius: 10px; background: var(--card); color: var(--accent); text-decoration: none; }
+    .guide h2.step { font-size: 21px; margin: 38px 0 6px; display: flex; gap: 10px; align-items: center; }
+    .guide h2.step .num {
+      flex: 0 0 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #fff;
+      display: inline-flex; align-items: center; justify-content: center; font-size: 15px;
+    }
+    .guide h3 { font-size: 16px; margin: 18px 0 4px; }
+    .guide p, .guide li { font-size: 16px; }
+    .guide ol, .guide ul { padding-inline-start: 22px; margin: 6px 0; }
+    .guide li { margin: 3px 0; }
+    .mock {
+      position: relative; background: var(--bg); border: 1px dashed var(--line); border-radius: 16px;
+      padding: 6px 10px 10px; margin: 12px 0; pointer-events: none;
+    }
+    .mock::before {
+      content: 'דוגמה'; position: absolute; top: -10px; inset-inline-end: 14px; font-size: 11px;
+      background: var(--card); color: var(--muted); padding: 0 8px; border-radius: 8px; border: 1px solid var(--line);
+    }
+    .mock-tabs { display: flex; gap: 6px; margin: 8px 0 4px; }
+    .mock-tabs > span { flex: 1; text-align: center; padding: 8px 0; border-radius: 10px; background: var(--card); font-size: 13px; }
+    .mock-tabs > span.on { background: var(--accent); color: #fff; }
+    .devices { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 10px 0; }
+    .device { background: var(--card); border-radius: 14px; padding: 12px 14px; }
+    .device h3 { margin: 0 0 4px; }
+    .device ol { font-size: 15px; }
+    .note { background: color-mix(in srgb, var(--warn) 10%, var(--card)); border-radius: 12px; padding: 10px 14px; margin: 12px 0; font-size: 15px; }
+    .tip { background: color-mix(in srgb, var(--accent) 9%, var(--card)); border-radius: 12px; padding: 10px 14px; margin: 12px 0; font-size: 15px; }
+    kbd { font-family: inherit; background: var(--card); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 0 6px; font-size: 14px; }
+    .guide a { color: var(--accent); }
+    footer.guide-foot { text-align: center; color: var(--muted); font-size: 14px; margin-top: 40px; }
+  </style>
+</head>
+<body>
+<main class="guide">
+
+  <section class="hero">
+    <img src="icon-192.png" alt="">
+    <h1>מעקב שיעורים</h1>
+    <p>אפליקציה קטנה שזוכרת בשבילך אילו הרצאות ותרגולים כבר עשית, מה עוד צריך להשלים, ומתי ההגשות והבחינות —
+      בכל הקורסים של סמסטר א׳ תשפ״ז.</p>
+    <div class="cta">
+      <a class="btn primary" href="./">לפתוח את האפליקציה</a>
+      <a class="btn" href="#install">איך מתקינים</a>
+    </div>
+    <nav class="toc" aria-label="תוכן">
+      <a href="#idea">הרעיון</a><a href="#install">התקנה</a><a href="#todo">לעשות</a><a href="#schedule">מערכת</a>
+      <a href="#tasks">משימות</a><a href="#exams">בחינות ומידע</a><a href="#sync">סנכרון</a>
+      <a href="#calendar">יומן</a><a href="#moodle">מודל</a><a href="#tips">טיפים</a>
+    </nav>
+  </section>
+
+  <h2 class="step" id="idea"><span class="num">1</span> הרעיון</h2>
+  <p>בכל קורס יש כמה קבוצות הרצאה ותרגול שמלמדות את אותו חומר בזמנים שונים. האפליקציה יודעת את המערכת של כולן,
+    ולכן ברגע שהרצאה או תרגול <b>התקיימו בקבוצה כלשהי</b> — יש כבר הקלטה, והיא מופיעה אצלך כ"להשלים".
+    מה שעוד לא התקיים בשום קבוצה לא מופיע בכלל, כדי שלא יהיה רעש.</p>
+  <p>אחרי שהלכת לשיעור או צפית בהקלטה — לוחצים <b>✓ סיימתי</b>, וזהו.</p>
+  <div class="tip">💡 הקורסים והקבוצות כבר מוגדרים באפליקציה — הסתברות, גלים, מבוא להנדסת חשמל, מבני נתונים ו-C/C++ —
+    כולל שינויי כיתות וביטולים שמתפרסמים במהלך הסמסטר. לא צריך להגדיר כלום.</div>
+
+  <h2 class="step" id="install"><span class="num">2</span> התקנה (פעם אחת בכל מכשיר)</h2>
+  <p>זו אפליקציית אינטרנט — לא צריך חנות. פותחים את הכתובת ומוסיפים אותה כאפליקציה:</p>
+  <p dir="ltr" style="text-align:center"><a href="./">akivamprager.github.io/semester-tracker</a></p>
+  <div class="devices">
+    <div class="device">
+      <h3>📱 טלפון וטאבלט אנדרואיד</h3>
+      <ol>
+        <li>לפתוח את הכתובת ב-<b>Chrome</b>.</li>
+        <li>תפריט <b>⋮</b> ← <b>התקנת אפליקציה</b> (או "הוספה למסך הבית").</li>
+        <li>מעכשיו פותחים מהאייקון "שיעורים".</li>
+      </ol>
+    </div>
+    <div class="device">
+      <h3>💻 מחשב Windows</h3>
+      <ol>
+        <li>לפתוח את הכתובת ב-<b>Chrome</b> או <b>Edge</b>.</li>
+        <li>ללחוץ על אייקון ההתקנה בשורת הכתובת (מסך עם חץ) ← <b>התקנה</b>.
+          ב-Edge: <b>⋯</b> ← אפליקציות ← "התקן אתר זה כאפליקציה".</li>
+        <li>האפליקציה תופיע בתפריט התחל ואפשר להצמיד לשורת המשימות.</li>
+      </ol>
+    </div>
+  </div>
+  <div class="note">⚠️ ההתקדמות נשמרת בכל מכשיר בנפרד. כדי שמה שסימנת בטלפון יופיע גם בטאבלט ובמחשב —
+    מחברים <a href="#sync">סנכרון</a> (5 דקות, פעם אחת).</div>
+
+  <h2 class="step" id="todo"><span class="num">3</span> לשונית "לעשות" — מה נשאר להשלים</h2>
+  <p>המסך הראשי. לכל קורס יש כרטיס בצבע שלו, עם ההרצאות והתרגולים שכבר התקיימו ועוד לא סימנת.
+    הקורס שמחכה הכי הרבה זמן — למעלה.</p>
+  <div class="mock">
+    <div class="mock-tabs"><span class="on">לעשות <span class="badge">3</span></span><span>מערכת</span><span>משימות</span><span>בחינות ומידע</span></div>
+    <div class="strip"><span>📅 היום: <b>4</b> אפשרויות · מחר: <b>6</b></span><span class="strip-next">הבא: 🌊 גלים תרגול 4 12:00 (שלך) <span class="chev"></span></span></div>
+    <section class="card course" style="--c:#0d9488">
+      <h2><span class="course-name">🌊 <bdi>גלים</bdi> <span class="code-badge">83325</span></span> <small>2 להשלים</small></h2>
+      <div class="unit">
+        <div class="name">הרצאה 7</div>
+        <div class="meta">התקיים בקבוצה שלך: אתמול, יום א׳ 1.11 14:00</div>
+        <div class="actions"><button class="attend">✓ סיימתי</button></div>
+      </div>
+      <div class="unit">
+        <div class="name">תרגול 4</div>
+        <div class="meta">התקיים לראשונה: היום, יום ב׳ 2.11 10:00 · יואב בן חיים (קב׳ <bdi dir="ltr">2-03</bdi>)<br>בקבוצה שלך: היום, יום ב׳ 2.11 12:00 (עוד לא) · 📍 קפלן</div>
+        <div class="actions"><button class="attend">✓ סיימתי</button></div>
+      </div>
+      <div class="upcoming">הבא: הרצאה 9: יום א׳ 8.11 14:00 · פרופ׳ ניר בר-גיל · 📍 קנדה</div>
+    </section>
+  </div>
+  <ul>
+    <li><b>"התקיים לראשונה"</b> — הקבוצה שהעבירה את החומר הכי מוקדם (משם תגיע ההקלטה), ומתי זה בקבוצה שלך.</li>
+    <li><b>"הבא"</b> — מתי ההרצאה/התרגול הבאים, איפה ועם מי.</li>
+    <li><b>הפס הכחול למעלה</b> — כמה מפגשים אפשר לתפוס היום ומחר. לוחצים עליו כדי לעבור ל"מערכת".</li>
+    <li><b>סמן הכל כבוצע</b> — לתחילת הסמסטר, אם כבר השלמת הכל בקורס.</li>
+    <li>למעלה מופיע גם כרטיס כתום של <b>מטלות ובחינות קרובות</b> לשבוע הקרוב.</li>
+  </ul>
+
+  <h2 class="step" id="schedule"><span class="num">4</span> לשונית "מערכת" — לאן אפשר ללכת היום</h2>
+  <p>כל ההרצאות והתרגולים של <b>כל הקבוצות</b> להיום ולמחר (או ל-7 ימים), לחומר שעוד לא עשית.
+    ככה רואים שיש תרגול מקביל היום בשעה שנוחה יותר — ובוחרים כל שבוע מחדש.</p>
+  <div class="mock">
+    <section class="card day">
+      <h2>היום · יום ב׳ 2.11 <span class="h2-side"><small>3 מפגשים</small><span class="link share-btn">↗ שתף</span></span></h2>
+      <div class="slot" style="--c:#0d9488">
+        <div class="slot-time">10:00<small>–11:45</small></div>
+        <div class="slot-body"><div class="name">🌊 גלים · תרגול 4</div>
+          <div class="meta">יואב בן חיים · קב׳ <bdi dir="ltr">2-03</bdi> · 📍 ברנדמן ב 102</div>
+          <div class="pills"><span class="pill">בקבוצה שלך: היום 12:00</span></div></div>
+      </div>
+      <div class="slot mine live" style="--c:#0d9488">
+        <div class="slot-time">12:00<small>–14:00</small></div>
+        <div class="slot-body"><div class="name">🌊 גלים · תרגול 4</div>
+          <div class="meta">יוגב קורן · קב׳ <bdi dir="ltr">2-02</bdi> · 📍 קפלן</div>
+          <div class="pills"><span class="pill mine">הקבוצה שלך</span><span class="pill live">● עכשיו</span></div></div>
+      </div>
+      <div class="slot" style="--c:#8b5cf6">
+        <div class="slot-time">14:00<small>–15:45</small></div>
+        <div class="slot-body"><div class="name">🎲 הסתברות · הרצאה 4</div>
+          <div class="meta">ד״ר אורי רוזנשטיין · קב׳ <bdi dir="ltr">1-02</bdi> · 📍 פלדמן ב</div>
+          <div class="pills"><span class="pill">בקבוצה שלך: יום ג׳ 10.11 10:00</span></div></div>
+      </div>
+    </section>
+  </div>
+  <ul>
+    <li><b>הקבוצה שלך</b> מודגשת, ומה שקורה עכשיו מסומן <b>● עכשיו</b>.</li>
+    <li><b>↗ שתף</b> — שולח את רשימת האפשרויות של היום בוואטסאפ, כדי לתאם עם חברים.</li>
+  </ul>
+
+  <h2 class="step" id="tasks"><span class="num">5</span> לשונית "משימות" — הגשות</h2>
+  <p>כל התרגילים, המעבדות והבחינות לפי מועד: <b>באיחור</b>, <b>השבוע הקרוב</b>, <b>בהמשך</b>, <b>ללא מועד</b>.
+    מסמנים ✓ כשמגישים.</p>
+  <div class="mock">
+    <section class="card">
+      <h2>השבוע הקרוב <span class="h2-side"><small>2</small></span></h2>
+      <div class="task">
+        <input type="checkbox" class="task-check">
+        <div class="task-body"><div class="name">מעבדה 3 (CodeRunner) <span class="course-tag colored" style="--c:#dc2626">💻 <bdi>C/C++</bdi></span></div>
+          <div class="meta when">יום ה׳ 5.11 23:59 · בעוד 3 ימים</div></div>
+        <span class="link">✎</span>
+      </div>
+      <div class="task">
+        <input type="checkbox" class="task-check">
+        <div class="task-body"><div class="name">ש״ב 3 <span class="course-tag colored" style="--c:#16a34a">🌳 <bdi>מבני נתונים</bdi></span> <span class="course-tag">לא נבדק</span></div>
+          <div class="meta when">יעד: יום ה׳ 5.11 15:45 · בעוד 3 ימים</div></div>
+        <span class="link">✎</span>
+      </div>
+    </section>
+  </div>
+  <ul>
+    <li><b>+ מטלה חדשה</b> — להוסיף תרגיל עם תאריך ושעה. <b>✎</b> — לערוך או למחוק.</li>
+    <li>מועדים שמסומנים <b>"משוער"</b> חושבו לפי נהלי הקורס — כדאי לוודא במודל.</li>
+    <li>שיעורי בית שלא נבדקים (מבני נתונים) מופיעים כ"לא נבדק" — לא דחוף, אבל לא נעלם.</li>
+    <li>יש <b>חיפוש</b> למעלה.</li>
+  </ul>
+
+  <h2 class="step" id="exams"><span class="num">6</span> לשונית "בחינות ומידע"</h2>
+  <p>לכל קורס: כמה כבר השלמת, מועדי הבחינות והבחנים, <b>נהלי הקורס</b> בקצרה (הרכב ציון, כללי הגשה, AI וכו׳),
+    ובמבני נתונים — <b>הנושא של כל הרצאה ותרגול</b>.</p>
+
+  <h2 class="step" id="sync"><span class="num">7</span> סנכרון בין הטלפון, הטאבלט והמחשב</h2>
+  <p>הסנכרון שומר את ההתקדמות שלך בענן (בחשבון GitHub פרטי שלך — חינם), כך שאותו מצב מופיע בכל המכשירים
+    וגם לא הולך לאיבוד אם מוחקים את האפליקציה.</p>
+  <ol>
+    <li>להירשם ל-<a href="https://github.com/signup" target="_blank" rel="noopener">GitHub</a> (חינם, דקה).</li>
+    <li>באפליקציה: <b>⚙️</b> (למעלה) ← "סנכרון בין מכשירים" ← ללחוץ על הקישור <b>"טוקן GitHub עם הרשאת gist בלבד"</b>.</li>
+    <li>ב-GitHub: לבחור <b>Expiration: No expiration</b>, לגלול למטה ← <b>Generate token</b>.</li>
+    <li>להעתיק את הטוקן (מתחיל ב-<bdi dir="ltr">ghp_</bdi>) ← להדביק באפליקציה ← <b>התחבר</b>. יופיע "מסונכרן ✓".</li>
+    <li>לשמור את הטוקן במקום בטוח (GitHub מציג אותו רק פעם אחת), ולהדביק את <b>אותו טוקן</b> גם בטאבלט ובמחשב.</li>
+  </ol>
+  <div class="tip">🔒 הטוקן נשמר רק במכשירים שלך ומאפשר גישה רק ל-gists (לא לשום דבר אחר בחשבון).
+    אפשר לבטל אותו בכל רגע ב-GitHub. בלי סנכרון: <b>⚙️ ← גיבוי ידני</b> מאפשר לייצא ולייבא קובץ.</div>
+
+  <h2 class="step" id="calendar"><span class="num">8</span> המערכת ביומן Google (ווידג׳ט ותזכורות)</h2>
+  <p>אחרי שהסנכרון מחובר: <b>⚙️ ← 📆 יומן ← הפעל יומן</b>. נוצר יומן חי עם השיעורים של הקבוצות שלך (כולל כיתות ושינויים),
+    הגשות ובחינות.</p>
+  <ol>
+    <li>במחשב: ללחוץ <b>"הוסף ל-Google Calendar"</b> ולאשר.</li>
+    <li>תוך כמה דקות היומן מופיע ב-Google Calendar <b>בטלפון ובטאבלט</b> — כולל ב<b>ווידג׳ט</b> של Google Calendar במסך הבית.</li>
+    <li>תזכורות לפני כל שיעור: ב-Google Calendar ← הגדרות ← היומן "שיעורים" ← <b>התראות ברירת מחדל</b> (למשל 15 דקות לפני).</li>
+  </ol>
+
+  <h2 class="step" id="moodle"><span class="num">9</span> הגשות מהמודל, אוטומטית</h2>
+  <p>במקום להקליד מועדים — מייבאים אותם מהמודל:</p>
+  <ol>
+    <li>במודל: <b>לוח שנה</b> ← <b>ייצוא לוח שנה</b> ← "כל הקורסים", "אירועים אחרונים וקרובים" ← <b>ייצוא</b>. יורד קובץ <bdi dir="ltr">.ics</bdi>.</li>
+    <li>להכניס אותו לאפליקציה באחת הדרכים:
+      <ul>
+        <li><b>במחשב:</b> לגרור את הקובץ לחלון האפליקציה (או קליק ימני על הקובץ ← "פתח באמצעות" ← שיעורים).</li>
+        <li><b>באנדרואיד:</b> לפתוח את ההורדות ← לשתף את הקובץ ← <b>שיעורים</b>.</li>
+        <li>או: <b>⚙️ ← ייבוא מטלות מהמודל</b>.</li>
+      </ul>
+    </li>
+  </ol>
+  <p>מטלות חדשות נוספות, מועדים שהשתנו מתעדכנים, ומה שכבר סימנת נשאר. כדאי לחזור על זה פעם בשבוע-שבועיים.</p>
+
+  <h2 class="step" id="tips"><span class="num">10</span> טיפים קטנים</h2>
+  <ul>
+    <li><b>לחיצה ארוכה על האייקון</b> (אנדרואיד) או <b>קליק ימני</b> עליו (Windows) — קיצורים ישירים ל"לעשות", "מערכת", "משימות" ו"בחינות".</li>
+    <li><b>המספר על האייקון</b> ב-Windows מראה כמה דברים פתוחים. בוחרים מה הוא סופר ב-⚙️. (באנדרואיד מופיעה נקודה רק כשיש התראה.)</li>
+    <li><b>טאבלט לרוחב / מחשב:</b> "לעשות" ו"משימות" מוצגים זה לצד זה.</li>
+    <li><b>במחשב — מקלדת:</b> <kbd>1</kbd>–<kbd>5</kbd> מעבר בין לשוניות, <kbd>N</kbd> מטלה חדשה, <kbd>/</kbd> חיפוש, <kbd>S</kbd> סנכרון, <kbd>?</kbd> רשימת הקיצורים.</li>
+    <li><b>במחשב:</b> ⌃ בפס הכותרת של חלון האפליקציה מעביר את הלשוניות לפס הכותרת — נראה כמו אפליקציה רגילה.</li>
+    <li><b>מצב כהה</b> עובד אוטומטית לפי הגדרות המכשיר.</li>
+  </ul>
+  <div class="note">ℹ️ <b>התראת הבוקר</b> (סיכום יומי ב-07:00) נשלחת מהשרת של מי שהקים את האפליקציה ועובדת כרגע רק אצלו —
+    אין טעם להפעיל אותה. היומן ב-Google עם תזכורות (שלב 8) נותן תחליף טוב.</div>
+
+  <footer class="guide-foot">
+    <div class="cta">
+      <a class="btn primary" href="./">לפתוח את האפליקציה</a>
+      <button class="btn" id="share-guide" type="button">↗ לשתף את המדריך</button>
+    </div>
+    <p>בהצלחה בסמסטר! 🎓</p>
+  </footer>
+</main>
+<script>
+  document.getElementById('share-guide').addEventListener('click', async () => {
+    const url = location.href.split('#')[0];
+    const data = { title: 'מעקב שיעורים — מדריך', text: 'אפליקציה למעקב אחרי הרצאות, תרגולים והגשות בסמסטר:', url };
+    try {
+      if (navigator.share) { await navigator.share(data); return; }
+    } catch (e) { if (e.name === 'AbortError') return; }
+    await navigator.clipboard.writeText(url);
+    alert('הקישור הועתק');
+  });
+</script>
+</body>
+</html>
