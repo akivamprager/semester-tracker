@@ -1,0 +1,126 @@
+{
+  "id": "2027A",
+  "name": "סמסטר א׳ תשפ״ז",
+  "start": "2026-10-11",
+  "end": "2027-01-15",
+  "noClass": [
+    { "from": "2026-10-27", "to": "2026-10-27", "reason": "יום הבחירות" },
+    { "from": "2026-12-06", "to": "2026-12-12", "reason": "חופשת חנוכה" },
+    { "from": "2026-12-25", "to": "2026-12-25", "reason": "חופשת חג המולד" }
+  ],
+  "cancellations": [
+    { "course": "83325", "group": "1-01", "date": "2026-11-02", "note": "הועבר ל-1/11" },
+    { "course": "83325", "group": "2-01", "date": "2026-11-01", "note": "הועבר ל-2/11" },
+    { "course": "83325", "group": "2-02", "date": "2026-11-01", "note": "הועבר ל-2/11" }
+  ],
+  "extras": [
+    { "course": "83325", "group": "1-01", "date": "2026-11-01", "start": "16:00", "end": "18:00", "room": "קנדה" },
+    { "course": "83325", "group": "2-01", "date": "2026-11-02", "start": "12:00", "end": "14:00", "room": "קפלן" },
+    { "course": "83325", "group": "2-02", "date": "2026-11-02", "start": "12:00", "end": "14:00", "room": "קפלן" }
+  ],
+  "courses": [
+    {
+      "code": "80430",
+      "name": "מבוא להסתברות למדעי המחשב והנדסה",
+      "short": "הסתברות",
+      "url": "https://shnaton.huji.ac.il/course/80430",
+      "myGroups": { "lecture": "1-01", "recitation": "2-03" },
+      "groups": [
+        { "code": "1-01", "type": "lecture", "lecturer": "פרופ׳ אוהד-נוי פלדהיים", "from": "2026-10-26", "slots": [
+          { "day": 2, "start": "10:00", "end": "11:45", "room": "קפלן" },
+          { "day": 4, "start": "12:00", "end": "13:45", "room": "פלדמן ב" } ] },
+        { "code": "1-02", "type": "lecture", "lecturer": "ד״ר אורי רוזנשטיין", "from": "2026-10-26", "slots": [
+          { "day": 0, "start": "12:00", "end": "13:45", "room": "פלדמן ב" },
+          { "day": 1, "start": "14:00", "end": "15:45", "room": "כימיה 7" } ] },
+        { "code": "2-01", "type": "recitation", "lecturer": "נמרוד גביזון", "from": "2026-10-26", "slots": [
+          { "day": 1, "start": "12:00", "end": "13:45", "room": "לוי 07" } ] },
+        { "code": "2-02", "type": "recitation", "lecturer": "דניאל רוזנבלט", "from": "2026-10-26", "slots": [
+          { "day": 2, "start": "14:00", "end": "15:45", "room": "שפרינצק 116" } ] },
+        { "code": "2-03", "type": "recitation", "lecturer": "גלעד דרפנר", "from": "2026-10-26", "slots": [
+          { "day": 3, "start": "13:00", "end": "14:45", "room": "לוי 06" } ] },
+        { "code": "2-04", "type": "recitation", "lecturer": "מיכאל זכריה ברמק", "from": "2026-10-26", "slots": [
+          { "day": 4, "start": "10:00", "end": "11:45", "room": "שפרינצק 27" } ] },
+        { "code": "2-05", "type": "recitation", "lecturer": "נמרוד גביזון", "from": "2026-10-26", "slots": [
+          { "day": 1, "start": "16:00", "end": "17:45", "room": "C220 הנדסה" } ] },
+        { "code": "2-06", "type": "recitation", "lecturer": "", "from": "2026-10-26", "slots": [
+          { "day": 4, "start": "10:00", "end": "11:45", "room": "שפרינצק 115" } ] }
+      ]
+    },
+    {
+      "code": "83325",
+      "name": "גלים ויסודות פיסיקה א",
+      "short": "גלים",
+      "url": "https://shnaton.huji.ac.il/course/83325",
+      "myGroups": { "lecture": "1-01", "recitation": "2-02" },
+      "groups": [
+        { "code": "1-01", "type": "lecture", "lecturer": "פרופ׳ ניר בר-גיל", "slots": [
+          { "day": 0, "start": "14:00", "end": "15:45", "room": "קנדה" },
+          { "day": 1, "start": "12:00", "end": "13:45", "room": "קפלן" } ] },
+        { "code": "2-01", "type": "recitation", "lecturer": "יואב בן חיים", "slots": [
+          { "day": 0, "start": "16:00", "end": "17:45", "room": "סילברמן ראשל" } ] },
+        { "code": "2-02", "type": "recitation", "lecturer": "יוגב קורן", "slots": [
+          { "day": 0, "start": "16:00", "end": "17:45", "room": "שפרינצק 29" } ] },
+        { "code": "2-03", "type": "recitation", "lecturer": "יואב בן חיים", "slots": [
+          { "day": 1, "start": "10:00", "end": "11:45", "room": "ברנדמן ב 102" } ] }
+      ]
+    },
+    {
+      "code": "83335",
+      "name": "מבוא להנדסת חשמל",
+      "short": "מבוא להנדסת חשמל",
+      "url": "https://shnaton.huji.ac.il/course/83335",
+      "myGroups": { "lecture": "1-01", "recitation": "2-03" },
+      "groups": [
+        { "code": "1-01", "type": "lecture", "lecturer": "בן-ציון לאופר", "slots": [
+          { "day": 3, "start": "09:00", "end": "11:45", "room": "ברנדמן ב 101" } ] },
+        { "code": "2-01", "type": "recitation", "lecturer": "בן-ציון לאופר", "slots": [
+          { "day": 3, "start": "13:00", "end": "14:45", "room": "ברנדמן ב 101" } ] },
+        { "code": "2-02", "type": "recitation", "lecturer": "ירדן ישנו", "slots": [
+          { "day": 3, "start": "13:00", "end": "14:45", "room": "B220 הנדסה" } ] },
+        { "code": "2-03", "type": "recitation", "lecturer": "ירדן ישנו", "slots": [
+          { "day": 3, "start": "15:00", "end": "16:45", "room": "ברנדמן ב 101" } ] }
+      ]
+    },
+    {
+      "code": "67109",
+      "name": "מבני נתונים",
+      "short": "מבני נתונים",
+      "url": "https://shnaton.huji.ac.il/course/67109",
+      "myGroups": { "lecture": "1-03", "recitation": "2-09" },
+      "groups": [
+        { "code": "1-03", "type": "lecture", "lecturer": "פרופ׳ לאו יוסקוביץ", "slots": [
+          { "day": 4, "start": "14:00", "end": "15:45", "room": "אודיטוריום הנדסה" } ] },
+        { "code": "2-09", "type": "recitation", "lecturer": "דויד פונרובסקי / נדב קופלוביץ", "slots": [
+          { "day": 2, "start": "14:00", "end": "15:45", "room": "ברנדמן ב 103" } ] },
+        { "code": "2-14", "type": "recitation", "lecturer": "דויד פונרובסקי", "slots": [
+          { "day": 0, "start": "14:00", "end": "15:45", "room": "B220 הנדסה" } ] },
+        { "code": "2-15", "type": "recitation", "lecturer": "נדב קופלוביץ", "slots": [
+          { "day": 2, "start": "16:00", "end": "17:45", "room": "B221 הנדסה" } ] }
+      ]
+    },
+    {
+      "code": "67315",
+      "name": "סי וסי++ לאלגוריתמיקה מעשית",
+      "short": "C/C++",
+      "url": "https://shnaton.huji.ac.il/course/67315",
+      "myGroups": { "lecture": "1-03", "recitation": "2-09" },
+      "groups": [
+        { "code": "1-03", "type": "lecture", "lecturer": "מיסאן בדר", "slots": [
+          { "day": 2, "start": "12:00", "end": "13:45", "room": "אודיטוריום הנדסה" },
+          { "day": 4, "start": "16:00", "end": "16:45", "room": "אודיטוריום הנדסה" } ] },
+        { "code": "2-09", "type": "recitation", "lecturer": "תומר גיל", "slots": [
+          { "day": 2, "start": "16:00", "end": "17:45", "room": "C220 הנדסה" } ] },
+        { "code": "2-10", "type": "recitation", "lecturer": "גידאא חטיב", "slots": [
+          { "day": 2, "start": "15:00", "end": "16:45", "room": "C320 הנדסה" } ] },
+        { "code": "2-11", "type": "recitation", "lecturer": "יעל שפירא", "slots": [
+          { "day": 3, "start": "10:00", "end": "11:45", "room": "לוי 06" } ] },
+        { "code": "2-12", "type": "recitation", "lecturer": "עמית שרמן", "slots": [
+          { "day": 3, "start": "13:00", "end": "14:45", "room": "שפרינצק 26" } ] },
+        { "code": "2-13", "type": "recitation", "lecturer": "אחמד עליאן", "slots": [
+          { "day": 4, "start": "13:00", "end": "14:45", "room": "שפרינצק 214" } ] },
+        { "code": "2-14", "type": "recitation", "lecturer": "תומר גיל", "slots": [
+          { "day": 2, "start": "14:00", "end": "15:45", "room": "שפרינצק 115" } ] }
+      ]
+    }
+  ]
+}

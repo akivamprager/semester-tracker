@@ -1,0 +1,6 @@
+{
+  "default": "2027A",
+  "semesters": [
+    { "id": "2027A", "name": "סמסטר א׳ תשפ״ז", "file": "2027A.json" }
+  ]
+}
