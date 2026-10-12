@@ -209,11 +209,17 @@ function viewTodo(courses) {
       .filter((u) => u.available && !statusOf(u.key))
       .sort((a, b) => a.first.end - b.first.end);
     total += owed.length;
-    const next = c.types
+    const upcoming = c.types
       .map((t) => ({ t, u: t.units.find((u) => !u.available) }))
-      .filter((x) => x.u)
+      .filter((x) => x.u);
+    const next = upcoming
       .map(({ t, u }) => `${t.label} ${u.n}${u.topic ? ` (${esc(u.topic)})` : ''}: ${fmt(u.first.start)} · ${u.first.group.lecturer ? esc(u.first.group.lecturer) : 'קב׳ ' + grp(u.first.group.code)}`);
-    if (!owed.length && !next.length) return '';
+    if (!owed.length && !next.length) return null;
+    // Courses with something to catch up on first (longest-waiting first),
+    // then the rest by their next session.
+    const sortKey = owed.length
+      ? [0, owed[0].first.end]
+      : [1, Math.min(...upcoming.map(({ u }) => u.first.start))];
     const rows = owed.map((u) => {
       const firstIsMine = u.first.group === u.mine;
       let where;
@@ -233,13 +239,17 @@ function viewTodo(courses) {
         </div>
       </div>`;
     }).join('');
-    return `<section class="card">
+    return { sortKey, html: `<section class="card">
       <h2><bdi>${esc(c.short)}</bdi> <small>${owed.length ? owed.length + ' להשלים' : 'מעודכן ✓'}</small></h2>
       ${rows}
       ${next.length ? `<div class="upcoming">הבא: ${next.join('<br>הבא: ')}</div>` : ''}
       ${owed.length > 1 ? `<button class="link" data-action="mark-all" data-course="${c.code}">סמן הכל כ"השתתפתי"</button>` : ''}
-    </section>`;
-  }).join('');
+    </section>` };
+  })
+    .filter(Boolean)
+    .sort((a, b) => a.sortKey[0] - b.sortKey[0] || a.sortKey[1] - b.sortKey[1])
+    .map((card) => card.html)
+    .join('');
   document.getElementById('todo-count').textContent = total || '';
   const banner = total ? '' : '<div class="empty">אין שיעורים שמחכים לך 🎉</div>';
   return soonCard + banner + cards;
