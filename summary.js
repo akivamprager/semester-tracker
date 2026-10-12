@@ -82,8 +82,11 @@ export function dailySummary(sem, progress, now) {
   }
 
   if (!lines.length) return null;
+  const owedCount = owed.reduce((n, { units }) => n + units.length, 0);
+  const urgent = tasks.filter((t) => t.kind === 'hw' && t.dueDate && t.dueDate <= soon).length;
   return {
     title: `בוקר טוב! יום ${DAY_LABELS[now.getDay()]} ${now.getDate()}.${now.getMonth() + 1}`,
     body: lines.join('\n'),
+    badge: owedCount + urgent, // same number the app shows on its icon
   };
 }

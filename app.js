@@ -16,6 +16,8 @@ const state = {
   progress: store.loadLocal(),
   sync: { status: 'idle', msg: '' },
   editing: null, // task id whose edit form is open ('new' for a new task)
+  taskQuery: '', // tasks search box
+  owedCount: 0,
 };
 
 // ?now=2026-11-20T12:00 overrides the current time (for testing).
@@ -122,7 +124,8 @@ function taskRow(t, courses) {
   const when = t.dueDate
     ? `${fmt(t.dueDate, t.due.includes('T'))} · ${relDays(t.dueDate)}`
     : 'אין מועד עדיין';
-  return `<div class="task ${t.done ? 'is-done' : ''} ${overdue ? 'overdue' : ''}">
+  const search = `${t.title} ${course?.short || ''} ${course?.code || ''} ${t.note || ''}`.toLowerCase();
+  return `<div class="task ${t.done ? 'is-done' : ''} ${overdue ? 'overdue' : ''}" data-search="${esc(search)}">
     ${isExam
       ? '<span class="task-icon">📝</span>'
       : `<input type="checkbox" class="task-check" data-action="toggle-task" data-id="${esc(t.id)}" ${t.done ? 'checked' : ''}>`}
@@ -178,26 +181,30 @@ function viewTasks(courses) {
   const done = tasks.filter((t) => t.done).reverse();
   const row = (t) => taskRow(t, courses);
   return `
+    <div class="tasks-toolbar">
+      <input type="search" id="task-search" placeholder="חיפוש מטלות…" value="${esc(state.taskQuery)}" autocomplete="off">
+      ${state.editing === 'new' ? '' : '<button class="btn primary" data-action="new-task">+ מטלה חדשה</button>'}
+    </div>
     ${state.editing === 'new'
       ? `<section class="card">${taskForm({ id: 'new', course: courses[0]?.code, title: '', kind: 'hw' }, courses)}</section>`
-      : '<button class="btn primary add-btn" data-action="new-task">+ מטלה חדשה</button>'}
+      : ''}
     ${groups.filter(([, list]) => list.length).map(([title, list]) => `
-      <section class="card">
+      <section class="card task-group">
         <h2>${title} <small>${list.length}</small></h2>
         ${list.map(row).join('')}
       </section>`).join('')}
-    ${done.length ? `<section class="card"><details><summary>הושלמו (${done.length})</summary>${done.map(row).join('')}</details></section>` : ''}
+    ${done.length ? `<section class="card task-group"><details><summary>הושלמו (${done.length})</summary>${done.map(row).join('')}</details></section>` : ''}
     <p class="help">מועדי ההגשה של תרגילי הבית מתפרסמים במודל — הוסף אותם כאן (או ערוך עם ✎). מועדים "משוערים" חושבו לפי נהלי הקורס.</p>`;
 }
 
-function viewTodo(courses) {
+function viewTodo(courses, { withSoon = true } = {}) {
   let total = 0;
   const t0 = now();
   const week = new Date(t0); week.setDate(week.getDate() + 7);
   const soon = allTasks(courses)
     .filter((t) => !t.done && t.dueDate && t.dueDate <= week && (t.kind !== 'exam' || t.dueDate >= t0))
     .sort(byDue);
-  const soonCard = soon.length ? `<section class="card soon">
+  const soonCard = withSoon && soon.length ? `<section class="card soon">
       <h2>מטלות ובחינות קרובות <button class="link" data-tab-link="tasks">לכל המשימות</button></h2>
       ${soon.map((t) => taskRow(t, courses)).join('')}
     </section>` : '';
@@ -248,6 +255,7 @@ function viewTodo(courses) {
     .map((card) => card.html)
     .join('');
   document.getElementById('todo-count').textContent = total || '';
+  state.owedCount = total;
   const banner = total ? '' : '<div class="empty">אין שיעורים שמחכים לך 🎉</div>';
   return soonCard + banner + cards;
 }
@@ -311,7 +319,12 @@ function viewSettings() {
     <p class="help">במודל: לוח שנה → ייצוא לוח שנה (כל הקורסים, השבועות הקרובים) → ייצוא. בחר כאן את קובץ ה-<bdi>.ics</bdi>
       שירד. מטלות חדשות יתווספו ומועדים שהשתנו יתעדכנו — מה שסימנת כבוצע נשאר.</p>
     <div class="row"><button class="btn" data-action="import-ics">בחר קובץ <bdi>.ics</bdi></button></div>
+    <p class="help">אפשר גם לגרור את הקובץ לחלון האפליקציה, לפתוח אותו ישירות עם האפליקציה (Mac), או לשתף אותו לאפליקציה (אנדרואיד).</p>
     <input id="ics-file" type="file" accept=".ics,text/calendar" hidden>
+  </section>
+  <section class="card desktop-only">
+    <h2>קיצורי מקלדת</h2>
+    <p class="help">${SHORTCUTS_HELP} · ? הצגת הקיצורים</p>
   </section>
   <section class="card">
     <h2>גיבוי ידני</h2>
@@ -323,20 +336,59 @@ function viewSettings() {
   </section>`;
 }
 
+// Wide windows (e.g. the app on a Mac) show to-do and tasks side by side.
+const wideQuery = matchMedia('(min-width: 1000px)');
+wideQuery.addEventListener('change', () => { if (!state.editing) render(); });
+const isWide = () => wideQuery.matches;
+// In two-column mode the tasks tab is merged into the to-do tab.
+const shownTab = () => (isWide() && state.tab === 'tasks' ? 'todo' : state.tab);
+
+// Number on the app icon (Dock on Mac, launcher on Android): lessons to catch up on +
+// homework due within 3 days or overdue.
+function updateAppBadge(count) {
+  if (!('setAppBadge' in navigator)) return;
+  (count ? navigator.setAppBadge(count) : navigator.clearAppBadge()).catch(() => {});
+}
+
+function applyTaskFilter() {
+  const q = state.taskQuery.trim().toLowerCase();
+  document.querySelectorAll('.task[data-search]').forEach((el) => {
+    el.hidden = !!q && !el.dataset.search.includes(q);
+  });
+  document.querySelectorAll('.task-group').forEach((g) => {
+    g.hidden = !!q && !g.querySelector('.task:not([hidden])');
+  });
+}
+
 function render() {
   if (!state.sem) return;
   const courses = computeUnits(state.sem, now());
-  document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === state.tab));
-  const todo = viewTodo(courses); // always computed so the badges stay current
+  const wide = isWide();
+  document.body.classList.toggle('wide', wide);
+  document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === shownTab()));
+  const todo = viewTodo(courses, { withSoon: !wide }); // always computed so the badges stay current
   const t0 = now();
   const soon = new Date(t0); soon.setDate(soon.getDate() + 3);
   const urgent = allTasks(courses).filter((t) => t.kind === 'hw' && !t.done && t.dueDate && t.dueDate <= soon).length;
   document.getElementById('task-count').textContent = urgent || '';
+  updateAppBadge(state.owedCount + urgent);
   const main = document.getElementById('main');
-  if (state.tab === 'todo') main.innerHTML = todo;
+  const searchFocused = document.activeElement?.id === 'task-search';
+  if (shownTab() === 'todo' && wide) {
+    main.innerHTML = `<div class="columns">
+      <div class="col"><h2 class="col-title">שיעורים להשלים</h2>${todo}</div>
+      <div class="col"><h2 class="col-title">משימות ${urgent ? `<span class="badge">${urgent}</span>` : ''}</h2>${viewTasks(courses)}</div>
+    </div>`;
+  } else if (state.tab === 'todo') main.innerHTML = todo;
   else if (state.tab === 'tasks') main.innerHTML = viewTasks(courses);
   else if (state.tab === 'courses') main.innerHTML = viewCourses(courses);
   else if (!document.getElementById('sem-select')) { main.innerHTML = viewSettings(); renderPushCard(); }
+  applyTaskFilter();
+  if (searchFocused) {
+    const input = document.getElementById('task-search');
+    input?.focus();
+    input?.setSelectionRange(input.value.length, input.value.length);
+  }
   renderChip();
 }
 
@@ -439,6 +491,12 @@ document.body.addEventListener('submit', (e) => {
   put(taskDataKey(id), { s: 'set', d });
 });
 
+document.body.addEventListener('input', (e) => {
+  if (e.target.id !== 'task-search') return;
+  state.taskQuery = e.target.value;
+  applyTaskFilter();
+});
+
 document.body.addEventListener('change', async (e) => {
   if (e.target.id === 'sem-select') {
     localStorage.setItem(LS_SEMESTER, e.target.value);
@@ -446,27 +504,7 @@ document.body.addEventListener('change', async (e) => {
     rerenderSettings();
   }
   if (e.target.id === 'ics-file' && e.target.files[0]) {
-    try {
-      const events = parseIcs(await e.target.files[0].text());
-      const courses = computeUnits(state.sem, now());
-      const all = mergeTasks(state.sem, courses, state.progress, now(), { includeHidden: true });
-      const changes = icsTaskChanges(state.sem, events, all);
-      const t = Date.now();
-      let added = 0;
-      for (const { id, d } of changes) {
-        const key = taskDataKey(id);
-        if (d.title) added++;
-        state.progress[key] = { s: 'set', d: { ...(state.progress[key]?.d || {}), ...d }, t };
-      }
-      store.saveLocal(state.progress);
-      alert(changes.length
-        ? `נוספו ${added} מטלות, עודכנו ${changes.length - added} מועדים.`
-        : `לא נמצא שום דבר חדש (${events.length} אירועים בקובץ).`);
-      render();
-      scheduleSync(0);
-    } catch (err) {
-      alert('לא הצלחתי לקרוא את הקובץ: ' + err.message);
-    }
+    await importIcsFile(e.target.files[0]);
     e.target.value = '';
   }
   if (e.target.id === 'import-file' && e.target.files[0]) {
@@ -480,6 +518,121 @@ document.body.addEventListener('change', async (e) => {
     } catch (err) {
       alert('קובץ לא תקין: ' + err.message);
     }
+  }
+});
+
+// ---------- Moodle .ics import ----------
+// Entry points: the Settings button, dropping a file on the window, opening an .ics with
+// the installed app (file_handlers, Mac/Chrome) and Android's share menu (share_target).
+function toast(msg) {
+  let el = document.getElementById('toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'toast';
+    el.setAttribute('role', 'status');
+    document.body.append(el);
+  }
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+async function importIcsFile(file) {
+  try {
+    const events = parseIcs(await file.text());
+    if (!events.length) { toast('הקובץ לא נראה כמו ייצוא לוח שנה מהמודל.'); return; }
+    const courses = computeUnits(state.sem, now());
+    const all = mergeTasks(state.sem, courses, state.progress, now(), { includeHidden: true });
+    const changes = icsTaskChanges(state.sem, events, all);
+    const t = Date.now();
+    let added = 0;
+    for (const { id, d } of changes) {
+      const key = taskDataKey(id);
+      if (d.title) added++;
+      state.progress[key] = { s: 'set', d: { ...(state.progress[key]?.d || {}), ...d }, t };
+    }
+    store.saveLocal(state.progress);
+    toast(changes.length
+      ? `📥 נוספו ${added} מטלות, עודכנו ${changes.length - added} מועדים.`
+      : `📥 אין שום דבר חדש (${events.length} אירועים בקובץ).`);
+    render();
+    scheduleSync(0);
+  } catch (err) {
+    toast('לא הצלחתי לקרוא את הקובץ: ' + err.message);
+  }
+}
+
+const isIcs = (f) => f && (/\.ics$/i.test(f.name) || f.type === 'text/calendar');
+let dragDepth = 0;
+document.addEventListener('dragenter', (e) => {
+  if (![...(e.dataTransfer?.items || [])].some((i) => i.kind === 'file')) return;
+  dragDepth++;
+  document.body.classList.add('dragging');
+});
+document.addEventListener('dragleave', () => {
+  if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove('dragging'); }
+});
+document.addEventListener('dragover', (e) => e.preventDefault());
+document.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dragDepth = 0;
+  document.body.classList.remove('dragging');
+  const file = [...(e.dataTransfer?.files || [])].find(isIcs);
+  if (file) importIcsFile(file);
+  else if (e.dataTransfer?.files?.length) toast('אפשר לגרור לכאן רק קובץ .ics מהמודל.');
+});
+
+// Opened via the OS ("Open with" / double-click) — needs file_handlers in the manifest.
+async function handleLaunchedFiles() {
+  if (!('launchQueue' in window)) return;
+  window.launchQueue.setConsumer(async ({ files }) => {
+    for (const handle of files || []) {
+      const file = await handle.getFile();
+      if (isIcs(file)) await importIcsFile(file);
+    }
+  });
+}
+
+// Shared from another Android app: sw.js stores the file and redirects to ?shared=ics.
+async function handleSharedFile() {
+  if (new URLSearchParams(location.search).get('shared') !== 'ics' || !('caches' in window)) return;
+  history.replaceState(null, '', location.pathname);
+  const res = await caches.match('shared-ics');
+  if (!res) return;
+  await caches.open('tracker-share').then((c) => c.delete('shared-ics'));
+  await importIcsFile(new File([await res.blob()], 'shared.ics', { type: 'text/calendar' }));
+}
+
+// ---------- keyboard shortcuts ----------
+const SHORTCUTS_HELP = '1–4 מעבר בין לשוניות · N מטלה חדשה · / חיפוש מטלות · S סנכרון · Esc ביטול';
+document.addEventListener('keydown', (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const typing = e.target.closest?.('input, textarea, select, [contenteditable]');
+  if (e.key === 'Escape') {
+    if (typing && e.target.id === 'task-search') { state.taskQuery = ''; e.target.value = ''; applyTaskFilter(); e.target.blur(); return; }
+    if (state.editing) { state.editing = null; render(); }
+    return;
+  }
+  if (typing) return;
+  const key = e.key.toLowerCase();
+  const tabByKey = { 1: 'todo', 2: 'tasks', 3: 'courses', 4: 'settings' };
+  if (tabByKey[key]) { e.preventDefault(); switchTab(tabByKey[key]); return; }
+  if (key === 'n' || key === 'מ') {
+    e.preventDefault();
+    if (shownTab() !== 'todo' || !isWide()) state.tab = 'tasks';
+    state.editing = 'new';
+    render();
+    document.querySelector('.task-form input[name=title]')?.focus();
+  } else if (key === '/' || key === '.') {
+    e.preventDefault();
+    if (!document.getElementById('task-search')) switchTab('tasks');
+    document.getElementById('task-search')?.focus();
+  } else if (key === 's' || key === 'ד') {
+    e.preventDefault();
+    if (store.getToken()) { runSync(); toast('מסנכרן…'); } else toast('הסנכרון לא מחובר (הגדרות).');
+  } else if (key === '?') {
+    toast(SHORTCUTS_HELP);
   }
 });
 
@@ -596,6 +749,8 @@ async function boot() {
     }).catch(() => {});
   }
   runSync();
+  handleLaunchedFiles();
+  handleSharedFile();
 }
 
 boot().catch((e) => {

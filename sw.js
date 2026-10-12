@@ -1,7 +1,7 @@
 // Network-first for everything (so schedule/app updates show up), cache as offline fallback.
 // Requests revalidate with the server (cache: 'no-cache') instead of using the browser's
 // HTTP cache, so the app never mixes a fresh index.html with a stale app.js.
-const CACHE = 'tracker-v16';
+const CACHE = 'tracker-v17';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'schedule.js', 'sync.js', 'summary.js', 'ics.js',
   'manifest.webmanifest', 'icon-192.png', 'semesters/index.json'];
 
@@ -16,13 +16,22 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== 'tracker-share').map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });
 
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
+  // Android share menu → manifest share_target: keep the file, open the app to import it.
+  if (e.request.method === 'POST' && url.pathname.endsWith('/share-target')) {
+    e.respondWith((async () => {
+      const file = (await e.request.formData()).get('file');
+      if (file) await (await caches.open('tracker-share')).put('shared-ics', new Response(file));
+      return Response.redirect('./?shared=ics', 303);
+    })());
+    return;
+  }
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
   e.respondWith(
     fetch(e.request, { cache: 'no-cache' })
@@ -38,6 +47,9 @@ self.addEventListener('fetch', (e) => {
 // Morning summary sent by the GitHub Action (tools/morning.mjs).
 self.addEventListener('push', (e) => {
   const data = e.data ? e.data.json() : { title: 'מעקב שיעורים', body: '' };
+  if (typeof data.badge === 'number' && 'setAppBadge' in self.navigator) {
+    self.navigator.setAppBadge(data.badge).catch(() => {});
+  }
   e.waitUntil(self.registration.showNotification(data.title, {
     body: data.body,
     tag: data.tag || 'morning',
