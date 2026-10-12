@@ -1,6 +1,7 @@
 import { computeUnits, mergeTasks, sessionsBetween, DAY_LABELS } from './schedule.js';
 import { dailySummary } from './summary.js';
 import { badgeCount, badgePrefs, PREFS_KEY } from './badge.js';
+import { buildCalendar } from './calendar.js';
 import { parseIcs, icsTaskChanges } from './ics.js';
 import * as store from './sync.js';
 
@@ -101,6 +102,7 @@ async function runSync() {
   renderChip();
   try {
     state.progress = await store.sync();
+    if (calendarEnabled()) await store.publishCalendar(buildCalendar(state.sem, state.progress));
     state.sync = { status: 'ok', msg: '' };
   } catch (e) {
     state.sync = { status: 'err', msg: e.message };
@@ -194,7 +196,8 @@ function viewTasks(courses) {
       : ''}
     ${groups.filter(([, list]) => list.length).map(([title, list]) => `
       <section class="card task-group">
-        <h2>${title} <small>${list.length}</small></h2>
+        <h2>${title} <span class="h2-side"><small>${list.length}</small>${title === 'השבוע הקרוב'
+          ? '<button class="link share-btn" data-action="share-tasks" title="שתף">↗ שתף</button>' : ''}</span></h2>
         ${list.map(row).join('')}
       </section>`).join('')}
     ${done.length ? `<section class="card task-group"><details><summary>הושלמו (${done.length})</summary>${done.map(row).join('')}</details></section>` : ''}
@@ -330,7 +333,8 @@ function viewSchedule(courses) {
     </div>`;
   const body = days.size
     ? '<div class="sched-days">' + [...days.entries()].map(([k, items]) => `<section class="card day">
-        <h2>${dayTitle(new Date(k))} <small>${items.filter((x) => !x.exam).length} מפגשים</small></h2>
+        <h2>${dayTitle(new Date(k))} <span class="h2-side"><small>${items.filter((x) => !x.exam).length} מפגשים</small>
+          <button class="link share-btn" data-action="share-day" data-day="${k}" title="שתף">↗ שתף</button></span></h2>
         ${items.map(slotRow).join('')}
       </section>`).join('') + '</div>'
     : '<div class="empty">אין מפגשים פתוחים בטווח הזה 🎉</div>';
@@ -409,6 +413,7 @@ function viewSettings() {
   </section>
   <section class="card" id="push-card"><h2>התראת בוקר</h2><p class="help">טוען…</p></section>
   ${badgeCard()}
+  ${calendarCard()}
   <section class="card">
     <h2>ייבוא מטלות מהמודל</h2>
     <p class="help">במודל: לוח שנה → ייצוא לוח שנה (כל הקורסים, השבועות הקרובים) → ייצוא. בחר כאן את קובץ ה-<bdi>.ics</bdi>
@@ -575,6 +580,14 @@ document.body.addEventListener('click', async (e) => {
     put(taskDataKey(id), { s: 'set', d: { deleted: true } });
   }
   if (action === 'sync') runSync();
+  if (action === 'cal-on' || action === 'cal-off') {
+    el.disabled = true;
+    try { await setCalendar(action === 'cal-on'); } catch (err) { toast('שגיאה: ' + err.message); }
+    rerenderSettings();
+  }
+  if (action === 'cal-copy') { await navigator.clipboard.writeText(el.dataset.url); toast('📋 הכתובת הועתקה'); }
+  if (action === 'share-day') shareText('אפשרויות', shareDayText(new Date(Number(el.dataset.day))));
+  if (action === 'share-tasks') shareText('מטלות', shareTasksText());
   if (action === 'horizon') { state.horizon = el.dataset.h; render(); }
   if (action === 'push-on' || action === 'push-off' || action === 'push-test') {
     el.disabled = true;
@@ -792,6 +805,89 @@ function rerenderSettings() {
   renderPushCard();
 }
 
+// ---------- calendar subscription ----------
+// calendar.ics in the sync gist (see calendar.js); the GitHub Action keeps it fresh too.
+const CAL_PREFS_KEY = 'prefs/calendar';
+const calendarEnabled = () => !!state.progress[CAL_PREFS_KEY]?.d?.enabled && !!store.getToken();
+
+function calendarCard() {
+  if (!store.getToken()) {
+    return `<section class="card"><h2>📆 יומן (Google / Apple)</h2>
+      <p class="help">כדי לקבל את המערכת והמטלות ביומן צריך קודם לחבר סנכרון.</p></section>`;
+  }
+  const url = store.calendarInfo().url;
+  if (!state.progress[CAL_PREFS_KEY]?.d?.enabled || !url) {
+    return `<section class="card"><h2>📆 יומן (Google / Apple)</h2>
+      <p class="help">יומן חי עם השיעורים של הקבוצות שלך (כולל כיתות ושינויים), מועדי הגשה ובחינות.
+        מקבלים ממנו ווידג׳ט יומן במסך הבית, תזכורות לפני כל שיעור ו-Siri.
+        הכתובת לא רשומה בשום מקום, אבל מי שיש לו אותה יכול לראות את היומן.</p>
+      <div class="row"><button class="btn primary" data-action="cal-on">הפעל יומן</button></div></section>`;
+  }
+  const webcal = url.replace(/^https:/, 'webcal:');
+  return `<section class="card"><h2>📆 יומן (Google / Apple)</h2>
+    <p class="help">פעיל ✓ — מתעדכן בכל סנכרון ופעם ביום.</p>
+    <div class="row">
+      <a class="btn" href="https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}" target="_blank" rel="noopener">הוסף ל-Google Calendar</a>
+      <a class="btn" href="${esc(webcal)}">הוסף ל-Apple Calendar</a>
+    </div>
+    <div class="row">
+      <input type="text" readonly value="${esc(url)}" class="cal-url" dir="ltr">
+      <button class="btn" data-action="cal-copy" data-url="${esc(url)}">העתק</button>
+    </div>
+    <p class="help"><b>אנדרואיד:</b> מוסיפים דרך "Google Calendar" (בדפדפן) — היומן יופיע באפליקציה ובווידג׳ט של Google Calendar.
+      תזכורות: בהגדרות היומן ב-Google Calendar → "התראות כברירת מחדל" (למשל 15 דקות לפני).<br>
+      <b>מק/אייפון:</b> בחלון ההרשמה הורידו את הסימון מ"הסר: התראות" ובחרו "רענון: כל שעה".</p>
+    <div class="row"><button class="btn danger" data-action="cal-off">כבה יומן</button></div>
+  </section>`;
+}
+
+async function setCalendar(enabled) {
+  state.progress[CAL_PREFS_KEY] = { s: 'set', d: { enabled }, t: Date.now() };
+  store.saveLocal(state.progress);
+  if (enabled) {
+    await store.publishCalendar(buildCalendar(state.sem, state.progress));
+  } else {
+    // Remove the published file so the old URL stops showing anything.
+    await store.publishCalendar('BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//semester-tracker//HE\r\nEND:VCALENDAR\r\n');
+  }
+  await runSync();
+}
+
+// ---------- sharing (Web Share, falls back to the clipboard) ----------
+async function shareText(title, text) {
+  try {
+    if (navigator.share) { await navigator.share({ title, text }); return; }
+  } catch (err) {
+    if (err.name === 'AbortError') return;
+  }
+  await navigator.clipboard.writeText(text);
+  toast('📋 הועתק — אפשר להדביק בוואטסאפ או בכל מקום');
+}
+
+function shareDayText(dayStart) {
+  const courses = computeUnits(state.sem, now());
+  const end = new Date(dayStart); end.setDate(end.getDate() + 1);
+  const from = new Date(Math.max(+dayStart, +now()));
+  const list = openSessions(courses, end).filter((x) => x.start >= dayStart || x.occ?.end > from);
+  const d = new Date(dayStart);
+  const lines = list.map((x) => x.exam
+    ? `📝 ${x.exam.title} (${x.course.short})${x.exam.due.includes('T') ? ' ' + hm(x.start) : ''}`
+    : `${hm(x.occ.start)}–${hm(x.occ.end)} ${x.course.emoji} ${x.course.short} ${x.type.label} ${x.unit.n}`
+      + ` · ${x.group.lecturer || 'קב׳ ' + x.group.code}${x.occ.room ? ' · ' + x.occ.room : ''}${x.mine ? ' (שלי)' : ''}`);
+  return `אפשרויות ליום ${DAY_LABELS[d.getDay()]} ${d.getDate()}.${d.getMonth() + 1}:\n${lines.join('\n')}`;
+}
+
+function shareTasksText() {
+  const courses = computeUnits(state.sem, now());
+  const week = new Date(now()); week.setDate(week.getDate() + 7);
+  const list = allTasks(courses)
+    .filter((t) => !t.done && t.dueDate && t.dueDate >= now() && t.dueDate <= week)
+    .sort(byDue);
+  const short = (code) => courses.find((c) => c.code === code)?.short || '';
+  return `מטלות ובחינות לשבוע הקרוב:\n${list.map((t) =>
+    `• ${t.kind === 'exam' ? '📝 ' : ''}${t.title} (${short(t.course)}) — ${fmt(t.dueDate, t.due.includes('T'))}`).join('\n')}`;
+}
+
 // ---------- morning notification ----------
 // The GitHub Action (tools/morning.mjs) sends the summary via Web Push to every
 // subscription saved in the sync gist. Needs sync connected and, on iPhone, the app
@@ -857,7 +953,10 @@ async function pushOff() {
 async function pushTest() {
   const reg = await pushRegistration();
   const s = dailySummary(state.sem, state.progress, now()) || { title: 'בוקר טוב!', body: 'אין היום שום דבר פתוח 🎉' };
-  await reg.showNotification(s.title, { body: s.body, tag: 'morning', icon: 'icon-192.png', dir: 'rtl', lang: 'he' });
+  await reg.showNotification(s.title, {
+    body: s.body, tag: 'morning', icon: 'icon-192.png', dir: 'rtl', lang: 'he',
+    actions: [{ action: 'schedule', title: '📅 מערכת' }, { action: 'tasks', title: '✏️ משימות' }],
+  });
 }
 
 document.addEventListener('visibilitychange', () => {
@@ -868,6 +967,21 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('online', () => runSync());
 // Newly finished lessons appear without reload (but don't wipe an open form).
 setInterval(() => { if (!state.editing) render(); }, 60 * 1000);
+
+// ---------- title bar (Window Controls Overlay) ----------
+// With display_override "window-controls-overlay", Chrome lets the app draw in the title
+// bar; the tabs move up there next to the window buttons.
+function placeNav() {
+  const wco = navigator.windowControlsOverlay;
+  const inTitleBar = !!wco?.visible;
+  document.body.classList.toggle('wco', inTitleBar);
+  const nav = document.querySelector('nav');
+  const header = document.querySelector('header');
+  if (inTitleBar && nav.parentElement !== header) header.insertBefore(nav, header.querySelector('.header-actions'));
+  if (!inTitleBar && nav.parentElement === header) header.after(nav);
+}
+navigator.windowControlsOverlay?.addEventListener('geometrychange', placeNav);
+placeNav();
 
 // ---------- boot ----------
 async function loadSemester() {

@@ -54,3 +54,9 @@ Then in the app (opened from the home screen): Settings → הפעל התראת 
 Test right away: `gh workflow run morning.yml` (sends regardless of the hour).
 
 Note: GitHub pauses scheduled workflows in a repo with no commits for 60 days.
+
+## Calendar subscription
+Settings → "📆 יומן": publishes `calendar.ics` (built by `calendar.js`: own group's sessions
+with rooms and moves, deadlines, exams; ✓ on done items) to the sync gist. Subscribe to its
+raw URL in Google Calendar (→ Android widget/reminders) or Apple Calendar. The app updates
+it on every sync; the GitHub Action refreshes it daily and when `semesters/` changes.

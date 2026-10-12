@@ -143,3 +143,27 @@ export async function removePushSubscription(endpoint) {
   data.subs = (data.subs || []).filter((s) => s.endpoint !== endpoint);
   await writePush(id, data);
 }
+
+// Subscription calendar: calendar.ics in the same gist. Its "raw" URL without a revision
+// always serves the latest version, so calendar apps can subscribe to it.
+const LS_CAL = 'tracker.calendar'; // { url, published } — last uploaded content, to skip no-op uploads
+
+export function calendarInfo() {
+  try { return JSON.parse(localStorage.getItem(LS_CAL)) || {}; } catch { return {}; }
+}
+
+export async function publishCalendar(content, fileName = 'calendar.ics') {
+  const info = calendarInfo();
+  if (info.url && info.published === content) return info.url;
+  const id = await gistId();
+  const gist = await gh(`/gists/${id}`);
+  if (gist.files[fileName]?.content !== content) {
+    await gh(`/gists/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ files: { [fileName]: { content } } }),
+    });
+  }
+  const url = `https://gist.githubusercontent.com/${gist.owner.login}/${id}/raw/${fileName}`;
+  localStorage.setItem(LS_CAL, JSON.stringify({ url, published: content }));
+  return url;
+}

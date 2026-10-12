@@ -1,8 +1,8 @@
 // Network-first for everything (so schedule/app updates show up), cache as offline fallback.
 // Requests revalidate with the server (cache: 'no-cache') instead of using the browser's
 // HTTP cache, so the app never mixes a fresh index.html with a stale app.js.
-const CACHE = 'tracker-v20';
-const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'schedule.js', 'sync.js', 'summary.js', 'ics.js', 'badge.js',
+const CACHE = 'tracker-v21';
+const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'schedule.js', 'sync.js', 'summary.js', 'ics.js', 'badge.js', 'calendar.js',
   'manifest.webmanifest', 'icon-192.png', 'semesters/index.json'];
 
 self.addEventListener('install', (e) => {
@@ -57,15 +57,21 @@ self.addEventListener('push', (e) => {
     badge: 'icon-192.png',
     dir: 'rtl',
     lang: 'he',
+    actions: [{ action: 'schedule', title: '📅 מערכת' }, { action: 'tasks', title: '✏️ משימות' }],
   }));
 });
 
+// Tap → open the app; action buttons open a specific tab.
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
+  const url = new URL(e.action ? `./?tab=${e.action}` : './', self.registration.scope).href;
   e.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const open = wins.find((w) => w.url.startsWith(self.registration.scope));
-    if (open) return open.focus();
-    return self.clients.openWindow('./');
+    if (open) {
+      if (e.action) await open.navigate(url).catch(() => {});
+      return open.focus();
+    }
+    return self.clients.openWindow(url);
   })());
 });

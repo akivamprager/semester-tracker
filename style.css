@@ -232,3 +232,25 @@ body.wide .segmented { max-width: 360px; }
 .check-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; margin: 8px 0; }
 .check-row input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }
 .check-row select { width: auto; padding: 4px 8px; font-size: 14px; }
+
+/* Card headers with a side area (count + share) */
+.h2-side { display: inline-flex; align-items: center; gap: 10px; }
+.share-btn { font-size: 13px; }
+a.btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; text-align: center; }
+.cal-url { flex: 1; min-width: 0; font-size: 12px !important; font-family: ui-monospace, Menlo, monospace !important; }
+
+/* Window Controls Overlay: header (with the tabs) lives in the title bar */
+body.wco header {
+  position: fixed; z-index: 30;
+  top: env(titlebar-area-y, 0); left: env(titlebar-area-x, 0);
+  width: env(titlebar-area-width, 100%); height: env(titlebar-area-height, 36px);
+  padding: 0 12px; gap: 12px; background: var(--bg);
+  app-region: drag; -webkit-app-region: drag;
+}
+body.wco header h1 { font-size: 14px; white-space: nowrap; }
+body.wco header nav {
+  position: static; padding: 0; margin: 0 auto; background: none; gap: 4px; flex: 0 1 auto;
+}
+body.wco header nav button { padding: 4px 14px; font-size: 13px; flex: 0 0 auto; }
+body.wco header button, body.wco header a, body.wco header select { app-region: no-drag; -webkit-app-region: no-drag; }
+body.wco main { padding-top: calc(env(titlebar-area-height, 36px) + 4px); }

@@ -6,11 +6,14 @@ import { readFileSync } from 'node:fs';
 import webpush from 'web-push';
 import { dailySummary } from '../summary.js';
 import { ymd } from '../schedule.js';
+import { buildCalendar, CALENDAR_FILE } from '../calendar.js';
 
 const SEND_HOUR = 7;
 const GIST_DESC = 'semester-tracker-progress';
 const SITE = 'https://akivamprager.github.io/semester-tracker/';
 const force = process.env.FORCE === 'true';
+// On a push (schedule data changed) only the calendar is refreshed, no notification.
+const calendarOnly = process.env.EVENT === 'push';
 
 async function gh(path, opts = {}) {
   const res = await fetch('https://api.github.com' + path, {
@@ -42,6 +45,24 @@ const today = ymd(now);
 const gist = await findGist();
 const push = fileJson(gist, 'push.json');
 
+const index = JSON.parse(readFileSync(new URL('../semesters/index.json', import.meta.url)));
+const entry = index.semesters.find((s) => s.id === index.default) || index.semesters[0];
+const sem = JSON.parse(readFileSync(new URL(`../semesters/${entry.file}`, import.meta.url)));
+const progress = fileJson(gist, 'progress.json');
+
+// Keep the subscription calendar current (if turned on in the app).
+if (progress['prefs/calendar']?.d?.enabled) {
+  const ics = buildCalendar(sem, progress);
+  if (gist.files[CALENDAR_FILE]?.content !== ics) {
+    await gh(`/gists/${gist.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ files: { [CALENDAR_FILE]: { content: ics } } }),
+    });
+    console.log('Calendar updated');
+  }
+}
+if (calendarOnly) process.exit(0);
+
 if (!force && (now.getHours() < SEND_HOUR || push.lastSent === today)) {
   console.log(`Skip: hour ${now.getHours()}, last sent ${push.lastSent}`);
   process.exit(0);
@@ -50,11 +71,6 @@ if (!push.subs?.length) {
   console.log('No subscriptions — turn on the morning notification in the app.');
   process.exit(0);
 }
-
-const index = JSON.parse(readFileSync(new URL('../semesters/index.json', import.meta.url)));
-const entry = index.semesters.find((s) => s.id === index.default) || index.semesters[0];
-const sem = JSON.parse(readFileSync(new URL(`../semesters/${entry.file}`, import.meta.url)));
-const progress = fileJson(gist, 'progress.json');
 
 const summary = dailySummary(sem, progress, now);
 if (!summary && !force) {

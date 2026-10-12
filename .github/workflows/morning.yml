@@ -6,6 +6,9 @@ on:
     # on the first run at/after 07:00 Israel time (GitHub cron runs are often late).
     - cron: '0 4,5,6 * * *'
   workflow_dispatch: # "Run workflow" button: sends right away (for testing)
+  push: # schedule data changed → refresh the subscription calendar only
+    branches: [main]
+    paths: ['semesters/**', 'calendar.js', 'schedule.js']
 
 jobs:
   send:
@@ -22,3 +25,4 @@ jobs:
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           FORCE: ${{ github.event_name == 'workflow_dispatch' }}
+          EVENT: ${{ github.event_name }}
