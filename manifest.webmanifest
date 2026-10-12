@@ -9,7 +9,54 @@
   "background_color": "#f3f5f9",
   "theme_color": "#1f5fd1",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "לעשות — שיעורים להשלים",
+      "short_name": "לעשות",
+      "url": "./?tab=todo",
+      "icons": [
+        {
+          "src": "shortcut-todo.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "משימות ומועדי הגשה",
+      "short_name": "משימות",
+      "url": "./?tab=tasks",
+      "icons": [
+        {
+          "src": "shortcut-tasks.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "בחינות ומידע",
+      "short_name": "בחינות",
+      "url": "./?tab=courses",
+      "icons": [
+        {
+          "src": "shortcut-exams.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    }
   ]
 }

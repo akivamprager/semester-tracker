@@ -1,0 +1,2 @@
+# Keep Moodle calendar exports byte-for-byte (they use CRLF line endings).
+*.ics -text

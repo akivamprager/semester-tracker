@@ -5,8 +5,12 @@ import * as store from './sync.js';
 
 const LS_SEMESTER = 'tracker.semester';
 
+// ?tab=tasks etc. — used by the app-icon shortcuts (manifest.webmanifest).
+const TABS = ['todo', 'tasks', 'courses', 'settings'];
+const startTab = new URLSearchParams(location.search).get('tab');
+
 const state = {
-  tab: 'todo',
+  tab: TABS.includes(startTab) ? startTab : 'todo',
   index: null,
   sem: null,
   progress: store.loadLocal(),

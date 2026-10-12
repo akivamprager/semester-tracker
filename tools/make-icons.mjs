@@ -23,7 +23,7 @@ function distToSeg(px, py, ax, ay, bx, by) {
   const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)));
   return Math.hypot(px - ax - t * dx, py - ay - t * dy);
 }
-function icon(size) {
+function icon(size, bg = [31, 95, 209]) {
   const raw = Buffer.alloc(size * (size * 3 + 1));
   const s = size / 100;
   for (let y = 0; y < size; y++) {
@@ -31,7 +31,6 @@ function icon(size) {
     for (let x = 0; x < size; x++) {
       const d = Math.min(distToSeg(x, y, 27 * s, 52 * s, 43 * s, 68 * s), distToSeg(x, y, 43 * s, 68 * s, 74 * s, 34 * s));
       const a = Math.max(0, Math.min(1, 6 * s - d + 0.5)); // anti-aliased stroke
-      const bg = [31, 95, 209];
       const o = y * (size * 3 + 1) + 1 + x * 3;
       for (let i = 0; i < 3; i++) raw[o + i] = Math.round(bg[i] * (1 - a) + 255 * a);
     }
@@ -45,3 +44,6 @@ function icon(size) {
   ]);
 }
 for (const size of [180, 192, 512]) writeFileSync(`icon-${size}.png`, icon(size));
+// App-icon shortcuts (long-press menu), one color per tab.
+const shortcuts = { todo: [31, 95, 209], tasks: [217, 119, 6], exams: [139, 92, 246] };
+for (const [name, color] of Object.entries(shortcuts)) writeFileSync(`shortcut-${name}.png`, icon(96, color));
