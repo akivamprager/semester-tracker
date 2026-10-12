@@ -111,3 +111,35 @@ export async function sync() {
   if (changed) await push(id, merged);
   return merged;
 }
+
+// Push subscriptions (one per device) live in their own gist file so the morning
+// GitHub Action can find them: { subs: [PushSubscriptionJSON], lastSent: 'YYYY-MM-DD' }.
+const PUSH_FILE = 'push.json';
+
+async function readPush(id) {
+  const gist = await gh(`/gists/${id}`);
+  const file = gist.files[PUSH_FILE];
+  return file ? JSON.parse(file.content || '{}') : {};
+}
+
+async function writePush(id, data) {
+  await gh(`/gists/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ files: { [PUSH_FILE]: { content: JSON.stringify(data, null, 1) } } }),
+  });
+}
+
+export async function addPushSubscription(sub) {
+  const id = await gistId();
+  const data = await readPush(id);
+  data.subs = (data.subs || []).filter((s) => s.endpoint !== sub.endpoint);
+  data.subs.push(sub);
+  await writePush(id, data);
+}
+
+export async function removePushSubscription(endpoint) {
+  const id = await gistId();
+  const data = await readPush(id);
+  data.subs = (data.subs || []).filter((s) => s.endpoint !== endpoint);
+  await writePush(id, data);
+}

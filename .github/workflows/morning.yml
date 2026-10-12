@@ -1,0 +1,24 @@
+name: Morning summary
+
+on:
+  schedule:
+    # 04:00–06:00 UTC = 06:00–09:00 in Israel depending on DST. The script sends once,
+    # on the first run at/after 07:00 Israel time (GitHub cron runs are often late).
+    - cron: '0 4,5,6 * * *'
+  workflow_dispatch: # "Run workflow" button: sends right away (for testing)
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-save web-push@3
+      - run: node tools/morning.mjs
+        env:
+          TZ: Asia/Jerusalem
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          FORCE: ${{ github.event_name == 'workflow_dispatch' }}

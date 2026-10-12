@@ -1,8 +1,8 @@
 // Network-first for everything (so schedule/app updates show up), cache as offline fallback.
 // Requests revalidate with the server (cache: 'no-cache') instead of using the browser's
 // HTTP cache, so the app never mixes a fresh index.html with a stale app.js.
-const CACHE = 'tracker-v6';
-const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'schedule.js', 'sync.js',
+const CACHE = 'tracker-v7';
+const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'schedule.js', 'sync.js', 'summary.js',
   'manifest.webmanifest', 'icon-192.png', 'semesters/index.json'];
 
 self.addEventListener('install', (e) => {
@@ -33,4 +33,27 @@ self.addEventListener('fetch', (e) => {
       })
       .catch(() => caches.match(e.request, { ignoreSearch: true })),
   );
+});
+
+// Morning summary sent by the GitHub Action (tools/morning.mjs).
+self.addEventListener('push', (e) => {
+  const data = e.data ? e.data.json() : { title: 'מעקב שיעורים', body: '' };
+  e.waitUntil(self.registration.showNotification(data.title, {
+    body: data.body,
+    tag: data.tag || 'morning',
+    icon: 'icon-192.png',
+    badge: 'icon-192.png',
+    dir: 'rtl',
+    lang: 'he',
+  }));
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const open = wins.find((w) => w.url.startsWith(self.registration.scope));
+    if (open) return open.focus();
+    return self.clients.openWindow('./');
+  })());
 });

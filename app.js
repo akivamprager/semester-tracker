@@ -1,4 +1,5 @@
-import { computeUnits, builtinTasks, parseDue, DAY_LABELS } from './schedule.js';
+import { computeUnits, mergeTasks, DAY_LABELS } from './schedule.js';
+import { dailySummary } from './summary.js';
 import * as store from './sync.js';
 
 const LS_SEMESTER = 'tracker.semester';
@@ -62,19 +63,7 @@ const setStatus = (key, s) => put(key, { s });
 const taskDataKey = (id) => `${state.sem.id}/taskdata/${id}`;
 const taskDoneKey = (id) => `${state.sem.id}/task/${id}`;
 
-function allTasks(courses) {
-  const prefix = `${state.sem.id}/taskdata/`;
-  const byId = new Map(builtinTasks(state.sem, courses).map((t) => [t.id, t]));
-  for (const [k, v] of Object.entries(state.progress)) {
-    if (!k.startsWith(prefix) || !v.d) continue;
-    const id = k.slice(prefix.length);
-    const base = byId.get(id) || { id, kind: 'hw', user: true };
-    byId.set(id, { ...base, ...v.d, estimated: v.d.due !== undefined ? false : base.estimated });
-  }
-  return [...byId.values()]
-    .map((t) => ({ ...t, dueDate: parseDue(t.due), done: statusOf(taskDoneKey(t.id)) === 'done' }))
-    .filter((t) => !t.deleted && (t.done || !t.showFrom || t.showFrom <= now()));
-}
+const allTasks = (courses) => mergeTasks(state.sem, courses, state.progress, now());
 
 const byDue = (a, b) => (a.dueDate || Infinity) - (b.dueDate || Infinity);
 
@@ -308,6 +297,7 @@ function viewSettings() {
          <input id="token" type="password" autocomplete="off" placeholder="ghp_…">
          <div class="row"><button class="btn primary" data-action="connect">התחבר</button></div>`}
   </section>
+  <section class="card" id="push-card"><h2>התראת בוקר</h2><p class="help">טוען…</p></section>
   <section class="card">
     <h2>גיבוי ידני</h2>
     <div class="row">
@@ -331,7 +321,7 @@ function render() {
   if (state.tab === 'todo') main.innerHTML = todo;
   else if (state.tab === 'tasks') main.innerHTML = viewTasks(courses);
   else if (state.tab === 'courses') main.innerHTML = viewCourses(courses);
-  else if (!document.getElementById('sem-select')) main.innerHTML = viewSettings();
+  else if (!document.getElementById('sem-select')) { main.innerHTML = viewSettings(); renderPushCard(); }
   renderChip();
 }
 
@@ -381,6 +371,15 @@ document.body.addEventListener('click', async (e) => {
     put(taskDataKey(id), { s: 'set', d: { deleted: true } });
   }
   if (action === 'sync') runSync();
+  if (action === 'push-on' || action === 'push-off' || action === 'push-test') {
+    el.disabled = true;
+    try {
+      await { 'push-on': pushOn, 'push-off': pushOff, 'push-test': pushTest }[action]();
+    } catch (err) {
+      alert('שגיאה: ' + err.message);
+    }
+    renderPushCard();
+  }
   if (action === 'connect') {
     const token = document.getElementById('token').value.trim();
     if (!token) return;
@@ -447,6 +446,75 @@ document.body.addEventListener('change', async (e) => {
 function rerenderSettings() {
   document.getElementById('main').innerHTML = viewSettings();
   render();
+  renderPushCard();
+}
+
+// ---------- morning notification ----------
+// The GitHub Action (tools/morning.mjs) sends the summary via Web Push to every
+// subscription saved in the sync gist. Needs sync connected and, on iPhone, the app
+// opened from the home screen.
+let pushConfig = null;
+
+function b64urlToBytes(s) {
+  const b = atob(s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (s.length % 4)) % 4));
+  return Uint8Array.from(b, (c) => c.charCodeAt(0));
+}
+
+async function pushRegistration() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return null;
+  return navigator.serviceWorker.getRegistration();
+}
+
+async function renderPushCard() {
+  const card = document.getElementById('push-card');
+  if (!card) return;
+  const reg = await pushRegistration();
+  const sub = reg && (await reg.pushManager.getSubscription());
+  let body;
+  if (!reg) {
+    body = `<p class="help">ההתראות עובדות רק כשהאפליקציה פתוחה ממסך הבית (באייפון: שתף → הוסף למסך הבית, ולפתוח משם).</p>`;
+  } else if (!pushConfig) {
+    body = '<p class="help">ההתראות עוד לא הוגדרו בשרת (חסר push-config.json).</p>';
+  } else if (!store.getToken()) {
+    body = '<p class="help">כדי לקבל התראות צריך קודם לחבר סנכרון (למעלה).</p>';
+  } else if (sub) {
+    body = `<p class="help">פעיל ✓ — כל בוקר בסביבות 07:00 תגיע התראה עם השיעורים של היום, מה שנשאר להשלים ומטלות קרובות.</p>
+      <div class="row">
+        <button class="btn" data-action="push-test">הצג דוגמה</button>
+        <button class="btn" data-action="push-off">כבה</button>
+      </div>`;
+  } else {
+    body = `<p class="help">כל בוקר בסביבות 07:00: השיעורים של היום, מה שנשאר להשלים ומטלות קרובות.</p>
+      <div class="row"><button class="btn primary" data-action="push-on">הפעל התראת בוקר</button></div>`;
+  }
+  card.innerHTML = `<h2>התראת בוקר</h2>${body}`;
+}
+
+async function pushOn() {
+  const reg = await pushRegistration();
+  if ((await Notification.requestPermission()) !== 'granted') {
+    alert('לא ניתנה הרשאה להתראות. אפשר לשנות בהגדרות המכשיר.');
+    return;
+  }
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: b64urlToBytes(pushConfig.vapidPublicKey),
+  });
+  await store.addPushSubscription(sub.toJSON());
+}
+
+async function pushOff() {
+  const reg = await pushRegistration();
+  const sub = await reg?.pushManager.getSubscription();
+  if (!sub) return;
+  await store.removePushSubscription(sub.endpoint).catch(() => {});
+  await sub.unsubscribe();
+}
+
+async function pushTest() {
+  const reg = await pushRegistration();
+  const s = dailySummary(state.sem, state.progress, now()) || { title: 'בוקר טוב!', body: 'אין היום שום דבר פתוח 🎉' };
+  await reg.showNotification(s.title, { body: s.body, tag: 'morning', icon: 'icon-192.png', dir: 'rtl', lang: 'he' });
 }
 
 document.addEventListener('visibilitychange', () => {
@@ -468,6 +536,9 @@ async function loadSemester() {
 
 async function boot() {
   state.index = await (await fetch('semesters/index.json', { cache: 'no-cache' })).json();
+  pushConfig = await fetch('push-config.json', { cache: 'no-cache' })
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null);
   await loadSemester();
   render();
   navigator.storage?.persist?.();

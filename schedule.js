@@ -141,3 +141,24 @@ export function builtinTasks(sem, units) {
   }
   return tasks;
 }
+
+// All tasks for a semester: built-in ones merged with the user's additions/edits from the
+// synced progress map (see app.js for the key layout). Tasks with `showFrom` stay hidden
+// until then.
+export function mergeTasks(sem, courses, progress, now) {
+  const prefix = `${sem.id}/taskdata/`;
+  const byId = new Map(builtinTasks(sem, courses).map((t) => [t.id, t]));
+  for (const [k, v] of Object.entries(progress)) {
+    if (!k.startsWith(prefix) || !v.d) continue;
+    const id = k.slice(prefix.length);
+    const base = byId.get(id) || { id, kind: 'hw', user: true };
+    byId.set(id, { ...base, ...v.d, estimated: v.d.due !== undefined ? false : base.estimated });
+  }
+  return [...byId.values()]
+    .map((t) => ({
+      ...t,
+      dueDate: parseDue(t.due),
+      done: progress[`${sem.id}/task/${t.id}`]?.s === 'done',
+    }))
+    .filter((t) => !t.deleted && (t.done || !t.showFrom || t.showFrom <= now));
+}

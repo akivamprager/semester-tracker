@@ -31,3 +31,20 @@ One-off changes: `cancellations` (`course`, `group`, `date`) and `extras`
 python3 -m http.server 8321      # then open http://localhost:8321
 node --test test/
 ```
+
+## Morning notification
+A GitHub Action (`.github/workflows/morning.yml`, runs `tools/morning.mjs`) sends a Web Push
+each morning (~07:00 Israel time) with today's sessions, lessons to catch up on, and
+upcoming homework/exams (`summary.js`, same logic as the app's "הצג דוגמה" button).
+It reads progress and device subscriptions (`push.json`) from the sync gist.
+
+One-time setup (from this folder):
+```
+node tools/setup-push.mjs   # VAPID keys: secret VAPID_PRIVATE_KEY + push-config.json
+gh secret set GIST_TOKEN    # paste the same gist token used in the app
+git add -A && git commit -m "Set up push" && git push
+```
+Then in the app (opened from the home screen): Settings → הפעל התראת בוקר.
+Test right away: `gh workflow run morning.yml` (sends regardless of the hour).
+
+Note: GitHub pauses scheduled workflows in a repo with no commits for 60 days.
