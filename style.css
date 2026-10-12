@@ -24,7 +24,7 @@
 * { box-sizing: border-box; }
 body {
   margin: 0;
-  font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+  font-family: "Heebo", -apple-system, "Segoe UI", Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
   padding-bottom: env(safe-area-inset-bottom);
@@ -126,6 +126,7 @@ bdi[dir=ltr] { white-space: nowrap; }
 .card.course .progress div { background: var(--c); }
 
 /* Interactive feedback: hover on devices with a mouse, press feedback everywhere. */
+button, input, select { font-family: inherit; }
 button, summary, .task-check { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .actions button, .btn, nav button, .chip {
   transition: background-color 0.15s, color 0.15s, border-color 0.15s, transform 0.08s, box-shadow 0.15s;
