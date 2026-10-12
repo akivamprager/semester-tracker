@@ -126,6 +126,7 @@ export function builtinTasks(sem, units) {
   const tasks = (sem.tasks || []).map((t) => ({ ...t }));
   const p = (n) => String(n).padStart(2, '0');
   for (const rule of sem.generatedTasks || []) {
+    if (rule.weekly) { tasks.push(...weeklyTasks(sem, rule)); continue; }
     const course = units.find((c) => c.code === rule.course);
     const type = course?.types.find((t) => t.type === rule.type);
     if (!type) continue;
@@ -147,10 +148,46 @@ export function builtinTasks(sem, units) {
   return tasks;
 }
 
+// Weekly tasks on a fixed calendar pattern, e.g. a lab that opens Sunday 08:00 and is due
+// Thursday 23:59 of the following week. Weeks entirely inside a noClass range are skipped.
+// rule.weekly = { count, open: {day, time}, due: {weeks, day, time}, confirmed }
+function weeklyTasks(sem, rule) {
+  const { count, open, due, confirmed = 0 } = rule.weekly;
+  const at = (date, hhmm) => {
+    const [h, m] = hhmm.split(':').map(Number);
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), h, m);
+  };
+  const stamp = (d) => `${ymd(d)}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const sunday = parseDate(sem.start);
+  sunday.setDate(sunday.getDate() - sunday.getDay());
+  const end = parseDate(sem.end);
+  const tasks = [];
+  for (let week = new Date(sunday); week <= end && tasks.length < count; week.setDate(week.getDate() + 7)) {
+    const teachingDays = [0, 1, 2, 3, 4].map((i) => {
+      const d = new Date(week); d.setDate(d.getDate() + i); return ymd(d);
+    });
+    if (teachingDays.every((ds) => inRanges(ds, sem.noClass))) continue;
+    const n = tasks.length + 1;
+    const opens = new Date(week); opens.setDate(opens.getDate() + open.day);
+    const dueDay = new Date(week); dueDay.setDate(dueDay.getDate() + 7 * due.weeks + due.day);
+    tasks.push({
+      id: `${rule.id}-${n}`,
+      course: rule.course,
+      kind: rule.kind || 'hw',
+      title: rule.title.replace('{n}', n),
+      due: stamp(at(dueDay, due.time)),
+      note: rule.note || '',
+      estimated: n > confirmed,
+      showFrom: at(opens, open.time),
+    });
+  }
+  return tasks;
+}
+
 // All tasks for a semester: built-in ones merged with the user's additions/edits from the
 // synced progress map (see app.js for the key layout). Tasks with `showFrom` stay hidden
 // until then.
-export function mergeTasks(sem, courses, progress, now) {
+export function mergeTasks(sem, courses, progress, now, { includeHidden = false } = {}) {
   const prefix = `${sem.id}/taskdata/`;
   const byId = new Map(builtinTasks(sem, courses).map((t) => [t.id, t]));
   for (const [k, v] of Object.entries(progress)) {
@@ -165,5 +202,5 @@ export function mergeTasks(sem, courses, progress, now) {
       dueDate: parseDue(t.due),
       done: progress[`${sem.id}/task/${t.id}`]?.s === 'done',
     }))
-    .filter((t) => !t.deleted && (t.done || !t.showFrom || t.showFrom <= now));
+    .filter((t) => !t.deleted && (includeHidden || t.done || !t.showFrom || new Date(t.showFrom) <= now));
 }

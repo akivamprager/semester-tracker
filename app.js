@@ -1,5 +1,6 @@
 import { computeUnits, mergeTasks, DAY_LABELS } from './schedule.js';
 import { dailySummary } from './summary.js';
+import { parseIcs, icsTaskChanges } from './ics.js';
 import * as store from './sync.js';
 
 const LS_SEMESTER = 'tracker.semester';
@@ -302,6 +303,13 @@ function viewSettings() {
   </section>
   <section class="card" id="push-card"><h2>התראת בוקר</h2><p class="help">טוען…</p></section>
   <section class="card">
+    <h2>ייבוא מטלות מהמודל</h2>
+    <p class="help">במודל: לוח שנה → ייצוא לוח שנה (כל הקורסים, השבועות הקרובים) → ייצוא. בחר כאן את קובץ ה-<bdi>.ics</bdi>
+      שירד. מטלות חדשות יתווספו ומועדים שהשתנו יתעדכנו — מה שסימנת כבוצע נשאר.</p>
+    <div class="row"><button class="btn" data-action="import-ics">בחר קובץ <bdi>.ics</bdi></button></div>
+    <input id="ics-file" type="file" accept=".ics,text/calendar" hidden>
+  </section>
+  <section class="card">
     <h2>גיבוי ידני</h2>
     <div class="row">
       <button class="btn" data-action="export">ייצוא לקובץ</button>
@@ -405,6 +413,7 @@ document.body.addEventListener('click', async (e) => {
     a.click();
   }
   if (action === 'import') document.getElementById('import-file').click();
+  if (action === 'import-ics') document.getElementById('ics-file').click();
 });
 
 document.body.addEventListener('submit', (e) => {
@@ -431,6 +440,30 @@ document.body.addEventListener('change', async (e) => {
     localStorage.setItem(LS_SEMESTER, e.target.value);
     await loadSemester();
     rerenderSettings();
+  }
+  if (e.target.id === 'ics-file' && e.target.files[0]) {
+    try {
+      const events = parseIcs(await e.target.files[0].text());
+      const courses = computeUnits(state.sem, now());
+      const all = mergeTasks(state.sem, courses, state.progress, now(), { includeHidden: true });
+      const changes = icsTaskChanges(state.sem, events, all);
+      const t = Date.now();
+      let added = 0;
+      for (const { id, d } of changes) {
+        const key = taskDataKey(id);
+        if (d.title) added++;
+        state.progress[key] = { s: 'set', d: { ...(state.progress[key]?.d || {}), ...d }, t };
+      }
+      store.saveLocal(state.progress);
+      alert(changes.length
+        ? `נוספו ${added} מטלות, עודכנו ${changes.length - added} מועדים.`
+        : `לא נמצא שום דבר חדש (${events.length} אירועים בקובץ).`);
+      render();
+      scheduleSync(0);
+    } catch (err) {
+      alert('לא הצלחתי לקרוא את הקובץ: ' + err.message);
+    }
+    e.target.value = '';
   }
   if (e.target.id === 'import-file' && e.target.files[0]) {
     try {

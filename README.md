@@ -23,6 +23,12 @@ Optional per course: `info` (list of rules/notes shown in the Courses tab) and `
 `generatedTasks` (e.g. a weekly lab due `offsetDays` after the last group's recitation #n).
 Tasks the user adds or edits in the app are stored with the progress (synced).
 
+Moodle import: Settings → "ייבוא מטלות מהמודל" takes a Moodle calendar export (.ics,
+parsed by `ics.js`). "… is due"/"… closes" events become tasks (`ics-<event id>`); the
+semester's `icsRules` can ignore events or map them onto existing tasks (e.g.
+`C Lab week N closes` → due date of `67315-lab-N`). Weekly tasks on a fixed pattern use
+`generatedTasks[].weekly` (`open`/`due` day + time, `confirmed` = how many match Moodle).
+
 One-off changes: `cancellations` (`course`, `group`, `date`) and `extras`
 (`course`, `group`, `date`, `start`, `end`). A group can start late with `"from": "YYYY-MM-DD"`.
 
