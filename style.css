@@ -254,3 +254,10 @@ body.wco header nav {
 body.wco header nav button { padding: 4px 14px; font-size: 13px; flex: 0 0 auto; }
 body.wco header button, body.wco header a, body.wco header select { app-region: no-drag; -webkit-app-region: no-drag; }
 body.wco main { padding-top: calc(env(titlebar-area-height, 36px) + 4px); }
+/* Left-pointing chevron (= "forward" in Hebrew), drawn with borders: text arrows like ‹ get
+   mirrored in RTL text and end up pointing the wrong way. */
+.chev {
+  display: inline-block; width: 0.45em; height: 0.45em; margin-inline-start: 0.35em;
+  border: solid currentColor; border-width: 0 0 2px 2px; transform: rotate(45deg);
+  vertical-align: 0.05em;
+}

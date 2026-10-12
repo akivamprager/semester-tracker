@@ -354,7 +354,7 @@ function scheduleStrip(courses) {
   const live = nextOne.occ.start <= now();
   return `<button class="strip" data-tab-link="schedule">
     <span>📅 היום: <b>${today.length}</b> אפשרויות · מחר: <b>${tomorrow.length}</b></span>
-    <span class="strip-next">${live ? 'עכשיו' : 'הבא'}: ${nextOne.course.emoji} ${esc(nextOne.course.short)} ${nextOne.type.label} ${nextOne.unit.n} ${hm(nextOne.occ.start)}${nextOne.mine ? ' (שלך)' : ''} ‹</span>
+    <span class="strip-next">${live ? 'עכשיו' : 'הבא'}: ${nextOne.course.emoji} ${esc(nextOne.course.short)} ${nextOne.type.label} ${nextOne.unit.n} ${hm(nextOne.occ.start)}${nextOne.mine ? ' (שלך)' : ''} <span class="chev" aria-hidden="true"></span></span>
   </button>`;
 }
 
