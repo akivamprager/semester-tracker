@@ -3,7 +3,6 @@ import { dailySummary } from './summary.js';
 import * as store from './sync.js';
 
 const LS_SEMESTER = 'tracker.semester';
-const STATUS_LABELS = { attended: '✓ השתתפתי', watched: '▶ צפיתי בהקלטה' };
 
 const state = {
   tab: 'todo',
@@ -223,8 +222,7 @@ function viewTodo(courses) {
         <div class="name">${u.label} ${u.n}${u.topic ? ` · <span class="topic">${esc(u.topic)}</span>` : ''}</div>
         <div class="meta">${where}</div>
         <div class="actions">
-          <button class="attend" data-action="mark" data-key="${u.key}" data-s="attended">✓ השתתפתי</button>
-          <button class="watch" data-action="mark" data-key="${u.key}" data-s="watched">▶ צפיתי בהקלטה</button>
+          <button class="attend" data-action="mark" data-key="${u.key}" data-s="done">✓ סיימתי</button>
         </div>
       </div>`;
     }).join('');
@@ -232,7 +230,7 @@ function viewTodo(courses) {
       <h2><bdi>${esc(c.short)}</bdi> <small>${owed.length ? owed.length + ' להשלים' : 'מעודכן ✓'}</small></h2>
       ${rows}
       ${next.length ? `<div class="upcoming">הבא: ${next.join('<br>הבא: ')}</div>` : ''}
-      ${owed.length > 1 ? `<button class="link" data-action="mark-all" data-course="${c.code}">סמן הכל כ"השתתפתי"</button>` : ''}
+      ${owed.length > 1 ? `<button class="link" data-action="mark-all" data-course="${c.code}">סמן הכל כבוצע</button>` : ''}
     </section>` };
   })
     .filter(Boolean)
@@ -263,7 +261,7 @@ function viewCourses(courses) {
       </details>`).join('')}
       ${done.length ? `<details><summary>סימנתי (${done.length})</summary>
         ${done.sort((a, b) => b.first.end - a.first.end).map((u) => `<div class="done-row">
-          <span>${u.label} ${u.n} · ${STATUS_LABELS[statusOf(u.key)]}</span>
+          <span>✓ ${u.label} ${u.n}${u.topic ? ' · ' + esc(u.topic) : ''}</span>
           <button class="link" data-action="mark" data-key="${u.key}" data-s="">בטל</button>
         </div>`).join('')}</details>` : ''}
       ${c.url ? `<a class="link" href="${esc(c.url)}" target="_blank" rel="noopener">שנתון ↗</a>` : ''}
@@ -347,11 +345,11 @@ document.body.addEventListener('click', async (e) => {
   const { action, id } = el.dataset;
   if (action === 'mark') setStatus(el.dataset.key, el.dataset.s || null);
   if (action === 'mark-all') {
-    if (!confirm('לסמן את כל השיעורים שהתקיימו בקורס הזה כ"השתתפתי"?')) return;
+    if (!confirm('לסמן את כל השיעורים שהתקיימו בקורס הזה כבוצעו?')) return;
     const c = computeUnits(state.sem, now()).find((x) => x.code === el.dataset.course);
     const t = Date.now();
     for (const ty of c.types) for (const u of ty.units) {
-      if (u.available && !statusOf(u.key)) state.progress[u.key] = { s: 'attended', t };
+      if (u.available && !statusOf(u.key)) state.progress[u.key] = { s: 'done', t };
     }
     store.saveLocal(state.progress);
     render();
