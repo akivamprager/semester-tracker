@@ -17,6 +17,12 @@ group of your courses and that you haven't checked off yet.
 2. Add it to `semesters/index.json` and make it the `default`.
 3. Push. Old semesters' progress stays (keys are prefixed by semester id).
 
+Optional per course: `info` (list of rules/notes shown in the Courses tab) and `topics`
+(`{"lecture": [...], "recitation": [...]}`, topic of unit #1, #2, …). Semester-level `tasks`
+(`id`, `course`, `kind` `hw`/`exam`, `title`, `due` `YYYY-MM-DD[THH:MM]`, `note`) and
+`generatedTasks` (e.g. a weekly lab due `offsetDays` after the last group's recitation #n).
+Tasks the user adds or edits in the app are stored with the progress (synced).
+
 One-off changes: `cancellations` (`course`, `group`, `date`) and `extras`
 (`course`, `group`, `date`, `start`, `end`). A group can start late with `"from": "YYYY-MM-DD"`.
 

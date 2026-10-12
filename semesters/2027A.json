@@ -1,126 +1,776 @@
 {
-  "id": "2027A",
-  "name": "סמסטר א׳ תשפ״ז",
-  "start": "2026-10-11",
-  "end": "2027-01-15",
-  "noClass": [
-    { "from": "2026-10-27", "to": "2026-10-27", "reason": "יום הבחירות" },
-    { "from": "2026-12-06", "to": "2026-12-12", "reason": "חופשת חנוכה" },
-    { "from": "2026-12-25", "to": "2026-12-25", "reason": "חופשת חג המולד" }
-  ],
-  "cancellations": [
-    { "course": "83325", "group": "1-01", "date": "2026-11-02", "note": "הועבר ל-1/11" },
-    { "course": "83325", "group": "2-01", "date": "2026-11-01", "note": "הועבר ל-2/11" },
-    { "course": "83325", "group": "2-02", "date": "2026-11-01", "note": "הועבר ל-2/11" }
-  ],
-  "extras": [
-    { "course": "83325", "group": "1-01", "date": "2026-11-01", "start": "16:00", "end": "18:00", "room": "קנדה" },
-    { "course": "83325", "group": "2-01", "date": "2026-11-02", "start": "12:00", "end": "14:00", "room": "קפלן" },
-    { "course": "83325", "group": "2-02", "date": "2026-11-02", "start": "12:00", "end": "14:00", "room": "קפלן" }
-  ],
-  "courses": [
+ "id": "2027A",
+ "name": "סמסטר א׳ תשפ״ז",
+ "start": "2026-10-11",
+ "end": "2027-01-15",
+ "noClass": [
+  {
+   "from": "2026-10-27",
+   "to": "2026-10-27",
+   "reason": "יום הבחירות"
+  },
+  {
+   "from": "2026-12-06",
+   "to": "2026-12-12",
+   "reason": "חופשת חנוכה"
+  },
+  {
+   "from": "2026-12-25",
+   "to": "2026-12-25",
+   "reason": "חופשת חג המולד"
+  }
+ ],
+ "cancellations": [
+  {
+   "course": "83325",
+   "group": "1-01",
+   "date": "2026-11-02",
+   "note": "הועבר ל-1/11"
+  },
+  {
+   "course": "83325",
+   "group": "2-01",
+   "date": "2026-11-01",
+   "note": "הועבר ל-2/11"
+  },
+  {
+   "course": "83325",
+   "group": "2-02",
+   "date": "2026-11-01",
+   "note": "הועבר ל-2/11"
+  }
+ ],
+ "extras": [
+  {
+   "course": "83325",
+   "group": "1-01",
+   "date": "2026-11-01",
+   "start": "16:00",
+   "end": "18:00",
+   "room": "קנדה"
+  },
+  {
+   "course": "83325",
+   "group": "2-01",
+   "date": "2026-11-02",
+   "start": "12:00",
+   "end": "14:00",
+   "room": "קפלן"
+  },
+  {
+   "course": "83325",
+   "group": "2-02",
+   "date": "2026-11-02",
+   "start": "12:00",
+   "end": "14:00",
+   "room": "קפלן"
+  }
+ ],
+ "tasks": [
+  {
+   "id": "80430-quiz1",
+   "course": "80430",
+   "kind": "exam",
+   "title": "בוחן 1 בהסתברות (חובה)",
+   "due": "2026-11-03T09:00"
+  },
+  {
+   "id": "80430-quiz2",
+   "course": "80430",
+   "kind": "exam",
+   "title": "בוחן 2 בהסתברות (חובה)",
+   "due": "2026-11-17T09:00"
+  },
+  {
+   "id": "80430-quiz3",
+   "course": "80430",
+   "kind": "exam",
+   "title": "בוחן 3 בהסתברות (חובה)",
+   "due": "2026-12-01T09:00"
+  },
+  {
+   "id": "80430-quiz4",
+   "course": "80430",
+   "kind": "exam",
+   "title": "בוחן 4 בהסתברות (חובה)",
+   "due": "2026-12-29T09:00"
+  },
+  {
+   "id": "80430-final-a",
+   "course": "80430",
+   "kind": "exam",
+   "title": "בחינה — מועד א׳",
+   "due": "2027-02-11"
+  },
+  {
+   "id": "80430-final-b",
+   "course": "80430",
+   "kind": "exam",
+   "title": "בחינה — מועד ב׳",
+   "due": "2027-03-12"
+  },
+  {
+   "id": "67109-midterm",
+   "course": "67109",
+   "kind": "exam",
+   "title": "בוחן אמצע (ש״ב 1–6)",
+   "due": "2026-12-01T14:00"
+  },
+  {
+   "id": "67109-midterm-c",
+   "course": "67109",
+   "kind": "exam",
+   "title": "בוחן אמצע — מועד מיוחד (C)",
+   "due": "2026-12-08T14:00",
+   "note": "בלוח הזמנים כתוב 16.12 — לבדוק במודל"
+  },
+  {
+   "id": "67109-final-a",
+   "course": "67109",
+   "kind": "exam",
+   "title": "בחינה — מועד א׳",
+   "due": "2027-01-29"
+  },
+  {
+   "id": "67109-final-b",
+   "course": "67109",
+   "kind": "exam",
+   "title": "בחינה — מועד ב׳",
+   "due": "2027-03-01",
+   "note": "בלוח הזמנים של הקורס כתוב 26.2"
+  },
+  {
+   "id": "67315-ex1",
+   "course": "67315",
+   "kind": "hw",
+   "title": "תרגיל 1 (C)",
+   "due": "",
+   "note": "הגשה עד 22:00 — לעדכן את המועד מהמודל"
+  },
+  {
+   "id": "67315-ex2",
+   "course": "67315",
+   "kind": "hw",
+   "title": "תרגיל 2 (C)",
+   "due": "",
+   "note": "הגשה עד 22:00 — לעדכן את המועד מהמודל"
+  },
+  {
+   "id": "67315-ex3",
+   "course": "67315",
+   "kind": "hw",
+   "title": "תרגיל 3 (C)",
+   "due": "",
+   "note": "הגשה עד 22:00 — לעדכן את המועד מהמודל"
+  },
+  {
+   "id": "67315-ex4",
+   "course": "67315",
+   "kind": "hw",
+   "title": "תרגיל 4 (C++)",
+   "due": "",
+   "note": "הגשה עד 22:00 — לעדכן את המועד מהמודל"
+  },
+  {
+   "id": "67315-ex5",
+   "course": "67315",
+   "kind": "hw",
+   "title": "תרגיל 5 (C++)",
+   "due": "",
+   "note": "הגשה עד 22:00 — לעדכן את המועד מהמודל"
+  },
+  {
+   "id": "67315-final-a",
+   "course": "67315",
+   "kind": "exam",
+   "title": "בחינה — מועד א׳",
+   "due": "2027-01-17"
+  },
+  {
+   "id": "67315-final-b",
+   "course": "67315",
+   "kind": "exam",
+   "title": "בחינה — מועד ב׳",
+   "due": "2027-02-16"
+  },
+  {
+   "id": "83325-final-a",
+   "course": "83325",
+   "kind": "exam",
+   "title": "בחינה — מועד א׳",
+   "due": "2027-01-22"
+  },
+  {
+   "id": "83325-final-b",
+   "course": "83325",
+   "kind": "exam",
+   "title": "בחינה — מועד ב׳",
+   "due": "2027-02-23"
+  },
+  {
+   "id": "83335-final-a",
+   "course": "83335",
+   "kind": "exam",
+   "title": "בחינה בכתב — מועד א׳",
+   "due": "2027-02-03"
+  },
+  {
+   "id": "83335-final-b",
+   "course": "83335",
+   "kind": "exam",
+   "title": "בחינה בכתב — מועד ב׳",
+   "due": "2027-03-04"
+  }
+ ],
+ "generatedTasks": [
+  {
+   "id": "67315-lab",
+   "course": "67315",
+   "type": "recitation",
+   "count": 13,
+   "offsetDays": 7,
+   "kind": "hw",
+   "title": "מעבדה {n} (CodeRunner)",
+   "note": "מועד משוער: שבוע אחרי קבוצת התרגול האחרונה. לבדוק במודל"
+  },
+  {
+   "id": "67109-hw",
+   "course": "67109",
+   "type": "lecture",
+   "from": "first",
+   "count": 13,
+   "offsetDays": 7,
+   "kind": "practice",
+   "hiddenUntilHeld": true,
+   "title": "ש״ב {n}",
+   "note": "לא נבדק — הפתרון מתפרסם במודל. יעד אישי: עד ההרצאה הבאה"
+  }
+ ],
+ "courses": [
+  {
+   "code": "80430",
+   "name": "מבוא להסתברות למדעי המחשב והנדסה",
+   "short": "הסתברות",
+   "url": "https://shnaton.huji.ac.il/course/80430",
+   "myGroups": {
+    "lecture": "1-01",
+    "recitation": "2-03"
+   },
+   "groups": [
     {
-      "code": "80430",
-      "name": "מבוא להסתברות למדעי המחשב והנדסה",
-      "short": "הסתברות",
-      "url": "https://shnaton.huji.ac.il/course/80430",
-      "myGroups": { "lecture": "1-01", "recitation": "2-03" },
-      "groups": [
-        { "code": "1-01", "type": "lecture", "lecturer": "פרופ׳ אוהד-נוי פלדהיים", "from": "2026-10-26", "slots": [
-          { "day": 2, "start": "10:00", "end": "11:45", "room": "קפלן" },
-          { "day": 4, "start": "12:00", "end": "13:45", "room": "פלדמן ב" } ] },
-        { "code": "1-02", "type": "lecture", "lecturer": "ד״ר אורי רוזנשטיין", "from": "2026-10-26", "slots": [
-          { "day": 0, "start": "12:00", "end": "13:45", "room": "פלדמן ב" },
-          { "day": 1, "start": "14:00", "end": "15:45", "room": "כימיה 7" } ] },
-        { "code": "2-01", "type": "recitation", "lecturer": "נמרוד גביזון", "from": "2026-10-26", "slots": [
-          { "day": 1, "start": "12:00", "end": "13:45", "room": "לוי 07" } ] },
-        { "code": "2-02", "type": "recitation", "lecturer": "דניאל רוזנבלט", "from": "2026-10-26", "slots": [
-          { "day": 2, "start": "14:00", "end": "15:45", "room": "שפרינצק 116" } ] },
-        { "code": "2-03", "type": "recitation", "lecturer": "גלעד דרפנר", "from": "2026-10-26", "slots": [
-          { "day": 3, "start": "13:00", "end": "14:45", "room": "לוי 06" } ] },
-        { "code": "2-04", "type": "recitation", "lecturer": "מיכאל זכריה ברמק", "from": "2026-10-26", "slots": [
-          { "day": 4, "start": "10:00", "end": "11:45", "room": "שפרינצק 27" } ] },
-        { "code": "2-05", "type": "recitation", "lecturer": "נמרוד גביזון", "from": "2026-10-26", "slots": [
-          { "day": 1, "start": "16:00", "end": "17:45", "room": "C220 הנדסה" } ] },
-        { "code": "2-06", "type": "recitation", "lecturer": "", "from": "2026-10-26", "slots": [
-          { "day": 4, "start": "10:00", "end": "11:45", "room": "שפרינצק 115" } ] }
-      ]
+     "code": "1-01",
+     "type": "lecture",
+     "lecturer": "פרופ׳ אוהד-נוי פלדהיים",
+     "from": "2026-10-25",
+     "slots": [
+      {
+       "day": 2,
+       "start": "10:00",
+       "end": "11:45",
+       "room": "קפלן"
+      },
+      {
+       "day": 4,
+       "start": "12:00",
+       "end": "13:45",
+       "room": "פלדמן ב"
+      }
+     ],
+     "to": "2027-01-07"
     },
     {
-      "code": "83325",
-      "name": "גלים ויסודות פיסיקה א",
-      "short": "גלים",
-      "url": "https://shnaton.huji.ac.il/course/83325",
-      "myGroups": { "lecture": "1-01", "recitation": "2-02" },
-      "groups": [
-        { "code": "1-01", "type": "lecture", "lecturer": "פרופ׳ ניר בר-גיל", "slots": [
-          { "day": 0, "start": "14:00", "end": "15:45", "room": "קנדה" },
-          { "day": 1, "start": "12:00", "end": "13:45", "room": "קפלן" } ] },
-        { "code": "2-01", "type": "recitation", "lecturer": "יואב בן חיים", "slots": [
-          { "day": 0, "start": "16:00", "end": "17:45", "room": "סילברמן ראשל" } ] },
-        { "code": "2-02", "type": "recitation", "lecturer": "יוגב קורן", "slots": [
-          { "day": 0, "start": "16:00", "end": "17:45", "room": "שפרינצק 29" } ] },
-        { "code": "2-03", "type": "recitation", "lecturer": "יואב בן חיים", "slots": [
-          { "day": 1, "start": "10:00", "end": "11:45", "room": "ברנדמן ב 102" } ] }
-      ]
+     "code": "1-02",
+     "type": "lecture",
+     "lecturer": "ד״ר אורי רוזנשטיין",
+     "from": "2026-10-25",
+     "slots": [
+      {
+       "day": 0,
+       "start": "12:00",
+       "end": "13:45",
+       "room": "פלדמן ב"
+      },
+      {
+       "day": 1,
+       "start": "14:00",
+       "end": "15:45",
+       "room": "כימיה 7"
+      }
+     ],
+     "to": "2027-01-07"
     },
     {
-      "code": "83335",
-      "name": "מבוא להנדסת חשמל",
-      "short": "מבוא להנדסת חשמל",
-      "url": "https://shnaton.huji.ac.il/course/83335",
-      "myGroups": { "lecture": "1-01", "recitation": "2-03" },
-      "groups": [
-        { "code": "1-01", "type": "lecture", "lecturer": "בן-ציון לאופר", "slots": [
-          { "day": 3, "start": "09:00", "end": "11:45", "room": "ברנדמן ב 101" } ] },
-        { "code": "2-01", "type": "recitation", "lecturer": "בן-ציון לאופר", "slots": [
-          { "day": 3, "start": "13:00", "end": "14:45", "room": "ברנדמן ב 101" } ] },
-        { "code": "2-02", "type": "recitation", "lecturer": "ירדן ישנו", "slots": [
-          { "day": 3, "start": "13:00", "end": "14:45", "room": "B220 הנדסה" } ] },
-        { "code": "2-03", "type": "recitation", "lecturer": "ירדן ישנו", "slots": [
-          { "day": 3, "start": "15:00", "end": "16:45", "room": "ברנדמן ב 101" } ] }
-      ]
+     "code": "2-01",
+     "type": "recitation",
+     "lecturer": "נמרוד גביזון",
+     "from": "2026-10-25",
+     "slots": [
+      {
+       "day": 1,
+       "start": "12:00",
+       "end": "13:45",
+       "room": "לוי 07"
+      }
+     ],
+     "to": "2027-01-07"
     },
     {
-      "code": "67109",
-      "name": "מבני נתונים",
-      "short": "מבני נתונים",
-      "url": "https://shnaton.huji.ac.il/course/67109",
-      "myGroups": { "lecture": "1-03", "recitation": "2-09" },
-      "groups": [
-        { "code": "1-03", "type": "lecture", "lecturer": "פרופ׳ לאו יוסקוביץ", "slots": [
-          { "day": 4, "start": "14:00", "end": "15:45", "room": "אודיטוריום הנדסה" } ] },
-        { "code": "2-09", "type": "recitation", "lecturer": "דויד פונרובסקי / נדב קופלוביץ", "slots": [
-          { "day": 2, "start": "14:00", "end": "15:45", "room": "ברנדמן ב 103" } ] },
-        { "code": "2-14", "type": "recitation", "lecturer": "דויד פונרובסקי", "slots": [
-          { "day": 0, "start": "14:00", "end": "15:45", "room": "B220 הנדסה" } ] },
-        { "code": "2-15", "type": "recitation", "lecturer": "נדב קופלוביץ", "slots": [
-          { "day": 2, "start": "16:00", "end": "17:45", "room": "B221 הנדסה" } ] }
-      ]
+     "code": "2-02",
+     "type": "recitation",
+     "lecturer": "דניאל רוזנבלט",
+     "from": "2026-10-25",
+     "slots": [
+      {
+       "day": 2,
+       "start": "14:00",
+       "end": "15:45",
+       "room": "שפרינצק 116"
+      }
+     ],
+     "to": "2027-01-07"
     },
     {
-      "code": "67315",
-      "name": "סי וסי++ לאלגוריתמיקה מעשית",
-      "short": "C/C++",
-      "url": "https://shnaton.huji.ac.il/course/67315",
-      "myGroups": { "lecture": "1-03", "recitation": "2-09" },
-      "groups": [
-        { "code": "1-03", "type": "lecture", "lecturer": "מיסאן בדר", "slots": [
-          { "day": 2, "start": "12:00", "end": "13:45", "room": "אודיטוריום הנדסה" },
-          { "day": 4, "start": "16:00", "end": "16:45", "room": "אודיטוריום הנדסה" } ] },
-        { "code": "2-09", "type": "recitation", "lecturer": "תומר גיל", "slots": [
-          { "day": 2, "start": "16:00", "end": "17:45", "room": "C220 הנדסה" } ] },
-        { "code": "2-10", "type": "recitation", "lecturer": "גידאא חטיב", "slots": [
-          { "day": 2, "start": "15:00", "end": "16:45", "room": "C320 הנדסה" } ] },
-        { "code": "2-11", "type": "recitation", "lecturer": "יעל שפירא", "slots": [
-          { "day": 3, "start": "10:00", "end": "11:45", "room": "לוי 06" } ] },
-        { "code": "2-12", "type": "recitation", "lecturer": "עמית שרמן", "slots": [
-          { "day": 3, "start": "13:00", "end": "14:45", "room": "שפרינצק 26" } ] },
-        { "code": "2-13", "type": "recitation", "lecturer": "אחמד עליאן", "slots": [
-          { "day": 4, "start": "13:00", "end": "14:45", "room": "שפרינצק 214" } ] },
-        { "code": "2-14", "type": "recitation", "lecturer": "תומר גיל", "slots": [
-          { "day": 2, "start": "14:00", "end": "15:45", "room": "שפרינצק 115" } ] }
-      ]
+     "code": "2-03",
+     "type": "recitation",
+     "lecturer": "גלעד דרפנר",
+     "from": "2026-10-25",
+     "slots": [
+      {
+       "day": 3,
+       "start": "13:00",
+       "end": "14:45",
+       "room": "לוי 06"
+      }
+     ],
+     "to": "2027-01-07"
+    },
+    {
+     "code": "2-04",
+     "type": "recitation",
+     "lecturer": "מיכאל זכריה ברמק",
+     "from": "2026-10-25",
+     "slots": [
+      {
+       "day": 4,
+       "start": "10:00",
+       "end": "11:45",
+       "room": "שפרינצק 27"
+      }
+     ],
+     "to": "2027-01-07"
+    },
+    {
+     "code": "2-05",
+     "type": "recitation",
+     "lecturer": "נמרוד גביזון",
+     "from": "2026-10-25",
+     "slots": [
+      {
+       "day": 1,
+       "start": "16:00",
+       "end": "17:45",
+       "room": "C220 הנדסה"
+      }
+     ],
+     "to": "2027-01-07"
+    },
+    {
+     "code": "2-06",
+     "type": "recitation",
+     "lecturer": "",
+     "from": "2026-10-25",
+     "slots": [
+      {
+       "day": 4,
+       "start": "10:00",
+       "end": "11:45",
+       "room": "שפרינצק 115"
+      }
+     ],
+     "to": "2027-01-07"
     }
-  ]
+   ],
+   "info": [
+    "הלימודים בקורס מתחילים ביום א׳ 25.10 (משותף ל-80430 ו-80431) ונמשכים עד יום ה׳ 7.1.2027. ייתכנו תרגולים גם אחרי.",
+    "בתרגול נלמד החומר של השבוע הקודם.",
+    "4 בחנים (חובה) בימי ג׳ 09:00–10:00: 3.11, 17.11, 1.12, 29.12.",
+    "ציון: 93% בחינה, 5% בחנים, 2% תרגילים מקוונים (מגן בלבד).",
+    "תרגילי בית כתובים: הגשה במודל, אפשר בזוגות. אין הגשה באיחור. לא נבדקים כולם — חלק מהשאלות בלבד.",
+    "תרגילים מקוונים: 3 ניסיונות לכל שאלה, ונחשבים רק כמגן.",
+    "AI: אסור להגיש פתרון של AI; מותר להיעזר בו לבדיקה ולהבנה אחרי ניסיון עצמי.",
+    "הנוסחה: ציון סופי = max(C, round(0.98C + 0.02M))."
+   ]
+  },
+  {
+   "code": "83325",
+   "name": "גלים ויסודות פיסיקה א",
+   "short": "גלים",
+   "url": "https://shnaton.huji.ac.il/course/83325",
+   "myGroups": {
+    "lecture": "1-01",
+    "recitation": "2-02"
+   },
+   "groups": [
+    {
+     "code": "1-01",
+     "type": "lecture",
+     "lecturer": "פרופ׳ ניר בר-גיל",
+     "slots": [
+      {
+       "day": 0,
+       "start": "14:00",
+       "end": "15:45",
+       "room": "קנדה"
+      },
+      {
+       "day": 1,
+       "start": "12:00",
+       "end": "13:45",
+       "room": "קפלן"
+      }
+     ]
+    },
+    {
+     "code": "2-01",
+     "type": "recitation",
+     "lecturer": "יואב בן חיים",
+     "slots": [
+      {
+       "day": 0,
+       "start": "16:00",
+       "end": "17:45",
+       "room": "סילברמן ראשל"
+      }
+     ]
+    },
+    {
+     "code": "2-02",
+     "type": "recitation",
+     "lecturer": "יוגב קורן",
+     "slots": [
+      {
+       "day": 0,
+       "start": "16:00",
+       "end": "17:45",
+       "room": "שפרינצק 29"
+      }
+     ]
+    },
+    {
+     "code": "2-03",
+     "type": "recitation",
+     "lecturer": "יואב בן חיים",
+     "slots": [
+      {
+       "day": 1,
+       "start": "10:00",
+       "end": "11:45",
+       "room": "ברנדמן ב 102"
+      }
+     ]
+    }
+   ],
+   "info": [
+    "ציון: 70% בחינה, 15% תרגילים, 15% בחני אמצע.",
+    "מפגשים בעל-פה עם סגל הקורס: ימי ד׳ 8–9 ו-16–17, ימי ה׳ 8–9, בחדר הסמינרים בבניין ברגמן.",
+    "שינוי: ההרצאה של 2.11 הוקדמה ליום א׳ 1.11 16–18 באולם קנדה; תרגולים 01+02 של 1.11 עברו ליום ב׳ 2.11 12–14 בקפלן."
+   ]
+  },
+  {
+   "code": "83335",
+   "name": "מבוא להנדסת חשמל",
+   "short": "מבוא להנדסת חשמל",
+   "url": "https://shnaton.huji.ac.il/course/83335",
+   "myGroups": {
+    "lecture": "1-01",
+    "recitation": "2-03"
+   },
+   "groups": [
+    {
+     "code": "1-01",
+     "type": "lecture",
+     "lecturer": "בן-ציון לאופר",
+     "slots": [
+      {
+       "day": 3,
+       "start": "09:00",
+       "end": "11:45",
+       "room": "ברנדמן ב 101"
+      }
+     ]
+    },
+    {
+     "code": "2-01",
+     "type": "recitation",
+     "lecturer": "בן-ציון לאופר",
+     "slots": [
+      {
+       "day": 3,
+       "start": "13:00",
+       "end": "14:45",
+       "room": "ברנדמן ב 101"
+      }
+     ]
+    },
+    {
+     "code": "2-02",
+     "type": "recitation",
+     "lecturer": "ירדן ישנו",
+     "slots": [
+      {
+       "day": 3,
+       "start": "13:00",
+       "end": "14:45",
+       "room": "B220 הנדסה"
+      }
+     ]
+    },
+    {
+     "code": "2-03",
+     "type": "recitation",
+     "lecturer": "ירדן ישנו",
+     "slots": [
+      {
+       "day": 3,
+       "start": "15:00",
+       "end": "16:45",
+       "room": "ברנדמן ב 101"
+      }
+     ]
+    }
+   ],
+   "info": [
+    "ציון: 40% בחינה בכתב, 55% בחינה בעל-פה, 5% תרגילים."
+   ]
+  },
+  {
+   "code": "67109",
+   "name": "מבני נתונים",
+   "short": "מבני נתונים",
+   "url": "https://shnaton.huji.ac.il/course/67109",
+   "myGroups": {
+    "lecture": "1-03",
+    "recitation": "2-09"
+   },
+   "groups": [
+    {
+     "code": "1-03",
+     "type": "lecture",
+     "lecturer": "פרופ׳ לאו יוסקוביץ",
+     "slots": [
+      {
+       "day": 4,
+       "start": "14:00",
+       "end": "15:45",
+       "room": "אודיטוריום הנדסה"
+      }
+     ]
+    },
+    {
+     "code": "2-09",
+     "type": "recitation",
+     "lecturer": "דויד פונרובסקי / נדב קופלוביץ",
+     "slots": [
+      {
+       "day": 2,
+       "start": "14:00",
+       "end": "15:45",
+       "room": "ברנדמן ב 103"
+      }
+     ]
+    },
+    {
+     "code": "2-14",
+     "type": "recitation",
+     "lecturer": "דויד פונרובסקי",
+     "slots": [
+      {
+       "day": 0,
+       "start": "14:00",
+       "end": "15:45",
+       "room": "B220 הנדסה"
+      }
+     ]
+    },
+    {
+     "code": "2-15",
+     "type": "recitation",
+     "lecturer": "נדב קופלוביץ",
+     "slots": [
+      {
+       "day": 2,
+       "start": "16:00",
+       "end": "17:45",
+       "room": "B221 הנדסה"
+      }
+     ]
+    }
+   ],
+   "info": [
+    "ציון: 90% בחינה סופית, 10% בוחן אמצע (מגן).",
+    "בוחן אמצע: יום ג׳ 1.12.2026 בשעה 14:00, 60 דקות, בזמן התרגול. שאלות פתוחות על ש״ב 1–6, בעברית, חומר סגור.",
+    "מועד מיוחד לבוחן (C): בנהלים כתוב ג׳ 8.12, בלוח הזמנים כתוב 16.12 — לבדוק במודל.",
+    "ש״ב שבועיים במודל — לא נבדקים (מופיעים במשימות כ\"תרגול עצמי\"), הפתרונות מתפרסמים. שעת שאלות שבועית, ובודקים עוזרים בכיתה פעמיים בשבוע.",
+    "בחינה: 3 שעות, חומר סגור. חלק א׳: 5 מתוך 7 שאלות קצרות (40 נק׳). חלק ב׳: 2 מתוך 3 שאלות ארוכות (60 נק׳).",
+    "ספר הקורס: Introduction to Algorithms (CLRS), מהדורה 4.",
+    "פניות רק דרך מייל הקורס: dasthuji27a@gmail.com.",
+    "בונוס 3 נק׳ לכותבי סיכומים (התחייבות לכל הסמסטר; לשלוח סיכומים של השבועיים הראשונים)."
+   ],
+   "topics": {
+    "lecture": [
+     "Introduction + Complexity analysis",
+     "Recurrence equations",
+     "Comparison sorting",
+     "Hash tables 1",
+     "Hash tables 2",
+     "Heaps & Priority Qs",
+     "Binary trees + Balanced trees",
+     "Graphs, BFS and DFS",
+     "DFS, Topological sorting, Strongly conn. comps",
+     "Minimum Spanning Trees (MST)",
+     "Single shortest paths",
+     "All shortest paths (1)",
+     "All shortest paths (2) + Conclusion"
+    ],
+    "recitation": [
+     "Review of induction, recursion, series",
+     "Complexity analysis",
+     "Recurrence equations, Linear sorting",
+     "Probability",
+     "Hash tables 1",
+     "Hash tables 2",
+     "Heaps & Priority Qs",
+     "Binary & balanced trees",
+     "BFS and DFS review",
+     "Topological sorting, strongly conn. comp",
+     "MST exercise",
+     "Dijkstra, Bellman-Ford",
+     "All shortest paths + Review for exam"
+    ]
+   }
+  },
+  {
+   "code": "67315",
+   "name": "סי וסי++ לאלגוריתמיקה מעשית",
+   "short": "C/C++",
+   "url": "https://shnaton.huji.ac.il/course/67315",
+   "myGroups": {
+    "lecture": "1-03",
+    "recitation": "2-09"
+   },
+   "groups": [
+    {
+     "code": "1-03",
+     "type": "lecture",
+     "lecturer": "מיסאן בדר",
+     "slots": [
+      {
+       "day": 2,
+       "start": "12:00",
+       "end": "13:45",
+       "room": "אודיטוריום הנדסה"
+      },
+      {
+       "day": 4,
+       "start": "16:00",
+       "end": "16:45",
+       "room": "אודיטוריום הנדסה"
+      }
+     ]
+    },
+    {
+     "code": "2-09",
+     "type": "recitation",
+     "lecturer": "תומר גיל",
+     "slots": [
+      {
+       "day": 2,
+       "start": "16:00",
+       "end": "17:45",
+       "room": "C220 הנדסה"
+      }
+     ]
+    },
+    {
+     "code": "2-10",
+     "type": "recitation",
+     "lecturer": "גידאא חטיב",
+     "slots": [
+      {
+       "day": 2,
+       "start": "15:00",
+       "end": "16:45",
+       "room": "C320 הנדסה"
+      }
+     ]
+    },
+    {
+     "code": "2-11",
+     "type": "recitation",
+     "lecturer": "יעל שפירא",
+     "slots": [
+      {
+       "day": 3,
+       "start": "10:00",
+       "end": "11:45",
+       "room": "לוי 06"
+      }
+     ]
+    },
+    {
+     "code": "2-12",
+     "type": "recitation",
+     "lecturer": "עמית שרמן",
+     "slots": [
+      {
+       "day": 3,
+       "start": "13:00",
+       "end": "14:45",
+       "room": "שפרינצק 26"
+      }
+     ]
+    },
+    {
+     "code": "2-13",
+     "type": "recitation",
+     "lecturer": "אחמד עליאן",
+     "slots": [
+      {
+       "day": 4,
+       "start": "13:00",
+       "end": "14:45",
+       "room": "שפרינצק 214"
+      }
+     ]
+    },
+    {
+     "code": "2-14",
+     "type": "recitation",
+     "lecturer": "תומר גיל",
+     "slots": [
+      {
+       "day": 2,
+       "start": "14:00",
+       "end": "15:45",
+       "room": "שפרינצק 115"
+      }
+     ]
+    }
+   ],
+   "info": [
+    "ציון: תרגילים 24% (1–2: 2% כ״א, 3: 8%, 4: 4%, 5: 8%), מעבדות 6% (0.5% כ״א, עד 6%), בחינה 70%.",
+    "מגן: בוחן אמצע ב-C עד 10% (מועד יפורסם; אין מועד ב׳; צריך SEB). נוכחות 5% מגן — 70% מההרצאות ומהתרגולים.",
+    "מעבר: 60 בקורס ו-55 לפחות בבחינה.",
+    "5 תרגילי בית: 3 ב-C ו-2 ב-C++. לכל תרגיל בוחן קצר (5 דק׳) במעבדה; 4 הטובים מתוך 6 = 10% מציון התרגילים.",
+    "הגשה עד 22:00. איחור עד 24 שעות בקנס של 3 נק׳ (אם יוצא ביום שישי — עד 16:00).",
+    "בונוס על הגשה מוקדמת (לא סופי): שבוע +5, 3 ימים +3, יומיים +2, יום +1.",
+    "מעבדות (12–13) ב-CodeRunner: מתפרסמות לפני התרגול הראשון בשבוע, ומוגשות עד שבוע אחרי קבוצת התרגול האחרונה.",
+    "קימפול: ‎-Wall -Wextra -Wvla -std=c99‎ (או ‎-std=c++23‎). אזהרות = הורדת נקודות. כשלון בקימפול, בפרה-סאבמיט או שימוש בפונקציות אסורות = 0.",
+    "חובה להריץ presubmit בעצמך ולבדוק על מחשבי בית הספר (לא רק על Mac).",
+    "סגנון: GNU, עד 79 תווים בשורה, snake_case, CamelCase לטיפוסים, קבועים באותיות גדולות, תיעוד Doxygen בהצהרות.",
+    "עבודה ביחידים. אסור repo ציבורי בגיטהאב לתרגילים! AI רק לקטעים של 4–5 שורות.",
+    "פניות אישיות רק בפורום האישי במודל, למתרגל/ת של הקבוצה שלך."
+   ]
+  }
+ ]
 }

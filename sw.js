@@ -1,5 +1,5 @@
 // Network-first for everything (so schedule/app updates show up), cache as offline fallback.
-const CACHE = 'tracker-v1';
+const CACHE = 'tracker-v4';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'schedule.js', 'sync.js',
   'manifest.webmanifest', 'icon-192.png', 'semesters/index.json'];
 

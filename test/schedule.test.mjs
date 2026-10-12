@@ -58,3 +58,17 @@ test('unit keys and later availability', () => {
   assert.ok(c.types.every((t) => t.units.every((u) => u.available)));
   assert.equal(c.types[0].units[1].first.group.code, '1-01'); // 1-02's #2 is the 20th makeup
 });
+
+test('units cover the group with the most sessions; generated tasks use the last group', async () => {
+  const { builtinTasks } = await import('../schedule.js');
+  const s = structuredClone(sem);
+  s.courses[0].groups[1].slots = [{ day: 0, start: '14:00', end: '16:00' }]; // Sun group, no holiday loss
+  s.cancellations = [];
+  s.extras = [];
+  s.generatedTasks = [{ id: 'lab', course: 'C1', type: 'lecture', count: 2, offsetDays: 7, title: 'Lab {n}' }];
+  const courses = computeUnits(s, new Date(2026, 10, 30));
+  const lec = courses[0].types[0];
+  assert.equal(lec.units.length, 3); // Sun: 1, 8, 15 / Wed: 4, 11, 18
+  const tasks = builtinTasks(s, courses);
+  assert.deepEqual(tasks.map((t) => [t.title, t.due]), [['Lab 1', '2026-11-11T12:00'], ['Lab 2', '2026-11-18T12:00']]);
+});

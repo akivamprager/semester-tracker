@@ -88,3 +88,28 @@ input[type=text], input[type=password], select {
 }
 .row { display: flex; gap: 8px; margin-top: 8px; }
 p.help { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.topic { font-weight: normal; color: var(--accent); }
+.task { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--line); }
+.card h2 + .task, .task:first-of-type { border-top: none; }
+.task-body { flex: 1; min-width: 0; }
+.task-check { width: 22px; height: 22px; margin-top: 2px; accent-color: var(--ok); flex-shrink: 0; }
+.task-icon { width: 22px; text-align: center; flex-shrink: 0; }
+.task.is-done .name { text-decoration: line-through; color: var(--muted); }
+.task.overdue .when { color: var(--warn); font-weight: 600; }
+.course-tag { font-size: 12px; font-weight: normal; color: var(--muted); background: var(--bg); border-radius: 6px; padding: 1px 6px; }
+.est { color: var(--warn); }
+.add-btn { width: 100%; margin: 10px 0 0; }
+.btn.danger { border-color: var(--warn); color: var(--warn); }
+.task-form { padding: 6px 0; }
+input[type=date], input[type=time] {
+  width: 100%; padding: 8px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--text); font-size: 15px;
+}
+details { margin-top: 8px; }
+summary { cursor: pointer; color: var(--accent); font-size: 14px; padding: 4px 0; }
+ul.info, ol.syllabus { margin: 6px 0; padding-inline-start: 20px; font-size: 14px; line-height: 1.6; }
+ol.syllabus li.done { color: var(--muted); }
+ol.syllabus li.owed { color: var(--warn); }
+.card.soon { border: 1px solid var(--warn); }
+nav button { font-size: 14px; }
+bdi[dir=ltr] { white-space: nowrap; }

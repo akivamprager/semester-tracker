@@ -50,8 +50,10 @@ export function expandGroup(sem, course, group) {
   return occ.sort((a, b) => a.start - b.start);
 }
 
-// For every course and type the user is registered to, returns the list of units
-// (#1..#k of the user's group) with the earliest time any comparable group held it.
+// For every course and type the user is registered to, returns units #1..#k, where k is
+// the most sessions any comparable group has (a group may lose a day to a holiday, but the
+// material is still covered). Each unit has the earliest time any comparable group held it,
+// the user's own session (if their group has one) and the planned topic (if known).
 export function computeUnits(sem, now) {
   return sem.courses.map((course) => {
     const types = Object.entries(course.myGroups || {}).flatMap(([type, myCode]) => {
@@ -62,23 +64,80 @@ export function computeUnits(sem, now) {
         (g) => g !== mine && g.type === type && g.slots.length === mine.slots.length,
       )];
       const expanded = comparable.map((g) => ({ group: g, occ: expandGroup(sem, course, g) }));
-      const myOcc = expanded.find((e) => e.group === mine).occ;
-      const units = myOcc.map((own, i) => {
+      const count = Math.max(...expanded.map((e) => e.occ.length));
+      const topics = course.topics?.[type] || [];
+      const units = Array.from({ length: count }, (_, i) => {
         let first = null;
+        let last = null;
         for (const e of expanded) {
           const o = e.occ[i];
-          if (o && (!first || o.end < first.end)) first = { ...o, group: e.group };
+          if (!o) continue;
+          if (!first || o.end < first.end) first = { ...o, group: e.group };
+          if (!last || o.end > last.end) last = { ...o, group: e.group };
         }
         return {
           n: i + 1,
           key: `${sem.id}/${course.code}/${type}/${i + 1}`,
           available: first.end <= now,
           first,
-          own,
+          last,
+          own: expanded[0].occ[i] || null,
+          topic: topics[i] || '',
         };
       });
       return [{ type, label: TYPE_LABELS[type] || type, mine, units }];
     });
-    return { code: course.code, name: course.name, short: course.short || course.name, types };
+    return {
+      code: course.code,
+      name: course.name,
+      short: course.short || course.name,
+      url: course.url,
+      info: course.info || [],
+      types,
+    };
   });
+}
+
+// Parses "YYYY-MM-DD" (end of that day) or "YYYY-MM-DDTHH:MM".
+export function parseDue(due) {
+  if (!due) return null;
+  const [date, time] = due.split('T');
+  const d = parseDate(date);
+  if (time) {
+    const [h, m] = time.split(':').map(Number);
+    d.setHours(h, m);
+  } else {
+    d.setHours(23, 59);
+  }
+  return d;
+}
+
+// Built-in tasks: the semester's `tasks` list plus tasks generated from sessions
+// (e.g. a weekly lab due N days after the last group's recitation #n).
+// Rule options: `from` 'last' (default) or 'first' group's session #n as the base time;
+// `hiddenUntilHeld` hides task #n until that session has happened (e.g. homework
+// published after the lecture).
+export function builtinTasks(sem, units) {
+  const tasks = (sem.tasks || []).map((t) => ({ ...t }));
+  const p = (n) => String(n).padStart(2, '0');
+  for (const rule of sem.generatedTasks || []) {
+    const course = units.find((c) => c.code === rule.course);
+    const type = course?.types.find((t) => t.type === rule.type);
+    if (!type) continue;
+    type.units.slice(0, rule.count).forEach((u) => {
+      const due = new Date((rule.from === 'first' ? u.first : u.last).end);
+      due.setDate(due.getDate() + (rule.offsetDays || 0));
+      tasks.push({
+        id: `${rule.id}-${u.n}`,
+        course: rule.course,
+        kind: rule.kind || 'hw',
+        title: rule.title.replace('{n}', u.n),
+        due: `${ymd(due)}T${p(due.getHours())}:${p(due.getMinutes())}`,
+        note: rule.note || '',
+        estimated: true,
+        showFrom: rule.hiddenUntilHeld ? u.first.end : null,
+      });
+    });
+  }
+  return tasks;
 }
