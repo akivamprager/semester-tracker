@@ -24,7 +24,7 @@
 * { box-sizing: border-box; }
 body {
   margin: 0;
-  font-family: "Heebo", -apple-system, "Segoe UI", Arial, sans-serif;
+  font-family: "Assistant", -apple-system, "Segoe UI", Arial, sans-serif;
   background: var(--bg);
   color: var(--text);
   padding-bottom: env(safe-area-inset-bottom);
