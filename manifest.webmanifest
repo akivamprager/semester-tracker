@@ -35,6 +35,18 @@
       ]
     },
     {
+      "name": "מערכת — אפשרויות להיום ומחר",
+      "short_name": "מערכת",
+      "url": "./?tab=schedule",
+      "icons": [
+        {
+          "src": "shortcut-schedule.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
       "name": "משימות ומועדי הגשה",
       "short_name": "משימות",
       "url": "./?tab=tasks",

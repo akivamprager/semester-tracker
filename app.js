@@ -1,4 +1,4 @@
-import { computeUnits, mergeTasks, DAY_LABELS } from './schedule.js';
+import { computeUnits, mergeTasks, sessionsBetween, DAY_LABELS } from './schedule.js';
 import { dailySummary } from './summary.js';
 import { parseIcs, icsTaskChanges } from './ics.js';
 import * as store from './sync.js';
@@ -6,7 +6,7 @@ import * as store from './sync.js';
 const LS_SEMESTER = 'tracker.semester';
 
 // ?tab=tasks etc. — used by the app-icon shortcuts (manifest.webmanifest).
-const TABS = ['todo', 'tasks', 'courses', 'settings'];
+const TABS = ['todo', 'schedule', 'tasks', 'courses', 'settings'];
 const startTab = new URLSearchParams(location.search).get('tab');
 
 const state = {
@@ -17,6 +17,7 @@ const state = {
   sync: { status: 'idle', msg: '' },
   editing: null, // task id whose edit form is open ('new' for a new task)
   taskQuery: '', // tasks search box
+  horizon: 'short', // timetable range: 'short' = today + tomorrow, 'week' = 7 days
   owedCount: 0,
 };
 
@@ -259,7 +260,97 @@ function viewTodo(courses, { withSoon = true } = {}) {
   document.getElementById('todo-count').textContent = total || '';
   state.owedCount = total;
   const banner = total ? '' : '<div class="empty">אין שיעורים שמחכים לך 🎉</div>';
-  return soonCard + banner + cards;
+  return scheduleStrip(courses) + soonCard + banner + cards;
+}
+
+// ---------- timetable: which sessions can I go to ----------
+const hm = (d) => d.toTimeString().slice(0, 5);
+const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+
+// Upcoming sessions (any group) whose material isn't marked done yet, plus exams.
+function openSessions(courses, to) {
+  const t0 = now();
+  const sessions = sessionsBetween(courses, t0, to)
+    .filter((x) => !statusOf(x.unit.key))
+    .map((x) => ({ ...x, start: x.occ.start }));
+  const exams = allTasks(courses)
+    .filter((t) => t.kind === 'exam' && t.dueDate && t.dueDate >= t0 && t.dueDate < to)
+    .map((t) => ({ exam: t, course: courses.find((c) => c.code === t.course), start: t.dueDate }));
+  return [...sessions, ...exams].sort((a, b) => a.start - b.start);
+}
+
+function horizonEnd() {
+  const end = startOfDay(now());
+  end.setDate(end.getDate() + (state.horizon === 'week' ? 7 : 2));
+  return end;
+}
+
+function slotRow(x) {
+  const c = x.course;
+  if (x.exam) {
+    return `<div class="slot exam" ${courseStyle(c)}>
+      <div class="slot-time">${x.exam.due.includes('T') ? hm(x.start) : 'כל היום'}</div>
+      <div class="slot-body"><div class="name">📝 ${esc(x.exam.title)} <span class="course-tag colored" ${courseStyle(c)}>${c.emoji} <bdi>${esc(c.short)}</bdi></span></div></div>
+    </div>`;
+  }
+  const t0 = now();
+  const live = x.occ.start <= t0 && t0 < x.occ.end;
+  const own = x.unit.own;
+  const tags = [
+    x.mine ? '<span class="pill mine">הקבוצה שלך</span>' : '',
+    live ? '<span class="pill live">● עכשיו</span>' : '',
+    !x.mine && own && own.start > x.occ.start ? `<span class="pill">בקבוצה שלך: ${fmt(own.start)}</span>` : '',
+  ].join('');
+  return `<div class="slot ${x.mine ? 'mine' : ''} ${live ? 'live' : ''}" ${courseStyle(c)}>
+    <div class="slot-time">${hm(x.occ.start)}<small>–${hm(x.occ.end)}</small></div>
+    <div class="slot-body">
+      <div class="name">${c.emoji} <bdi>${esc(c.short)}</bdi> · ${x.type.label} ${x.unit.n}${x.unit.topic ? ` <span class="topic">${esc(x.unit.topic)}</span>` : ''}</div>
+      <div class="meta">${x.group.lecturer ? esc(x.group.lecturer) + ' · ' : ''}קב׳ ${grp(x.group.code)}${roomText(x.occ)}</div>
+      ${tags ? `<div class="pills">${tags}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function viewSchedule(courses) {
+  const list = openSessions(courses, horizonEnd());
+  const days = new Map();
+  for (const x of list) {
+    const k = startOfDay(x.start).getTime();
+    if (!days.has(k)) days.set(k, []);
+    days.get(k).push(x);
+  }
+  const dayTitle = (d) => {
+    const rel = { 0: 'היום', 1: 'מחר' }[dayDiff(d)];
+    return `${rel ? rel + ' · ' : ''}יום ${DAY_LABELS[d.getDay()]} ${d.getDate()}.${d.getMonth() + 1}`;
+  };
+  const toggle = `<div class="segmented">
+      <button class="${state.horizon === 'short' ? 'active' : ''}" data-action="horizon" data-h="short">היום ומחר</button>
+      <button class="${state.horizon === 'week' ? 'active' : ''}" data-action="horizon" data-h="week">7 ימים</button>
+    </div>`;
+  const body = days.size
+    ? '<div class="sched-days">' + [...days.entries()].map(([k, items]) => `<section class="card day">
+        <h2>${dayTitle(new Date(k))} <small>${items.filter((x) => !x.exam).length} מפגשים</small></h2>
+        ${items.map(slotRow).join('')}
+      </section>`).join('') + '</div>'
+    : '<div class="empty">אין מפגשים פתוחים בטווח הזה 🎉</div>';
+  return `${toggle}
+    <p class="help">כל ההרצאות והתרגולים בכל הקבוצות, לחומר שעוד לא סימנת כבוצע — כדי לבחור לאן ללכת השבוע.</p>
+    ${body}`;
+}
+
+// One line on the to-do page: how many options today / tomorrow.
+function scheduleStrip(courses) {
+  const end = startOfDay(now()); end.setDate(end.getDate() + 2);
+  const list = openSessions(courses, end).filter((x) => !x.exam);
+  const today = list.filter((x) => dayDiff(x.start) === 0);
+  const tomorrow = list.filter((x) => dayDiff(x.start) === 1);
+  if (!list.length) return '';
+  const nextOne = list[0];
+  const live = nextOne.occ.start <= now();
+  return `<button class="strip" data-tab-link="schedule">
+    <span>📅 היום: <b>${today.length}</b> אפשרויות · מחר: <b>${tomorrow.length}</b></span>
+    <span class="strip-next">${live ? 'עכשיו' : 'הבא'}: ${nextOne.course.emoji} ${esc(nextOne.course.short)} ${nextOne.type.label} ${nextOne.unit.n} ${hm(nextOne.occ.start)}${nextOne.mine ? ' (שלך)' : ''} ‹</span>
+  </button>`;
 }
 
 function viewCourses(courses) {
@@ -368,6 +459,7 @@ function render() {
   const wide = isWide();
   document.body.classList.toggle('wide', wide);
   document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === shownTab()));
+  document.querySelector('.icon-btn[data-tab-link=settings]')?.classList.toggle('active', state.tab === 'settings');
   const todo = viewTodo(courses, { withSoon: !wide }); // always computed so the badges stay current
   const t0 = now();
   const soon = new Date(t0); soon.setDate(soon.getDate() + 3);
@@ -382,6 +474,7 @@ function render() {
       <div class="col"><h2 class="col-title">משימות ${urgent ? `<span class="badge">${urgent}</span>` : ''}</h2>${viewTasks(courses)}</div>
     </div>`;
   } else if (state.tab === 'todo') main.innerHTML = todo;
+  else if (state.tab === 'schedule') main.innerHTML = viewSchedule(courses);
   else if (state.tab === 'tasks') main.innerHTML = viewTasks(courses);
   else if (state.tab === 'courses') main.innerHTML = viewCourses(courses);
   else if (!document.getElementById('sem-select')) { main.innerHTML = viewSettings(); renderPushCard(); }
@@ -440,6 +533,7 @@ document.body.addEventListener('click', async (e) => {
     put(taskDataKey(id), { s: 'set', d: { deleted: true } });
   }
   if (action === 'sync') runSync();
+  if (action === 'horizon') { state.horizon = el.dataset.h; render(); }
   if (action === 'push-on' || action === 'push-off' || action === 'push-test') {
     el.disabled = true;
     try {
@@ -607,7 +701,7 @@ async function handleSharedFile() {
 }
 
 // ---------- keyboard shortcuts ----------
-const SHORTCUTS_HELP = '1–4 מעבר בין לשוניות · N מטלה חדשה · / חיפוש מטלות · S סנכרון · Esc ביטול';
+const SHORTCUTS_HELP = '1–5 מעבר בין לשוניות · N מטלה חדשה · / חיפוש מטלות · S סנכרון · Esc ביטול';
 document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const typing = e.target.closest?.('input, textarea, select, [contenteditable]');
@@ -618,7 +712,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (typing) return;
   const key = e.key.toLowerCase();
-  const tabByKey = { 1: 'todo', 2: 'tasks', 3: 'courses', 4: 'settings' };
+  const tabByKey = { 1: 'todo', 2: 'schedule', 3: 'tasks', 4: 'courses', 5: 'settings' };
   if (tabByKey[key]) { e.preventDefault(); switchTab(tabByKey[key]); return; }
   if (key === 'n' || key === 'מ') {
     e.preventDefault();

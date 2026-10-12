@@ -72,3 +72,15 @@ test('units cover the group with the most sessions; generated tasks use the last
   const tasks = builtinTasks(s, courses);
   assert.deepEqual(tasks.map((t) => [t.title, t.due]), [['Lab 1', '2026-11-11T12:00'], ['Lab 2', '2026-11-18T12:00']]);
 });
+
+test('sessionsBetween lists every comparable group, with unit numbers', async () => {
+  const { sessionsBetween } = await import('../schedule.js');
+  const courses = computeUnits(sem, new Date(2026, 10, 1));
+  const list = sessionsBetween(courses, new Date(2026, 10, 1), new Date(2026, 10, 5));
+  // 1–4.11: Mon 2.11 group 1-02 lecture #1, Wed 4.11 own group 1-01 lecture #1
+  // (the 1-03 group meets twice a week, so it isn't comparable and isn't listed).
+  assert.deepEqual(list.map((x) => [x.occ.start.getDate(), x.group.code, x.unit.n, x.mine]), [
+    [2, '1-02', 1, false],
+    [4, '1-01', 1, true],
+  ]);
+});

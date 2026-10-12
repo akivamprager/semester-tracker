@@ -88,7 +88,9 @@ export function computeUnits(sem, now) {
           topic: topics[i] || '',
         };
       });
-      return [{ type, label: TYPE_LABELS[type] || type, mine, units }];
+      // `options`: every comparable group's sessions (occurrence i = unit #i+1), for the
+      // "which session can I go to" timetable.
+      return [{ type, label: TYPE_LABELS[type] || type, mine, units, options: expanded }];
     });
     return {
       code: course.code,
@@ -203,4 +205,22 @@ export function mergeTasks(sem, courses, progress, now, { includeHidden = false 
       done: progress[`${sem.id}/task/${t.id}`]?.s === 'done',
     }))
     .filter((t) => !t.deleted && (includeHidden || t.done || !t.showFrom || new Date(t.showFrom) <= now));
+}
+
+// Sessions of any comparable group between `from` and `to` (ending after `from`), as
+// [{ course, type, unit, group, occ, mine }] sorted by start time.
+export function sessionsBetween(courses, from, to) {
+  const out = [];
+  for (const course of courses) {
+    for (const type of course.types) {
+      for (const { group, occ } of type.options) {
+        occ.forEach((o, i) => {
+          if (o.end > from && o.start < to) {
+            out.push({ course, type, unit: type.units[i], group, occ: o, mine: group === type.mine });
+          }
+        });
+      }
+    }
+  }
+  return out.sort((a, b) => a.occ.start - b.occ.start || (b.mine - a.mine));
 }
