@@ -19,6 +19,7 @@ const state = {
   progress: store.loadLocal(),
   sync: { status: 'idle', msg: '' },
   editing: null, // task id whose edit form is open ('new' for a new task)
+  sheetKey: null, // unit whose "all sessions" sheet is open
   taskQuery: '', // tasks search box
   horizon: 'short', // timetable range: 'short' = today + tomorrow, 'week' = 7 days
   owedCount: 0,
@@ -263,6 +264,7 @@ function viewTodo(courses, { withSoon = true } = {}) {
         <div class="meta">${hm(x.occ.start)}–${hm(x.occ.end)} · ${x.group.lecturer ? esc(x.group.lecturer) + ' · ' : ''}קב׳ ${grp(x.group.code)}${roomText(x.occ)}${x.mine ? ' · הקבוצה שלך' : ''}</div>
         <div class="actions">
           <button class="attend" data-action="mark" data-key="${x.unit.key}" data-s="done" data-label="${esc(`${c.short} · ${x.type.label} ${x.unit.n}`)}">✓ סיימתי</button>
+          <button class="options-btn" data-action="unit-info" data-key="${x.unit.key}" aria-haspopup="dialog">📅 מועדים</button>
         </div>
       </div>`).join('');
     const rows = owed.map((u) => {
@@ -280,6 +282,7 @@ function viewTodo(courses, { withSoon = true } = {}) {
         <div class="meta">${where}</div>
         <div class="actions">
           <button class="attend" data-action="mark" data-key="${u.key}" data-s="done" data-label="${esc(`${c.short} · ${u.label} ${u.n}`)}">✓ סיימתי</button>
+          <button class="options-btn" data-action="unit-info" data-key="${u.key}" aria-haspopup="dialog">📅 מועדים</button>
         </div>
       </div>`;
     }).join('');
@@ -374,7 +377,8 @@ function slotRow(x) {
     live ? '<span class="pill live"><span class="live-dot" aria-hidden="true"></span>עכשיו</span>' : '',
     !x.mine && own && own.start > x.occ.start ? `<span class="pill">בקבוצה שלך: ${fmt(own.start)}</span>` : '',
   ].join('');
-  return `<div class="slot ${x.mine ? 'mine' : ''} ${live ? 'live' : ''}" ${courseStyle(c)}>
+  return `<div class="slot tappable ${x.mine ? 'mine' : ''} ${live ? 'live' : ''}" ${courseStyle(c)}
+    data-action="unit-info" data-key="${x.unit.key}" role="button" tabindex="0" aria-haspopup="dialog">
     <div class="slot-time">${hm(x.occ.start)}<small>–${hm(x.occ.end)}</small></div>
     <div class="slot-body">
       <div class="name">${c.emoji} <bdi>${esc(c.short)}</bdi> · ${x.type.label} ${x.unit.n}${durTag(x.occ)}${x.unit.topic ? ` <span class="topic">${esc(x.unit.topic)}</span>` : ''}</div>
@@ -622,6 +626,91 @@ function applyTaskFilter() {
   });
 }
 
+// ---------- "all sessions" sheet ----------
+// Every session (all comparable groups) that teaches the same unit, in a bottom sheet.
+function findUnit(courses, key) {
+  for (const course of courses) {
+    for (const type of course.types) {
+      const unit = type.units.find((u) => u.key === key);
+      if (unit) return { course, type, unit };
+    }
+  }
+  return null;
+}
+
+function sheetHtml(courses, key) {
+  const found = findUnit(courses, key);
+  if (!found) return '';
+  const { course: c, type, unit } = found;
+  const t0 = now();
+  const i = unit.n - 1;
+  const sessions = type.options
+    .map(({ group, occ }) => ({ group, o: occ[i] }))
+    .filter((x) => x.o)
+    .sort((a, b) => a.o.start - b.o.start || (b.group === type.mine) - (a.group === type.mine));
+  const done = !!statusOf(key);
+  const rows = sessions.map(({ group, o }) => {
+    const mine = group === type.mine;
+    const live = o.start <= t0 && t0 < o.end;
+    const past = o.end <= t0;
+    const pills = [
+      mine ? '<span class="pill mine">הקבוצה שלך</span>' : '',
+      live ? '<span class="pill live"><span class="live-dot" aria-hidden="true"></span>עכשיו</span>' : '',
+      past ? '<span class="pill">התקיים · יש הקלטה</span>' : '',
+    ].join('');
+    return `<div class="slot ${mine ? 'mine' : ''} ${live ? 'live' : ''} ${past ? 'past' : ''}" ${courseStyle(c)}>
+      <div class="slot-time">${hm(o.start)}<small>–${hm(o.end)}</small></div>
+      <div class="slot-body">
+        <div class="name">${fmt(o.start, false)}${durTag(o)}</div>
+        <div class="meta">${group.lecturer ? esc(group.lecturer) + ' · ' : ''}קב׳ ${grp(group.code)}${roomText(o)}</div>
+        ${pills ? `<div class="pills">${pills}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="sheet-head" ${courseStyle(c)}>
+      <div>
+        <div class="sheet-title">${c.emoji} <bdi>${esc(c.short)}</bdi> · ${type.label} ${unit.n}</div>
+        ${unit.topic ? `<div class="topic">${esc(unit.topic)}</div>` : ''}
+        <div class="meta">${sessions.length} מועדים בכל הקבוצות${done ? ' · ✓ סימנת כבוצע' : ''}</div>
+      </div>
+      <button class="icon-btn sheet-close" data-action="sheet-close" aria-label="סגור">✕</button>
+    </div>
+    <div class="sheet-list">${rows || '<div class="empty">אין מועדים</div>'}</div>
+    <div class="row sheet-actions">
+      ${done
+        ? `<button class="btn" data-action="sheet-undo" data-key="${key}">בטל סימון</button>`
+        : `<button class="btn primary" data-action="sheet-done" data-key="${key}" data-label="${esc(`${c.short} · ${type.label} ${unit.n}`)}">✓ סיימתי</button>`}
+    </div>`;
+}
+
+function sheetEl() {
+  let d = document.getElementById('sheet');
+  if (!d) {
+    d = document.createElement('dialog');
+    d.id = 'sheet';
+    d.setAttribute('aria-label', 'כל המועדים');
+    // Tap on the dimmed backdrop (outside the content) closes it.
+    d.addEventListener('click', (e) => { if (e.target === d) closeSheet(); });
+    d.addEventListener('close', () => { state.sheetKey = null; });
+    document.body.append(d);
+  }
+  return d;
+}
+
+function openSheet(key) {
+  state.sheetKey = key;
+  const d = sheetEl();
+  d.innerHTML = `<div class="sheet-inner">${sheetHtml(computeUnits(state.sem, now()), key)}</div>`;
+  if (!d.open) d.showModal();
+  d.querySelector('.sheet-close')?.focus();
+}
+
+function closeSheet() {
+  const d = document.getElementById('sheet');
+  if (d?.open) d.close();
+  state.sheetKey = null;
+}
+
 function render() {
   if (!state.sem) return;
   const courses = computeUnits(state.sem, now());
@@ -648,6 +737,9 @@ function render() {
   else if (state.tab === 'courses') main.innerHTML = viewCourses(courses);
   else if (!document.getElementById('sem-select')) { main.innerHTML = viewSettings(); renderPushCard(); }
   applyTaskFilter();
+  if (state.sheetKey && document.getElementById('sheet')?.open) {
+    document.querySelector('#sheet .sheet-inner').innerHTML = sheetHtml(courses, state.sheetKey);
+  }
   if (searchFocused) {
     const input = document.getElementById('task-search');
     input?.focus();
@@ -716,6 +808,13 @@ document.body.addEventListener('click', async (e) => {
   }
   if (action === 'dismiss-welcome') { localStorage.setItem('tracker.welcomed', '1'); render(); }
   if (action === 'horizon') { state.horizon = el.dataset.h; render(); }
+  if (action === 'unit-info') openSheet(el.dataset.key);
+  if (action === 'sheet-close') closeSheet();
+  if (action === 'sheet-done') {
+    closeSheet(); // the sheet is in the top layer — close it so the undo toast is visible
+    markDone([el.dataset.key], el.dataset.label || 'סומן כבוצע');
+  }
+  if (action === 'sheet-undo') setStatus(el.dataset.key, null);
   if (action === 'theme') {
     window.trackerTheme?.set(el.dataset.theme);
     document.querySelectorAll('.theme-pick button').forEach((b) => {
@@ -956,6 +1055,11 @@ async function handleSharedFile() {
 // ---------- keyboard shortcuts ----------
 const SHORTCUTS_HELP = '1–5 מעבר בין לשוניות · N מטלה חדשה · / חיפוש מטלות · S סנכרון · Esc ביטול';
 document.addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.slot.tappable')) {
+    e.preventDefault();
+    openSheet(e.target.dataset.key);
+    return;
+  }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const typing = e.target.closest?.('input, textarea, select, [contenteditable]');
   if (e.key === 'Escape') {
