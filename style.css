@@ -357,3 +357,58 @@ nav button.active .badge, .col-title .badge { background: var(--on-color); color
   color: color-mix(in srgb, var(--c) 55%, var(--text));
 }
 .code-badge { border-color: color-mix(in srgb, var(--c) 55%, transparent); }
+
+/* =====================================================================
+   Controls — one design language for every interactive element:
+   rest: 1px var(--line) border · hover: accent tint / accent border · press: scale 0.97 ·
+   keyboard focus: 2px accent ring · selected: solid accent.
+   ===================================================================== */
+:where(button, a, summary, input, select, label.day-chip):focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+/* Segmented control (מראה, היום ומחר / 7 ימים): a tray like the inputs, options like buttons */
+.segmented { background: var(--bg); border: 1px solid var(--line); padding: 3px; gap: 3px; }
+.segmented button {
+  cursor: pointer; transition: background-color 0.15s, color 0.15s, transform 0.08s, box-shadow 0.15s;
+}
+.segmented button.active { box-shadow: 0 1px 3px color-mix(in srgb, var(--accent) 35%, transparent); }
+.segmented button:active { transform: scale(0.97); }
+
+/* Text fields and dropdowns */
+input[type=text], input[type=password], input[type=search], input[type=date], input[type=time], select {
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+input[type=text]:focus, input[type=password]:focus, input[type=search]:focus,
+input[type=date]:focus, input[type=time]:focus, select:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+select { cursor: pointer; }
+
+/* Day chips (no-prayer days): toggle pills instead of bare checkboxes */
+.day-chip {
+  position: relative; padding: 4px 11px; border: 1px solid var(--line); border-radius: 9px;
+  background: var(--card); cursor: pointer; user-select: none; margin-inline-end: 4px;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s, transform 0.08s;
+}
+.day-chip input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.day-chip:has(input:checked) { background: var(--accent); border-color: var(--accent); color: var(--on-color); }
+.day-chip:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.day-chip:active { transform: scale(0.97); }
+
+/* Switch */
+input.switch { transition: background-color 0.2s, box-shadow 0.15s; }
+
+@media (hover: hover) {
+  .segmented button:not(.active):hover { background: color-mix(in srgb, var(--accent) 12%, var(--card)); color: var(--accent); }
+  input[type=text]:hover:not(:focus), input[type=password]:hover:not(:focus), input[type=search]:hover:not(:focus),
+  input[type=date]:hover:not(:focus), input[type=time]:hover:not(:focus), select:hover:not(:focus) {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  }
+  .day-chip:not(:has(input:checked)):hover { border-color: var(--accent); color: var(--accent); }
+  input.switch:hover { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 15%, transparent); }
+  .task-check:hover, .check-row input[type=checkbox]:hover { filter: brightness(0.95); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent); border-radius: 4px; }
+  summary:hover { text-decoration: underline; }
+  #toast button:hover { text-decoration: underline; }
+}
