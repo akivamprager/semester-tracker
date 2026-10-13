@@ -20,6 +20,7 @@ const state = {
   sync: { status: 'idle', msg: '' },
   editing: null, // task id whose edit form is open ('new' for a new task)
   sheetKey: null, // unit whose "all sessions" sheet is open
+  expanded: new Set(), // to-do items whose sessions drop-down is open
   taskQuery: '', // tasks search box
   horizon: 'short', // timetable range: 'short' = today + tomorrow, 'week' = 7 days
   owedCount: 0,
@@ -264,8 +265,8 @@ function viewTodo(courses, { withSoon = true } = {}) {
         <div class="meta">${hm(x.occ.start)}–${hm(x.occ.end)} · ${x.group.lecturer ? esc(x.group.lecturer) + ' · ' : ''}קב׳ ${grp(x.group.code)}${roomText(x.occ)}${x.mine ? ' · הקבוצה שלך' : ''}</div>
         <div class="actions">
           <button class="attend" data-action="mark" data-key="${x.unit.key}" data-s="done" data-label="${esc(`${c.short} · ${x.type.label} ${x.unit.n}`)}">✓ סיימתי</button>
-          <button class="options-btn" data-action="unit-info" data-key="${x.unit.key}" aria-haspopup="dialog">📅 מועדים</button>
         </div>
+        ${sessionsDropdown(courses, x.unit.key)}
       </div>`).join('');
     const rows = owed.map((u) => {
       const firstIsMine = u.first.group === u.mine;
@@ -282,8 +283,8 @@ function viewTodo(courses, { withSoon = true } = {}) {
         <div class="meta">${where}</div>
         <div class="actions">
           <button class="attend" data-action="mark" data-key="${u.key}" data-s="done" data-label="${esc(`${c.short} · ${u.label} ${u.n}`)}">✓ סיימתי</button>
-          <button class="options-btn" data-action="unit-info" data-key="${u.key}" aria-haspopup="dialog">📅 מועדים</button>
         </div>
+        ${sessionsDropdown(courses, u.key)}
       </div>`;
     }).join('');
     return { sortKey, html: `<section class="card course" ${courseStyle(c)}>
@@ -638,9 +639,10 @@ function findUnit(courses, key) {
   return null;
 }
 
-function sheetHtml(courses, key) {
+// All sessions (every comparable group) of one unit → { count, html } of timetable-style rows.
+function sessionRows(courses, key) {
   const found = findUnit(courses, key);
-  if (!found) return '';
+  if (!found) return { count: 0, html: '' };
   const { course: c, type, unit } = found;
   const t0 = now();
   const i = unit.n - 1;
@@ -648,8 +650,7 @@ function sheetHtml(courses, key) {
     .map(({ group, occ }) => ({ group, o: occ[i] }))
     .filter((x) => x.o)
     .sort((a, b) => a.o.start - b.o.start || (b.group === type.mine) - (a.group === type.mine));
-  const done = !!statusOf(key);
-  const rows = sessions.map(({ group, o }) => {
+  const html = sessions.map(({ group, o }) => {
     const mine = group === type.mine;
     const live = o.start <= t0 && t0 < o.end;
     const past = o.end <= t0;
@@ -667,20 +668,40 @@ function sheetHtml(courses, key) {
       </div>
     </div>`;
   }).join('');
+  // started: at least one group has begun (or finished) teaching it — only then can it be "done"
+  return { count: sessions.length, html, started: sessions.some(({ o }) => o.start <= t0) };
+}
+
+// Bottom-of-item toggle that expands the unit's sessions inline.
+function sessionsDropdown(courses, key) {
+  const open = state.expanded.has(key);
+  const { count, html } = open ? sessionRows(courses, key) : { count: 0, html: '' };
+  const id = `sess-${key.replace(/[^\w-]/g, '-')}`;
+  return `<button class="sessions-toggle ${open ? 'open' : ''}" data-action="toggle-sessions" data-key="${key}"
+      aria-expanded="${open}" aria-controls="${id}">📅 ${open ? `${count} מועדים בכל הקבוצות` : 'מועדים בכל הקבוצות'}<span class="caret" aria-hidden="true"></span></button>
+    ${open ? `<div class="sessions-inline" id="${id}">${html}</div>` : ''}`;
+}
+
+function sheetHtml(courses, key) {
+  const found = findUnit(courses, key);
+  if (!found) return '';
+  const { course: c, type, unit } = found;
+  const done = !!statusOf(key);
+  const { count, html: rows, started } = sessionRows(courses, key);
   return `<div class="sheet-head" ${courseStyle(c)}>
       <div>
         <div class="sheet-title">${c.emoji} <bdi>${esc(c.short)}</bdi> · ${type.label} ${unit.n}</div>
         ${unit.topic ? `<div class="topic">${esc(unit.topic)}</div>` : ''}
-        <div class="meta">${sessions.length} מועדים בכל הקבוצות${done ? ' · ✓ סימנת כבוצע' : ''}</div>
+        <div class="meta">${count} מועדים בכל הקבוצות${done ? ' · ✓ סימנת כבוצע' : ''}</div>
       </div>
       <button class="icon-btn sheet-close" data-action="sheet-close" aria-label="סגור">✕</button>
     </div>
     <div class="sheet-list">${rows || '<div class="empty">אין מועדים</div>'}</div>
-    <div class="row sheet-actions">
-      ${done
-        ? `<button class="btn" data-action="sheet-undo" data-key="${key}">בטל סימון</button>`
-        : `<button class="btn primary" data-action="sheet-done" data-key="${key}" data-label="${esc(`${c.short} · ${type.label} ${unit.n}`)}">✓ סיימתי</button>`}
-    </div>`;
+    ${done
+      ? `<div class="sheet-actions"><button class="link" data-action="sheet-undo" data-key="${key}">בטל סימון</button></div>`
+      : started
+        ? `<div class="sheet-actions"><button class="mini-done" data-action="sheet-done" data-key="${key}" data-label="${esc(`${c.short} · ${type.label} ${unit.n}`)}">✓ סיימתי</button></div>`
+        : ''}`;
 }
 
 function sheetEl() {
@@ -809,6 +830,11 @@ document.body.addEventListener('click', async (e) => {
   if (action === 'dismiss-welcome') { localStorage.setItem('tracker.welcomed', '1'); render(); }
   if (action === 'horizon') { state.horizon = el.dataset.h; render(); }
   if (action === 'unit-info') openSheet(el.dataset.key);
+  if (action === 'toggle-sessions') {
+    const k = el.dataset.key;
+    if (state.expanded.has(k)) state.expanded.delete(k); else state.expanded.add(k);
+    render();
+  }
   if (action === 'sheet-close') closeSheet();
   if (action === 'sheet-done') {
     closeSheet(); // the sheet is in the top layer — close it so the undo toast is visible
