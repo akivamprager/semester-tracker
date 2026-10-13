@@ -596,7 +596,7 @@ document.body.addEventListener('click', async (e) => {
     render();
     document.querySelector('.task-form input[name=title]')?.focus();
   }
-  if (action === 'cancel-edit') { state.editing = null; render(); }
+  if (action === 'cancel-edit') { state.editing = null; render(); if (reloadPending) reloadWhenSafe(); }
   if (action === 'delete-task') {
     if (!confirm('למחוק את המטלה?')) return;
     state.editing = null;
@@ -671,6 +671,7 @@ document.body.addEventListener('submit', (e) => {
   const id = form.dataset.id === 'new' ? 'u' + Date.now().toString(36) : form.dataset.id;
   state.editing = null;
   put(taskDataKey(id), { s: 'set', d });
+  if (reloadPending) reloadWhenSafe();
 });
 
 document.body.addEventListener('input', (e) => {
@@ -1055,9 +1056,82 @@ placeNav();
 async function loadSemester() {
   const id = localStorage.getItem(LS_SEMESTER) || state.index.default;
   const entry = state.index.semesters.find((s) => s.id === id) || state.index.semesters[0];
-  state.sem = await (await fetch(`semesters/${entry.file}`, { cache: 'no-cache' })).json();
+  const text = await (await fetch(`semesters/${entry.file}`, { cache: 'no-cache' })).text();
+  state.semText = text;
+  state.sem = JSON.parse(text);
   document.getElementById('title').textContent = state.sem.name;
 }
+
+// ---------- staying up to date without ⌘R ----------
+// Data (semester file) is refreshed in place; new app code arrives as a new service worker,
+// after which the page reloads at a safe moment, keeping the tab and scroll position.
+let swReg = null;
+let reloadPending = false;
+const RESTORE_KEY = 'tracker.restore';
+
+const busy = () => !!state.editing || !!document.activeElement?.closest?.('input, textarea, select');
+
+async function refreshData() {
+  try {
+    const index = await (await fetch('semesters/index.json', { cache: 'no-cache' })).json();
+    const id = localStorage.getItem(LS_SEMESTER) || index.default;
+    const entry = index.semesters.find((x) => x.id === id) || index.semesters[0];
+    const text = await (await fetch(`semesters/${entry.file}`, { cache: 'no-cache' })).text();
+    state.index = index;
+    if (text !== state.semText) {
+      state.semText = text;
+      state.sem = JSON.parse(text);
+      document.getElementById('title').textContent = state.sem.name;
+      if (!busy()) render();
+    }
+  } catch { /* offline: keep what we have */ }
+}
+
+function checkForUpdates() {
+  if (!navigator.onLine) return;
+  swReg?.update().catch(() => {});
+  refreshData();
+}
+
+function reloadNow() {
+  sessionStorage.setItem(RESTORE_KEY, JSON.stringify({ tab: state.tab, horizon: state.horizon, y: scrollY }));
+  location.reload();
+}
+
+// Called when a new version has taken over. Reload right away if nobody is looking,
+// otherwise after a short notice — but never while typing or editing a task.
+function reloadWhenSafe() {
+  reloadPending = true;
+  if (busy()) return; // retried on the next check / when editing ends
+  if (document.visibilityState === 'hidden') { reloadNow(); return; }
+  toast('🔄 מתעדכן לגרסה חדשה…', { ms: 1500 });
+  setTimeout(() => (busy() ? null : reloadNow()), 1200);
+}
+
+function restoreAfterReload() {
+  const saved = sessionStorage.getItem(RESTORE_KEY);
+  if (!saved) return;
+  sessionStorage.removeItem(RESTORE_KEY);
+  try {
+    const { tab, horizon, y } = JSON.parse(saved);
+    if (TABS.includes(tab)) state.tab = tab;
+    if (horizon) state.horizon = horizon;
+    render();
+    requestAnimationFrame(() => scrollTo(0, y || 0));
+  } catch { /* ignore */ }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && reloadPending && !state.editing) reloadNow();
+  if (document.visibilityState === 'visible') checkForUpdates();
+});
+window.addEventListener('focus', checkForUpdates);
+window.addEventListener('online', checkForUpdates);
+setInterval(() => {
+  if (document.visibilityState !== 'visible') return;
+  if (reloadPending) reloadWhenSafe();
+  else checkForUpdates();
+}, 5 * 60 * 1000);
 
 async function boot() {
   state.index = await (await fetch('semesters/index.json', { cache: 'no-cache' })).json();
@@ -1066,19 +1140,17 @@ async function boot() {
     .catch(() => null);
   await loadSemester();
   render();
+  restoreAfterReload();
   navigator.storage?.persist?.();
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
-    // When a new version takes over, reload once so all files come from the same version.
+    // When a new version takes over, reload (at a safe moment) so all files match.
     const hadController = !!navigator.serviceWorker.controller;
-    let reloaded = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (hadController && !reloaded && !state.editing) { reloaded = true; location.reload(); }
+      if (hadController && !reloadPending) reloadWhenSafe();
     });
-    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') reg.update().catch(() => {});
-      });
-    }).catch(() => {});
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+      .then((reg) => { swReg = reg; })
+      .catch(() => {});
   }
   runSync();
   handleLaunchedFiles();
