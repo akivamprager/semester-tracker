@@ -224,23 +224,47 @@ function viewTodo(courses, { withSoon = true } = {}) {
       <h2>מטלות ובחינות קרובות <button class="link" data-tab-link="tasks">לכל המשימות</button></h2>
       ${soon.map((t) => taskRow(t, courses)).join('')}
     </section>` : '';
+  // Sessions running right now (any group) whose material isn't marked done yet — these can
+  // be checked off while sitting in class, before they count as "held".
+  const liveByCourse = new Map();
+  const runningKeys = new Set(); // any unit being taught right now (also ones already held elsewhere)
+  for (const x of sessionsBetween(courses, t0, new Date(+t0 + 1))) {
+    if (x.occ.start > t0 || statusOf(x.unit.key)) continue;
+    runningKeys.add(x.unit.key);
+    if (x.unit.available) continue;
+    const list = liveByCourse.get(x.course.code) || [];
+    const same = list.findIndex((y) => y.unit.key === x.unit.key);
+    if (same < 0) list.push(x);
+    else if (x.mine) list[same] = x; // prefer the user's own group when several run at once
+    liveByCourse.set(x.course.code, list);
+  }
+
   const cards = courses.map((c) => {
+    const live = liveByCourse.get(c.code) || [];
+    const liveKeys = new Set(live.map((x) => x.unit.key));
     const owed = c.types
       .flatMap((t) => t.units.map((u) => ({ ...u, label: t.label, mine: t.mine })))
       .filter((u) => u.available && !statusOf(u.key))
       .sort((a, b) => a.first.end - b.first.end);
     total += owed.length;
     const upcoming = c.types
-      .map((t) => ({ t, u: t.units.find((u) => !u.available) }))
+      .map((t) => ({ t, u: t.units.find((u) => !u.available && !liveKeys.has(u.key)) }))
       .filter((x) => x.u);
     const next = upcoming
       .map(({ t, u }) => `${t.label} ${u.n}${u.topic ? ` (${esc(u.topic)})` : ''}: ${fmt(u.first.start)} (${durLabel(u.first)}) · ${u.first.group.lecturer ? esc(u.first.group.lecturer) : 'קב׳ ' + grp(u.first.group.code)}${roomText(u.first)}`);
-    if (!owed.length && !next.length) return null;
-    // Courses with something to catch up on first (longest-waiting first),
-    // then the rest by their next session.
-    const sortKey = owed.length
-      ? [0, owed[0].first.end]
+    if (!owed.length && !next.length && !live.length) return null;
+    // Courses with something to catch up on (or in class right now) first, longest-waiting
+    // first; then the rest by their next session.
+    const sortKey = owed.length || live.length
+      ? [0, Math.min(...owed.map((u) => +u.first.end), ...live.map((x) => +x.occ.start))]
       : [1, Math.min(...upcoming.map(({ u }) => u.first.start))];
+    const liveRows = live.map((x) => `<div class="unit live">
+        <div class="name">${x.type.label} ${x.unit.n}${durTag(x.occ)} <span class="pill live">● מתקיים עכשיו</span>${x.unit.topic ? ` · <span class="topic">${esc(x.unit.topic)}</span>` : ''}</div>
+        <div class="meta">${hm(x.occ.start)}–${hm(x.occ.end)} · ${x.group.lecturer ? esc(x.group.lecturer) + ' · ' : ''}קב׳ ${grp(x.group.code)}${roomText(x.occ)}${x.mine ? ' · הקבוצה שלך' : ''}</div>
+        <div class="actions">
+          <button class="attend" data-action="mark" data-key="${x.unit.key}" data-s="done" data-label="${esc(`${c.short} · ${x.type.label} ${x.unit.n}`)}">✓ סיימתי</button>
+        </div>
+      </div>`).join('');
     const rows = owed.map((u) => {
       const firstIsMine = u.first.group === u.mine;
       let where;
@@ -252,7 +276,7 @@ function viewTodo(courses, { withSoon = true } = {}) {
           : 'אין מפגש מקביל בקבוצה שלך (בגלל חג/ביטול)';
       }
       return `<div class="unit">
-        <div class="name">${u.label} ${u.n}${durTag(u.own || u.first)}${u.topic ? ` · <span class="topic">${esc(u.topic)}</span>` : ''}</div>
+        <div class="name">${u.label} ${u.n}${durTag(u.own || u.first)}${runningKeys.has(u.key) ? ' <span class="pill live">● מתקיים עכשיו</span>' : ''}${u.topic ? ` · <span class="topic">${esc(u.topic)}</span>` : ''}</div>
         <div class="meta">${where}</div>
         <div class="actions">
           <button class="attend" data-action="mark" data-key="${u.key}" data-s="done" data-label="${esc(`${c.short} · ${u.label} ${u.n}`)}">✓ סיימתי</button>
@@ -260,8 +284,8 @@ function viewTodo(courses, { withSoon = true } = {}) {
       </div>`;
     }).join('');
     return { sortKey, html: `<section class="card course" ${courseStyle(c)}>
-      <h2>${courseTitle(c)} <small>${owed.length ? owed.length + ' להשלים' : 'מעודכן ✓'}</small></h2>
-      ${rows}
+      <h2>${courseTitle(c)} <small>${owed.length ? owed.length + ' להשלים' : live.length ? '● עכשיו' : 'מעודכן ✓'}</small></h2>
+      ${liveRows}${rows}
       ${next.length ? `<div class="upcoming">הבא: ${next.join('<br>הבא: ')}</div>` : ''}
       ${owed.length > 1 ? `<button class="link" data-action="mark-all" data-course="${c.code}">סמן הכל כבוצע</button>` : ''}
     </section>` };
@@ -356,6 +380,7 @@ function slotRow(x) {
       <div class="name">${c.emoji} <bdi>${esc(c.short)}</bdi> · ${x.type.label} ${x.unit.n}${durTag(x.occ)}${x.unit.topic ? ` <span class="topic">${esc(x.unit.topic)}</span>` : ''}</div>
       <div class="meta">${x.group.lecturer ? esc(x.group.lecturer) + ' · ' : ''}קב׳ ${grp(x.group.code)}${roomText(x.occ)}</div>
       ${tags ? `<div class="pills">${tags}</div>` : ''}
+      ${live ? `<button class="mini-done" data-action="mark" data-key="${x.unit.key}" data-s="done" data-label="${esc(`${c.short} · ${x.type.label} ${x.unit.n}`)}">✓ סיימתי</button>` : ''}
     </div>
   </div>`;
 }

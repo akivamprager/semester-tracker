@@ -299,3 +299,12 @@ input.switch:checked { background: var(--ok); }
 input.switch:checked::after { transform: translateX(-18px); } /* RTL: knob moves to the left = on */
 input.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 #prayer-card .switch-row + .check-row { margin-top: 12px; }
+
+/* Lesson in progress: can be checked off now */
+.unit.live .name .pill { vertical-align: middle; margin-inline-start: 4px; }
+.mini-done {
+  margin-top: 6px; padding: 5px 12px; border-radius: 9px; font: inherit; font-size: 13px;
+  border: 1px solid var(--ok); color: var(--ok); background: transparent; cursor: pointer;
+}
+@media (hover: hover) { .mini-done:hover { background: var(--ok); color: #fff; } }
+.mini-done:active { background: var(--ok); color: #fff; transform: scale(0.97); }
