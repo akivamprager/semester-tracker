@@ -2,11 +2,14 @@
   --bg: #f3f5f9;
   --card: #fff;
   --text: #1c2230;
-  --muted: #6b7385;
+  --muted: #5f6779; /* 5.2:1 on --bg */
   --accent: #1f5fd1;
-  --ok: #1e8e4f;
-  --warn: #b5551b;
+  --ok: #15803d; /* white text on it: 5.0:1 */
+  --warn: #c2410c; /* overdue / estimated */
   --line: #e3e7ef;
+  --badge: #dc2626; /* count badges */
+  --live: #e11d48; /* "happening now" */
+  --on-color: #fff; /* text on solid accent/ok/badge backgrounds */
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -19,6 +22,9 @@
     --ok: #4cc386;
     --warn: #f0965a;
     --line: #2a3244;
+    --badge: #f87171;
+    --live: #fb7185;
+    --on-color: #0b1220; /* light-on-dark accents need dark text (≥7:1) */
   }
 }
 * { box-sizing: border-box; }
@@ -42,10 +48,10 @@ nav button {
   flex: 1; padding: 10px 0; border: none; border-radius: 10px;
   background: var(--card); color: var(--text); font-size: 15px;
 }
-nav button.active { background: var(--accent); color: #fff; }
+nav button.active { background: var(--accent); color: var(--on-color); }
 .badge {
   display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 10px;
-  background: var(--warn); color: #fff; font-size: 12px;
+  background: var(--badge); color: var(--on-color); font-size: 12px; font-weight: 700;
 }
 .badge:empty { display: none; }
 main { padding: 0 12px 24px; max-width: 640px; margin: 0 auto; }
@@ -66,7 +72,7 @@ main { padding: 0 12px 24px; max-width: 640px; margin: 0 auto; }
   background: transparent; color: var(--text); font-size: 14px;
 }
 .actions button.attend { border-color: var(--ok); color: var(--ok); }
-.btn.primary { background: var(--accent); color: #fff; border: none; }
+.btn.primary { background: var(--accent); color: var(--on-color); border: none; }
 .link { background: none; border: none; color: var(--accent); font-size: 13px; padding: 0; }
 .chip {
   border: none; border-radius: 14px; padding: 5px 10px; font-size: 12px;
@@ -132,15 +138,15 @@ button, summary, .task-check { cursor: pointer; -webkit-tap-highlight-color: tra
   transition: background-color 0.15s, color 0.15s, border-color 0.15s, transform 0.08s, box-shadow 0.15s;
 }
 @media (hover: hover) {
-  .actions button.attend:hover { background: var(--ok); color: #fff; box-shadow: 0 2px 8px color-mix(in srgb, var(--ok) 35%, transparent); }
+  .actions button.attend:hover { background: var(--ok); color: var(--on-color); box-shadow: 0 2px 8px color-mix(in srgb, var(--ok) 35%, transparent); }
   .btn:hover { border-color: var(--accent); color: var(--accent); }
-  .btn.primary:hover { color: #fff; filter: brightness(1.1); }
-  .btn.danger:hover { background: var(--warn); color: #fff; }
+  .btn.primary:hover { color: var(--on-color); filter: brightness(1.1); }
+  .btn.danger:hover { background: var(--warn); color: var(--on-color); }
   nav button:not(.active):hover { background: color-mix(in srgb, var(--accent) 12%, var(--card)); }
   .link:hover { text-decoration: underline; }
   .chip:hover { color: var(--accent); }
 }
-.actions button.attend:active { background: var(--ok); color: #fff; transform: scale(0.97); }
+.actions button.attend:active { background: var(--ok); color: var(--on-color); transform: scale(0.97); }
 .btn:active, nav button:active { transform: scale(0.97); }
 button:disabled { opacity: 0.6; cursor: default; }
 
@@ -205,7 +211,7 @@ body.dragging::after {
   flex: 1; border: none; background: transparent; color: var(--text); padding: 7px 0;
   border-radius: 9px; font-size: 14px; font-family: inherit;
 }
-.segmented button.active { background: var(--accent); color: #fff; }
+.segmented button.active { background: var(--accent); color: var(--on-color); }
 .slot {
   display: flex; gap: 12px; padding: 10px 10px 10px 0; border-top: 1px solid var(--line);
   border-inline-start: 4px solid var(--c); padding-inline-start: 10px; margin-inline-start: -4px;
@@ -306,13 +312,13 @@ input.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
   margin-top: 6px; padding: 5px 12px; border-radius: 9px; font: inherit; font-size: 13px;
   border: 1px solid var(--ok); color: var(--ok); background: transparent; cursor: pointer;
 }
-@media (hover: hover) { .mini-done:hover { background: var(--ok); color: #fff; } }
-.mini-done:active { background: var(--ok); color: #fff; transform: scale(0.97); }
+@media (hover: hover) { .mini-done:hover { background: var(--ok); color: var(--on-color); } }
+.mini-done:active { background: var(--ok); color: var(--on-color); transform: scale(0.97); }
 
 /* "Happening now": blinking red dot */
 .live-dot {
   display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-  background: #e11d48; margin-inline-end: 5px; vertical-align: 0.05em;
+  background: var(--live); margin-inline-end: 5px; vertical-align: 0.05em;
   box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.6);
   animation: live-blink 1.2s ease-in-out infinite;
 }
@@ -322,5 +328,15 @@ input.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
 }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
 /* the label next to the dot: red too, to match */
-.pill.live { color: #e11d48; background: color-mix(in srgb, #e11d48 12%, transparent); }
-.slot.live .slot-time { color: #e11d48; }
+.pill.live { color: color-mix(in srgb, var(--live) 75%, var(--text)); background: color-mix(in srgb, var(--live) 12%, transparent); }
+.slot.live .slot-time { color: var(--live); }
+
+/* ---- Readability pass ---- */
+/* Count badge on the active (blue) tab: inverted so it doesn't melt into the tab. */
+nav button.active .badge, .col-title .badge { background: var(--on-color); color: var(--accent); }
+.col-title .badge { background: var(--badge); color: var(--on-color); }
+/* Course-colored text: 55% course color + 45% text color → ≥5:1 in light and dark. */
+.course-tag.colored, .code-badge, .pill.mine {
+  color: color-mix(in srgb, var(--c) 55%, var(--text));
+}
+.code-badge { border-color: color-mix(in srgb, var(--c) 55%, transparent); }
