@@ -85,10 +85,10 @@ if (!summary && !force) {
     try {
       await webpush.sendNotification(sub, payload, { TTL: 6 * 3600, urgency: 'normal' });
       alive.push(sub);
-      console.log('Sent to', new URL(sub.endpoint).host);
+      console.log('Sent to', sub.label || '(unnamed device)', '—', new URL(sub.endpoint).host);
     } catch (e) {
       // 404/410: the device unsubscribed or the subscription expired — drop it.
-      if (e.statusCode === 404 || e.statusCode === 410) console.log('Dropping expired subscription');
+      if (e.statusCode === 404 || e.statusCode === 410) console.log('Dropping expired subscription:', sub.label || '(unnamed device)');
       else { alive.push(sub); console.error('Send failed:', e.statusCode, e.body || e.message); }
     }
   }

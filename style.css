@@ -412,3 +412,17 @@ input.switch { transition: background-color 0.2s, box-shadow 0.15s; }
   summary:hover { text-decoration: underline; }
   #toast button:hover { text-decoration: underline; }
 }
+
+/* ---- Touch / iPad ---- */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+button, a, summary, label, input, select { touch-action: manipulation; } /* no double-tap zoom / tap delay */
+/* iOS zooms into fields with text under 16px when focused */
+@media (pointer: coarse) {
+  input[type=text], input[type=password], input[type=search], input[type=date], input[type=time], select { font-size: 16px; }
+}
+/* Tablets in portrait (e.g. iPad 820px): use the width instead of a phone-size column */
+@media (min-width: 700px) and (max-width: 999px) {
+  main { max-width: 760px; }
+  nav { max-width: 760px; margin-inline: auto; }
+  .sched-days { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; align-items: start; }
+}

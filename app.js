@@ -1099,7 +1099,7 @@ async function renderPushCard() {
   const sub = reg && (await reg.pushManager.getSubscription());
   let body;
   if (!reg) {
-    body = `<p class="help">ההתראות עובדות רק כשהאפליקציה פתוחה ממסך הבית (באייפון: שתף → הוסף למסך הבית, ולפתוח משם).</p>`;
+    body = `<p class="help">ההתראות עובדות רק כשהאפליקציה פתוחה ממסך הבית. באייפד/אייפון: בספארי או בכרום ← שתף ← "הוסף למסך הבית", ולפתוח משם (iPadOS 16.4 ומעלה).</p>`;
   } else if (!pushConfig) {
     body = '<p class="help">ההתראות עוד לא הוגדרו בשרת (חסר push-config.json).</p>';
   } else if (!store.getToken()) {
@@ -1118,8 +1118,11 @@ async function renderPushCard() {
 }
 
 async function pushOn() {
+  // Ask first: Safari (iPhone/iPad) only allows the prompt directly from the tap,
+  // before any other await.
+  const permission = await Notification.requestPermission();
   const reg = await pushRegistration();
-  if ((await Notification.requestPermission()) !== 'granted') {
+  if (permission !== 'granted') {
     alert('לא ניתנה הרשאה להתראות. אפשר לשנות בהגדרות המכשיר.');
     return;
   }
@@ -1127,7 +1130,21 @@ async function pushOn() {
     userVisibleOnly: true,
     applicationServerKey: b64urlToBytes(pushConfig.vapidPublicKey),
   });
-  await store.addPushSubscription(sub.toJSON());
+  await store.addPushSubscription({ ...sub.toJSON(), label: deviceLabel(), added: new Date().toISOString().slice(0, 10) });
+}
+
+// "Android · Chrome (app)", "Mac · Chrome (app)", "iPad · Safari (app)" — so the morning
+// job's log says which device got the notification.
+function deviceLabel() {
+  const ua = navigator.userAgent;
+  // iPadOS Safari/Chrome identify as "Macintosh" — a touchscreen "Mac" is an iPad.
+  const ipad = /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const os = /Android/.test(ua) ? 'Android' : ipad ? 'iPad' : /iPhone/.test(ua) ? 'iPhone'
+    : /Mac OS X/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : 'device';
+  const browser = /Edg\/|EdgiOS/.test(ua) ? 'Edge' : /Chrome\/|CriOS/.test(ua) ? 'Chrome'
+    : /Firefox\/|FxiOS/.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : '';
+  const installed = matchMedia('(display-mode: standalone), (display-mode: window-controls-overlay)').matches ? ' (app)' : '';
+  return [os, browser].filter(Boolean).join(' · ') + installed;
 }
 
 async function pushOff() {
