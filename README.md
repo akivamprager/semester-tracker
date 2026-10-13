@@ -60,3 +60,10 @@ Settings → "📆 יומן": publishes `calendar.ics` (built by `calendar.js`: 
 with rooms and moves, deadlines, exams; ✓ on done items) to the sync gist. Subscribe to its
 raw URL in Google Calendar (→ Android widget/reminders) or Apple Calendar. The app updates
 it on every sync; the GitHub Action refreshes it daily and when `semesters/` changes.
+
+## Mincha / Maariv
+`prayer.js` picks, per campus day, the minyan from the semester's `minyanim` list that clashes
+least with the user's own sessions (Settings → 🙏 switch). Sunset-relative minyanim use the
+semester's `sunsets` table (Jerusalem, with elevation, from Hebcal — refresh it for a new
+semester with `https://www.hebcal.com/zmanim?cfg=json&geonameid=281184&ue=on&start=…&end=…`);
+days missing from the table fall back to the built-in calculation.

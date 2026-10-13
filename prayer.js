@@ -14,9 +14,11 @@ export const prayerPrefs = (progress) => ({ ...PRAYER_DEFAULTS, ...(progress[PRA
 
 export const PRAYER_LABELS = { mincha: 'מנחה', maariv: 'ערבית' };
 
-// Sunset (zenith 90.833°) — NOAA solar calculator equations; accurate to ~1 min.
-// Default location: Givat Ram campus.
-export function sunset(date, lat = 31.7717, lon = 35.1981) {
+// Sunset — NOAA solar calculator equations, plus the horizon dip for the observer's
+// elevation (Jerusalem's published sunset is ~5 min later than at sea level; checked against
+// 18:14 on 13.10.2026). Default location: Givat Ram campus, ~780 m.
+export function sunset(date, lat = 31.7717, lon = 35.1981, elevation = 780) {
+  const zenith = 90.833 + 0.0347 * Math.sqrt(elevation);
   const rad = Math.PI / 180;
   const day = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
   const jc = (day / 864e5 + 2440587.5 + 0.5 - 2451545) / 36525; // Julian century at 12:00 UTC
@@ -34,10 +36,19 @@ export function sunset(date, lat = 31.7717, lon = 35.1981) {
   const eqTime = 4 / rad * (y * Math.sin(2 * L0 * rad) - 2 * e * Math.sin(M * rad)
     + 4 * e * y * Math.sin(M * rad) * Math.cos(2 * L0 * rad)
     - 0.5 * y * y * Math.sin(4 * L0 * rad) - 1.25 * e * e * Math.sin(2 * M * rad));
-  const ha = Math.acos(Math.cos(90.833 * rad) / (Math.cos(lat * rad) * Math.cos(decl))
+  const ha = Math.acos(Math.cos(zenith * rad) / (Math.cos(lat * rad) * Math.cos(decl))
     - Math.tan(lat * rad) * Math.tan(decl)) / rad;
   const minutesUtc = 720 - 4 * lon - eqTime + 4 * ha;
   return new Date(day + minutesUtc * 60e3);
+}
+
+// Sunset for a date: the semester's published table (sem.sunsets, from Hebcal) when it has
+// the day, otherwise the calculation above.
+export function sunsetFor(sem, date) {
+  const hhmm = sem.sunsets?.[ymd(date)];
+  if (!hhmm) return sunset(date);
+  const [h, m] = hhmm.split(':').map(Number);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), h, m);
 }
 
 // Israel winter time (UTC+2) vs. summer time (UTC+3), from the device/runner time zone.
@@ -64,10 +75,10 @@ function busyParts(o) {
 const overlapMin = (a0, a1, b0, b1) => Math.max(0, (Math.min(+a1, +b1) - Math.max(+a0, +b0)) / 60e3);
 
 // When a minyan from the list takes place on `date` (or null if not that day).
-function minyanTime(m, date) {
+function minyanTime(sem, m, date) {
   if (m.winterOnly && !isWinterTime(date)) return null;
   if (m.sunsetOffset != null) {
-    const s = addMin(sunset(date), m.sunsetOffset);
+    const s = addMin(sunsetFor(sem, date), m.sunsetOffset);
     s.setMinutes(Math.floor(s.getMinutes() / 5) * 5, 0, 0); // shuls post round times
     return s;
   }
@@ -95,7 +106,7 @@ export function planDay(sem, courses, date, prefs) {
     (sem.minyanim || [])
       .filter((m) => m.prayer === prayer)
       .map((m) => {
-        const start = minyanTime(m, date);
+        const start = minyanTime(sem, m, date);
         if (!start) return null;
         const end = addMin(start, m.minutes || 15);
         const from = addMin(start, -prefs.walk);
@@ -113,7 +124,7 @@ export function planDay(sem, courses, date, prefs) {
   if (mincha.length) plan.push({ ...mincha[0], alternatives: mincha.slice(1) });
   // Maariv: only after sunset (no early "plag" minyanim), and only if it starts soon
   // after the last session ends.
-  const sunsetToday = sunset(date);
+  const sunsetToday = sunsetFor(sem, date);
   const maariv = options('maariv')
     .filter((o) => o.start >= sunsetToday)
     .filter((o) => o.start >= last && o.start <= addMin(last, prefs.maarivMaxWait))

@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { computeUnits } from '../schedule.js';
-import { planDay, sunset, PRAYER_DEFAULTS, PRAYER_PREFS_KEY } from '../prayer.js';
+import { planDay, sunset, sunsetFor, PRAYER_DEFAULTS, PRAYER_PREFS_KEY } from '../prayer.js';
 import { dailySummary } from '../summary.js';
 import { buildCalendar } from '../calendar.js';
 import { parseIcs } from '../ics.js';
@@ -15,13 +15,13 @@ const hm = (d) => d.toTimeString().slice(0, 5);
 const plan = (y, m, d, prefs = on) =>
   planDay(sem, courses, new Date(y, m - 1, d), prefs).map((p) => `${p.prayer} ${hm(p.start)} ${p.minyan.id}`);
 
-test('sunset in Jerusalem (NOAA), within a couple of minutes', () => {
-  const near = (d, hhmm) => {
+test('sunset in Jerusalem (with elevation), matches the published time', () => {
+  const near = (d, hhmm, tol = 1) => {
     const [h, m] = hhmm.split(':').map(Number);
-    assert.ok(Math.abs(d.getHours() * 60 + d.getMinutes() - (h * 60 + m)) <= 3, `${hm(d)} vs ${hhmm}`);
+    assert.ok(Math.abs(d.getHours() * 60 + d.getMinutes() - (h * 60 + m)) <= tol, `${hm(d)} vs ${hhmm}`);
   };
-  near(sunset(new Date(2026, 11, 21)), '16:38'); // winter solstice
-  near(sunset(new Date(2027, 5, 21)), '19:47'); // summer solstice (IDT)
+  near(sunset(new Date(2026, 9, 13)), '18:14'); // published for Jerusalem on 13.10.2026
+  near(sunset(new Date(2026, 11, 21)), '16:44', 2); // winter solstice
 });
 
 test('weekday plans', () => {
@@ -55,6 +55,17 @@ test('Maariv is never before sunset', () => {
   // (summer time, sunset ≈18:00 → before, excluded) — with classes ending right before it.
   const early = { ...sem, minyanim: [...sem.minyanim, { id: 'maariv-1750', prayer: 'maariv', time: '17:50', place: 'x', minutes: 10 }] };
   const ids = (y, m, d) => planDay(early, courses, new Date(y, m - 1, d), on).map((p) => p.minyan.id);
-  assert.ok(ids(2026, 11, 8).includes('maariv-1750')); // 17:50 > sunset (≈16:45)
-  assert.ok(!ids(2026, 10, 18).includes('maariv-1750')); // 17:50 < sunset (≈18:03)
+  assert.ok(ids(2026, 11, 8).includes('maariv-1750')); // 17:50 > sunset (≈16:50)
+  assert.ok(!ids(2026, 10, 18).includes('maariv-1750')); // 17:50 < sunset (≈18:08)
+});
+
+test('published sunset table (Hebcal) is used and agrees with the calculation', () => {
+  assert.equal(Object.keys(sem.sunsets).length, 97);
+  assert.equal(sunsetFor(sem, new Date(2026, 9, 13)).toTimeString().slice(0, 5), '18:14');
+  for (const [day, hhmm] of Object.entries(sem.sunsets)) {
+    const [y, m, d] = day.split('-').map(Number);
+    const calc = sunset(new Date(y, m - 1, d));
+    const [h, mi] = hhmm.split(':').map(Number);
+    assert.ok(Math.abs(calc.getHours() * 60 + calc.getMinutes() - (h * 60 + mi)) <= 1, `${day}: ${hhmm} vs calc`);
+  }
 });
