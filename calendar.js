@@ -2,7 +2,8 @@
 // Written to the sync gist as calendar.ics (by the app on sync and by tools/morning.mjs),
 // so Google Calendar / Apple Calendar can subscribe to its raw URL.
 // Output is deterministic (no "now" inside) so it's only re-uploaded when it changes.
-import { computeUnits, mergeTasks } from './schedule.js';
+import { computeUnits, mergeTasks, ymd } from './schedule.js';
+import { planSemester, prayerPrefs, PRAYER_LABELS } from './prayer.js';
 
 export const CALENDAR_FILE = 'calendar.ics';
 
@@ -54,6 +55,17 @@ export function buildCalendar(sem, progress) {
         ].filter(Boolean));
       }
     }
+  }
+
+  for (const p of planSemester(sem, courses, prayerPrefs(progress))) {
+    add([
+      `UID:prayer-${ymd(p.start)}-${p.prayer}@semester-tracker`,
+      `DTSTART:${utc(p.start)}`,
+      `DTEND:${utc(p.end)}`,
+      `SUMMARY:${text(`🙏 ${PRAYER_LABELS[p.prayer]}${p.minyan.sunsetOffset != null ? ' (≈)' : ''}`)}`,
+      `LOCATION:${text(p.minyan.place)}`,
+      p.minyan.note ? `DESCRIPTION:${text(p.minyan.note)}` : null,
+    ].filter(Boolean));
   }
 
   const tasks = mergeTasks(sem, courses, progress, after);

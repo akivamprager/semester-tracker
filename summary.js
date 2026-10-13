@@ -3,6 +3,7 @@
 // (tools/morning.mjs) use it.
 import { computeUnits, mergeTasks, DAY_LABELS } from './schedule.js';
 import { badgeCount } from './badge.js';
+import { planDay, prayerPrefs, PRAYER_LABELS } from './prayer.js';
 
 const hm = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
@@ -36,6 +37,10 @@ export function dailySummary(sem, progress, now) {
         }
       }
     }
+  }
+  for (const p of planDay(sem, courses, now, prayerPrefs(progress))) {
+    const place = p.minyan.place.replace(/.*\((B\d+)\).*/, '$1');
+    today.push({ start: p.start, text: `🙏 ${PRAYER_LABELS[p.prayer]} ${p.minyan.sunsetOffset != null ? '≈' : ''}${hm(p.start)} (${place})` });
   }
   if (today.length) {
     lines.push('📅 היום: ' + today.sort((a, b) => a.start - b.start).map((x) => x.text).join(' · '));

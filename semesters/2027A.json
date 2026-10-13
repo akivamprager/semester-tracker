@@ -332,6 +332,58 @@
    "ignore": true
   }
  ],
+ "minyanim": [
+  {
+   "id": "mincha-1330",
+   "prayer": "mincha",
+   "time": "13:30",
+   "place": "הספריה הלאומית",
+   "kind": "רגיל",
+   "minutes": 15
+  },
+  {
+   "id": "mincha-1350",
+   "prayer": "mincha",
+   "time": "13:50",
+   "place": "חדר תפילה ליד האקווריום (B125)",
+   "kind": "קצר",
+   "minutes": 10
+  },
+  {
+   "id": "mincha-1545",
+   "prayer": "mincha",
+   "time": "15:45",
+   "place": "הספריה הלאומית",
+   "kind": "רגיל",
+   "minutes": 15
+  },
+  {
+   "id": "mincha-sunset",
+   "prayer": "mincha",
+   "sunsetOffset": -15,
+   "place": "הספריה הלאומית",
+   "kind": "רגיל",
+   "minutes": 15,
+   "note": "15 דקות לפני השקיעה — השעה משוערת, מתעדכנת כל שבוע בבית הכנסת"
+  },
+  {
+   "id": "maariv-1800",
+   "prayer": "maariv",
+   "time": "18:00",
+   "place": "הספריה הלאומית",
+   "minutes": 10,
+   "winterOnly": true,
+   "note": "שעון חורף"
+  },
+  {
+   "id": "maariv-1900",
+   "prayer": "maariv",
+   "time": "19:00",
+   "place": "מול האקווריום",
+   "minutes": 10,
+   "note": "לפי רישום"
+  }
+ ],
  "courses": [
   {
    "code": "80430",

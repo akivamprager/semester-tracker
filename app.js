@@ -2,6 +2,7 @@ import { computeUnits, mergeTasks, sessionsBetween, DAY_LABELS } from './schedul
 import { dailySummary } from './summary.js';
 import { badgeCount, badgePrefs, PREFS_KEY } from './badge.js';
 import { buildCalendar } from './calendar.js';
+import { planDay, prayerPrefs, PRAYER_PREFS_KEY, PRAYER_LABELS } from './prayer.js';
 import { parseIcs, icsTaskChanges } from './ics.js';
 import * as store from './sync.js';
 
@@ -298,7 +299,14 @@ function openSessions(courses, to) {
   const exams = allTasks(courses)
     .filter((t) => t.kind === 'exam' && t.dueDate && t.dueDate >= t0 && t.dueDate < to)
     .map((t) => ({ exam: t, course: courses.find((c) => c.code === t.course), start: t.dueDate }));
-  return [...sessions, ...exams].sort((a, b) => a.start - b.start);
+  const prayers = [];
+  const prefs = prayerPrefs(state.progress);
+  if (prefs.enabled) {
+    for (let d = startOfDay(t0); d < to; d.setDate(d.getDate() + 1)) {
+      prayers.push(...planDay(state.sem, courses, new Date(d), prefs).filter((p) => p.end > t0).map((p) => ({ prayer: p, start: p.start })));
+    }
+  }
+  return [...sessions, ...exams, ...prayers].sort((a, b) => a.start - b.start);
 }
 
 function horizonEnd() {
@@ -307,7 +315,26 @@ function horizonEnd() {
   return end;
 }
 
+function prayerRow({ prayer: p }) {
+  const t0 = now();
+  const live = p.start <= t0 && t0 < p.end;
+  const m = p.minyan;
+  const clash = (o) => (o.overlap ? `חופף ${Math.round(o.overlap)} דק׳` : 'פנוי');
+  const alts = p.alternatives
+    .map((a) => `${a.minyan.sunsetOffset != null ? '≈' : ''}${hm(a.start)} ${esc(a.minyan.place)} (${clash(a)})`).join(' · ');
+  return `<div class="slot prayer ${live ? 'live' : ''}" style="--c:#64748b">
+    <div class="slot-time">${m.sunsetOffset != null ? '≈' : ''}${hm(p.start)}</div>
+    <div class="slot-body">
+      <div class="name">🙏 ${PRAYER_LABELS[p.prayer]}${m.kind ? ` <span class="dur">${esc(m.kind)}</span>` : ''}</div>
+      <div class="meta">📍 ${esc(m.place)}${m.note ? ` · ${esc(m.note)}` : ''}</div>
+      <div class="pills"><span class="pill mine">${p.overlap ? `הכי פחות מתנגש (${Math.round(p.overlap)} דק׳)` : 'מתאים למערכת שלך'}</span>${live ? '<span class="pill live">● עכשיו</span>' : ''}</div>
+      ${alts ? `<div class="meta alts">חלופות: ${alts}</div>` : ''}
+    </div>
+  </div>`;
+}
+
 function slotRow(x) {
+  if (x.prayer) return prayerRow(x);
   const c = x.course;
   if (x.exam) {
     return `<div class="slot exam" ${courseStyle(c)}>
@@ -351,7 +378,7 @@ function viewSchedule(courses) {
     </div>`;
   const body = days.size
     ? '<div class="sched-days">' + [...days.entries()].map(([k, items]) => `<section class="card day">
-        <h2>${dayTitle(new Date(k))} <span class="h2-side"><small>${items.filter((x) => !x.exam).length} מפגשים</small>
+        <h2>${dayTitle(new Date(k))} <span class="h2-side"><small>${items.filter((x) => x.occ).length} מפגשים</small>
           <button class="link share-btn" data-action="share-day" data-day="${k}" title="שתף">↗ שתף</button></span></h2>
         ${items.map(slotRow).join('')}
       </section>`).join('') + '</div>'
@@ -364,7 +391,7 @@ function viewSchedule(courses) {
 // One line on the to-do page: how many options today / tomorrow.
 function scheduleStrip(courses) {
   const end = startOfDay(now()); end.setDate(end.getDate() + 2);
-  const list = openSessions(courses, end).filter((x) => !x.exam);
+  const list = openSessions(courses, end).filter((x) => x.occ);
   const today = list.filter((x) => dayDiff(x.start) === 0);
   const tomorrow = list.filter((x) => dayDiff(x.start) === 1);
   if (!list.length) return '';
@@ -439,6 +466,7 @@ function viewSettings() {
   </section>
   <section class="card" id="push-card"><h2>התראת בוקר</h2><p class="help">טוען…</p></section>
   ${badgeCard()}
+  ${prayerCard()}
   ${calendarCard()}
   <section class="card">
     <h2>ייבוא מטלות מהמודל</h2>
@@ -491,6 +519,40 @@ function badgePreview(courses) {
   const { total, parts } = badgeCount(state.sem, courses, state.progress, now());
   const detail = Object.entries(parts).map(([k, n]) => `${BADGE_LABELS[k]} ${n}`).join(' + ');
   return `כרגע: <b>${total}</b>${detail ? ` (${detail})` : ' — התג כבוי'}`;
+}
+
+function prayerCard() {
+  const p = prayerPrefs(state.progress);
+  const toggle = `<label class="switch-row">
+      <span><b>🙏 מנחה וערבית במערכת</b><br>
+        <small>${p.enabled ? 'מוצג במערכת, בהתראת הבוקר וביומן' : 'כבוי — לא מופיע בשום מקום'}</small></span>
+      <input type="checkbox" role="switch" class="switch prayer-pref" data-pref="enabled" ${p.enabled ? 'checked' : ''}
+        aria-label="מנחה וערבית במערכת">
+    </label>`;
+  if (!p.enabled) return `<section class="card" id="prayer-card">${toggle}</section>`;
+
+  const days = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳'];
+  const courses = computeUnits(state.sem, now());
+  const hint = [];
+  const d = startOfDay(now());
+  for (let i = 0; i < 7 && hint.length < 4; i++, d.setDate(d.getDate() + 1)) {
+    const plan = planDay(state.sem, courses, new Date(d), p);
+    if (plan.length) {
+      hint.push(`יום ${DAY_LABELS[d.getDay()]} ${d.getDate()}.${d.getMonth() + 1}: ${plan
+        .map((x) => `${PRAYER_LABELS[x.prayer]} ${x.minyan.sunsetOffset != null ? '≈' : ''}${hm(x.start)} (${x.minyan.place})`).join(' · ')}`);
+    }
+  }
+  return `<section class="card" id="prayer-card">
+    ${toggle}
+    <div class="check-row"><span>בלי תפילות בימים:</span>
+      ${days.map((n, i) => `<label class="day-chip"><input type="checkbox" class="prayer-pref" data-pref="skip" data-day="${i}" ${p.skipDays.includes(i) ? 'checked' : ''}> ${n}</label>`).join('')}
+    </div>
+    ${hint.length ? `<p class="help"><b>השבוע:</b><br>${hint.map(esc).join('<br>')}</p>` : ''}
+    <details><summary>איך נבחר המניין</summary>
+      <p class="help">מנחה: הזמן שהכי פחות מתנגש עם השיעורים שלך באותו יום (הפסקות בין שעות אקדמיות נחשבות פנויות, 5 דק׳ הליכה לכל כיוון).
+        ערבית: רק במניין שאחרי השקיעה, ורק אם השיעור האחרון נגמר עד חצי שעה לפני המניין. מניין "15 דק׳ לפני השקיעה" מחושב לפי שקיעה בגבעת רם ומעוגל — השעה המדויקת בבית הכנסת.</p>
+    </details>
+  </section>`;
 }
 
 function badgeCard() {
@@ -681,6 +743,19 @@ document.body.addEventListener('input', (e) => {
 });
 
 document.body.addEventListener('change', async (e) => {
+  if (e.target.classList.contains('prayer-pref')) {
+    const prefs = { ...prayerPrefs(state.progress) };
+    if (e.target.dataset.pref === 'enabled') prefs.enabled = e.target.checked;
+    else {
+      const day = Number(e.target.dataset.day);
+      prefs.skipDays = e.target.checked ? [...new Set([...prefs.skipDays, day])] : prefs.skipDays.filter((x) => x !== day);
+    }
+    state.progress[PRAYER_PREFS_KEY] = { s: 'set', d: prefs, t: Date.now() };
+    store.saveLocal(state.progress);
+    document.getElementById('prayer-card').outerHTML = prayerCard();
+    scheduleSync();
+    return;
+  }
   if (e.target.classList.contains('badge-pref')) {
     const prefs = { ...badgePrefs(state.progress) };
     const name = e.target.dataset.pref;
@@ -939,7 +1014,9 @@ function shareDayText(dayStart) {
   const from = new Date(Math.max(+dayStart, +now()));
   const list = openSessions(courses, end).filter((x) => x.start >= dayStart || x.occ?.end > from);
   const d = new Date(dayStart);
-  const lines = list.map((x) => x.exam
+  const lines = list.map((x) => x.prayer
+    ? `🙏 ${PRAYER_LABELS[x.prayer.prayer]} ${hm(x.start)} · ${x.prayer.minyan.place}`
+    : x.exam
     ? `📝 ${x.exam.title} (${x.course.short})${x.exam.due.includes('T') ? ' ' + hm(x.start) : ''}`
     : `${hm(x.occ.start)}–${hm(x.occ.end)} ${x.course.emoji} ${x.course.short} ${x.type.label} ${x.unit.n}`
       + ` · ${x.group.lecturer || 'קב׳ ' + x.group.code}${x.occ.room ? ' · ' + x.occ.room : ''}${x.mine ? ' (שלי)' : ''}`);
