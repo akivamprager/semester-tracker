@@ -259,7 +259,7 @@ function viewTodo(courses, { withSoon = true } = {}) {
       ? [0, Math.min(...owed.map((u) => +u.first.end), ...live.map((x) => +x.occ.start))]
       : [1, Math.min(...upcoming.map(({ u }) => u.first.start))];
     const liveRows = live.map((x) => `<div class="unit live">
-        <div class="name">${x.type.label} ${x.unit.n}${durTag(x.occ)} <span class="pill live">● מתקיים עכשיו</span>${x.unit.topic ? ` · <span class="topic">${esc(x.unit.topic)}</span>` : ''}</div>
+        <div class="name">${x.type.label} ${x.unit.n}${durTag(x.occ)} <span class="pill live"><span class="live-dot" aria-hidden="true"></span>מתקיים עכשיו</span>${x.unit.topic ? ` · <span class="topic">${esc(x.unit.topic)}</span>` : ''}</div>
         <div class="meta">${hm(x.occ.start)}–${hm(x.occ.end)} · ${x.group.lecturer ? esc(x.group.lecturer) + ' · ' : ''}קב׳ ${grp(x.group.code)}${roomText(x.occ)}${x.mine ? ' · הקבוצה שלך' : ''}</div>
         <div class="actions">
           <button class="attend" data-action="mark" data-key="${x.unit.key}" data-s="done" data-label="${esc(`${c.short} · ${x.type.label} ${x.unit.n}`)}">✓ סיימתי</button>
@@ -276,7 +276,7 @@ function viewTodo(courses, { withSoon = true } = {}) {
           : 'אין מפגש מקביל בקבוצה שלך (בגלל חג/ביטול)';
       }
       return `<div class="unit">
-        <div class="name">${u.label} ${u.n}${durTag(u.own || u.first)}${runningKeys.has(u.key) ? ' <span class="pill live">● מתקיים עכשיו</span>' : ''}${u.topic ? ` · <span class="topic">${esc(u.topic)}</span>` : ''}</div>
+        <div class="name">${u.label} ${u.n}${durTag(u.own || u.first)}${runningKeys.has(u.key) ? ' <span class="pill live"><span class="live-dot" aria-hidden="true"></span>מתקיים עכשיו</span>' : ''}${u.topic ? ` · <span class="topic">${esc(u.topic)}</span>` : ''}</div>
         <div class="meta">${where}</div>
         <div class="actions">
           <button class="attend" data-action="mark" data-key="${u.key}" data-s="done" data-label="${esc(`${c.short} · ${u.label} ${u.n}`)}">✓ סיימתי</button>
@@ -284,7 +284,7 @@ function viewTodo(courses, { withSoon = true } = {}) {
       </div>`;
     }).join('');
     return { sortKey, html: `<section class="card course" ${courseStyle(c)}>
-      <h2>${courseTitle(c)} <small>${owed.length ? owed.length + ' להשלים' : live.length ? '● עכשיו' : 'מעודכן ✓'}</small></h2>
+      <h2>${courseTitle(c)} <small>${owed.length ? owed.length + ' להשלים' : live.length ? '<span class="live-dot" aria-hidden="true"></span>עכשיו' : 'מעודכן ✓'}</small></h2>
       ${liveRows}${rows}
       ${next.length ? `<div class="upcoming">הבא: ${next.join('<br>הבא: ')}</div>` : ''}
       ${owed.length > 1 ? `<button class="link" data-action="mark-all" data-course="${c.code}">סמן הכל כבוצע</button>` : ''}
@@ -351,7 +351,7 @@ function prayerRow({ prayer: p }) {
     <div class="slot-body">
       <div class="name">🙏 ${PRAYER_LABELS[p.prayer]}${m.kind ? ` <span class="dur">${esc(m.kind)}</span>` : ''}</div>
       <div class="meta">📍 ${esc(m.place)}${m.note ? ` · ${esc(m.note)}` : ''}</div>
-      <div class="pills"><span class="pill mine">${p.overlap ? `הכי פחות מתנגש (${Math.round(p.overlap)} דק׳)` : 'מתאים למערכת שלך'}</span>${live ? '<span class="pill live">● עכשיו</span>' : ''}</div>
+      <div class="pills"><span class="pill mine">${p.overlap ? `הכי פחות מתנגש (${Math.round(p.overlap)} דק׳)` : 'מתאים למערכת שלך'}</span>${live ? '<span class="pill live"><span class="live-dot" aria-hidden="true"></span>עכשיו</span>' : ''}</div>
       ${alts ? `<div class="meta alts">חלופות: ${alts}</div>` : ''}
     </div>
   </div>`;
@@ -371,7 +371,7 @@ function slotRow(x) {
   const own = x.unit.own;
   const tags = [
     x.mine ? '<span class="pill mine">הקבוצה שלך</span>' : '',
-    live ? '<span class="pill live">● עכשיו</span>' : '',
+    live ? '<span class="pill live"><span class="live-dot" aria-hidden="true"></span>עכשיו</span>' : '',
     !x.mine && own && own.start > x.occ.start ? `<span class="pill">בקבוצה שלך: ${fmt(own.start)}</span>` : '',
   ].join('');
   return `<div class="slot ${x.mine ? 'mine' : ''} ${live ? 'live' : ''}" ${courseStyle(c)}>

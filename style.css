@@ -308,3 +308,19 @@ input.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
 }
 @media (hover: hover) { .mini-done:hover { background: var(--ok); color: #fff; } }
 .mini-done:active { background: var(--ok); color: #fff; transform: scale(0.97); }
+
+/* "Happening now": blinking red dot */
+.live-dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: #e11d48; margin-inline-end: 5px; vertical-align: 0.05em;
+  box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.6);
+  animation: live-blink 1.2s ease-in-out infinite;
+}
+@keyframes live-blink {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.55); }
+  50% { opacity: 0.25; box-shadow: 0 0 0 4px rgba(225, 29, 72, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+/* the label next to the dot: red too, to match */
+.pill.live { color: #e11d48; background: color-mix(in srgb, #e11d48 12%, transparent); }
+.slot.live .slot-time { color: #e11d48; }
