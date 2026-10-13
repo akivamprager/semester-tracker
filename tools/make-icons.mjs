@@ -43,7 +43,8 @@ function icon(size, bg = [31, 95, 209]) {
     chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0)),
   ]);
 }
-for (const size of [180, 192, 512]) writeFileSync(`icon-${size}.png`, icon(size));
+// 152 = iPad, 167 = iPad Pro, 180 = iPhone (apple-touch-icon); 192/512 = manifest.
+for (const size of [152, 167, 180, 192, 512]) writeFileSync(`icon-${size}.png`, icon(size));
 // App-icon shortcuts (long-press menu), one color per tab.
 const shortcuts = { todo: [31, 95, 209], schedule: [13, 148, 136], tasks: [217, 119, 6], exams: [139, 92, 246] };
 for (const [name, color] of Object.entries(shortcuts)) writeFileSync(`shortcut-${name}.png`, icon(96, color));
