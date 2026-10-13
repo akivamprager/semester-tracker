@@ -2,9 +2,11 @@ name: Morning summary
 
 on:
   schedule:
-    # 04:00–06:00 UTC = 06:00–09:00 in Israel depending on DST. The script sends once,
-    # on the first run at/after 07:00 Israel time (GitHub cron runs are often late).
-    - cron: '0 4,5,6 * * *'
+    # Many attempts at off-peak minutes: GitHub delays — and under load drops — scheduled
+    # runs, especially at :00. 04:07–07:47 UTC = 06:07–10:47 Israel time (DST-dependent).
+    # The script sends once a day, on the first run at/after 07:00 Israel time; the other
+    # runs just exit (and keep the subscription calendar fresh).
+    - cron: '7,27,47 4-7 * * *'
   workflow_dispatch: # "Run workflow" button: sends right away (for testing)
   push: # schedule data changed → refresh the subscription calendar only
     branches: [main]

@@ -9,6 +9,7 @@ import { ymd } from '../schedule.js';
 import { buildCalendar, CALENDAR_FILE } from '../calendar.js';
 
 const SEND_HOUR = 7;
+const SEND_UNTIL = 11; // a "good morning" summary arriving later than this is useless
 const GIST_DESC = 'semester-tracker-progress';
 const SITE = 'https://akivamprager.github.io/semester-tracker/';
 const force = process.env.FORCE === 'true';
@@ -63,7 +64,7 @@ if (progress['prefs/calendar']?.d?.enabled) {
 }
 if (calendarOnly) process.exit(0);
 
-if (!force && (now.getHours() < SEND_HOUR || push.lastSent === today)) {
+if (!force && (now.getHours() < SEND_HOUR || now.getHours() >= SEND_UNTIL || push.lastSent === today)) {
   console.log(`Skip: hour ${now.getHours()}, last sent ${push.lastSent}`);
   process.exit(0);
 }
