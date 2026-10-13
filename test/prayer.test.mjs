@@ -25,10 +25,12 @@ test('sunset in Jerusalem (with elevation), matches the published time', () => {
 });
 
 test('weekday plans', () => {
-  // Tue 3.11: C/C++ ends 13:45, DS recitation 14:00 → short Mincha in B125; last class ends 17:45 → Maariv 18:00
-  assert.deepEqual(plan(2026, 11, 3), ['mincha 13:50 mincha-1350', 'maariv 18:00 maariv-1800']);
-  // Wed 4.11: 13:50 falls in the break of the 13:00–14:45 recitation; finishes 16:45 → no Maariv
+  // Tue 3.11: C/C++ ends 13:45, DS recitation 14:00 → short Mincha in B125; done at 15:45 → no Maariv
+  assert.deepEqual(plan(2026, 11, 3), ['mincha 13:50 mincha-1350']);
+  // Wed 4.11: 13:50 falls in the break of the C/C++ recitation (13:00–14:45); finishes 16:45 → no Maariv
   assert.deepEqual(plan(2026, 11, 4), ['mincha 13:50 mincha-1350']);
+  // Thu 5.11: Probability lecture until 13:45, Data Structures 14:00 → 13:50 in B125
+  assert.deepEqual(plan(2026, 11, 5), ['mincha 13:50 mincha-1350']);
   // Sun 8.11: first class 14:00 → 13:30 at the new shul; recitation until 17:45 → 18:00
   assert.deepEqual(plan(2026, 11, 8), ['mincha 13:30 mincha-1330', 'maariv 18:00 maariv-1800']);
   // Monday at home; Friday no classes
@@ -42,9 +44,10 @@ test('weekday plans', () => {
 
 test('prayers reach the morning summary and the calendar only when enabled', () => {
   const progress = { [PRAYER_PREFS_KEY]: { s: 'set', t: 1, d: { enabled: true } } };
-  const body = dailySummary(sem, progress, new Date(2026, 10, 3, 7, 0)).body;
-  assert.ok(body.includes('🙏 מנחה 13:50 (B125)'), body);
-  assert.ok(body.includes('🙏 ערבית 18:00'), body);
+  const tue = dailySummary(sem, progress, new Date(2026, 10, 3, 7, 0)).body;
+  assert.ok(tue.includes('🙏 מנחה 13:50 (B125)'), tue);
+  const sun = dailySummary(sem, progress, new Date(2026, 10, 8, 7, 0)).body; // recitation until 17:45
+  assert.ok(sun.includes('🙏 ערבית 18:00'), sun);
   const withPrayers = parseIcs(buildCalendar(sem, progress)).filter((e) => e.uid.startsWith('prayer-'));
   assert.ok(withPrayers.length > 40);
   assert.equal(parseIcs(buildCalendar(sem, {})).filter((e) => e.uid.startsWith('prayer-')).length, 0);
