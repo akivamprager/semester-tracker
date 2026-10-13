@@ -12,8 +12,11 @@
   --on-color: #fff; /* text on solid accent/ok/badge backgrounds */
   color-scheme: light dark;
 }
+/* Theme: html[data-theme] = "light" | "dark" (Settings → מראה), otherwise follows the device.
+   The dark values appear twice (device-dark and forced-dark) — keep both in sync. */
+:root[data-theme="light"] { color-scheme: light; }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #111520;
     --card: #1b2130;
     --text: #e8ecf4;
@@ -26,6 +29,20 @@
     --live: #fb7185;
     --on-color: #0b1220; /* light-on-dark accents need dark text (≥7:1) */
   }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111520;
+  --card: #1b2130;
+  --text: #e8ecf4;
+  --muted: #9aa3b5;
+  --accent: #6c9cff;
+  --ok: #4cc386;
+  --warn: #f0965a;
+  --line: #2a3244;
+  --badge: #f87171;
+  --live: #fb7185;
+  --on-color: #0b1220; /* light-on-dark accents need dark text (≥7:1) */
 }
 * { box-sizing: border-box; }
 body {

@@ -470,6 +470,15 @@ function viewSettings() {
     </div>
   </section>
   <section class="card">
+    <h2>🎨 מראה</h2>
+    <div class="segmented theme-pick" role="radiogroup" aria-label="מראה">
+      ${[['system', '🖥️ אוטומטי'], ['light', '☀️ בהיר'], ['dark', '🌙 כהה']].map(([v, label]) =>
+        `<button role="radio" aria-checked="${window.trackerTheme?.get() === v}" class="${window.trackerTheme?.get() === v ? 'active' : ''}"
+          data-action="theme" data-theme="${v}">${label}</button>`).join('')}
+    </div>
+    <p class="help">"אוטומטי" עוקב אחרי הגדרות המכשיר. נשמר בכל מכשיר בנפרד.</p>
+  </section>
+  <section class="card">
     <h2>סמסטר</h2>
     <select id="sem-select">${sems}</select>
     <p class="help">ההתקדמות נשמרת לכל סמסטר בנפרד. לסמסטר חדש מוסיפים קובץ ב-<code>semesters/</code>.</p>
@@ -707,6 +716,14 @@ document.body.addEventListener('click', async (e) => {
   }
   if (action === 'dismiss-welcome') { localStorage.setItem('tracker.welcomed', '1'); render(); }
   if (action === 'horizon') { state.horizon = el.dataset.h; render(); }
+  if (action === 'theme') {
+    window.trackerTheme?.set(el.dataset.theme);
+    document.querySelectorAll('.theme-pick button').forEach((b) => {
+      const on = b.dataset.theme === el.dataset.theme;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-checked', on);
+    });
+  }
   if (action === 'push-on' || action === 'push-off' || action === 'push-test') {
     el.disabled = true;
     try {
