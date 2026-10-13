@@ -1,7 +1,7 @@
 // Network-first for everything (so schedule/app updates show up), cache as offline fallback.
 // Requests revalidate with the server (cache: 'no-cache') instead of using the browser's
 // HTTP cache, so the app never mixes a fresh index.html with a stale app.js.
-const CACHE = 'tracker-v39';
+const CACHE = 'tracker-v40';
 const SHELL = ['./', 'index.html', 'guide.html', 'theme.js', 'style.css', 'app.js', 'schedule.js', 'sync.js', 'summary.js', 'ics.js', 'badge.js', 'calendar.js', 'prayer.js',
   'manifest.webmanifest', 'icon-192.png', 'semesters/index.json'];
 
@@ -33,15 +33,25 @@ self.addEventListener('fetch', (e) => {
     return;
   }
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
-  e.respondWith(
-    fetch(e.request, { cache: 'no-cache' })
-      .then((res) => {
+  // Icons/images: leave them to the browser. iOS fetches apple-touch-icons for "Add to Home
+  // Screen" itself; intercepting them (and failing) made iPadOS fall back to a letter icon.
+  if (/\.(png|jpe?g|svg|ico|webp)$/i.test(url.pathname)) return;
+  e.respondWith((async () => {
+    // A fresh GET by URL — WebKit rejects fetch(request, init) for some request modes
+    // (e.g. navigations), which used to drop straight to the cache.
+    const fresh = new Request(e.request.url, { cache: 'no-cache', credentials: 'same-origin' });
+    try {
+      const res = await fetch(fresh);
+      if (res.ok) {
         const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy));
-        return res;
-      })
-      .catch(() => caches.match(e.request, { ignoreSearch: true })),
-  );
+        caches.open(CACHE).then((c) => c.put(e.request.url, copy));
+      }
+      return res;
+    } catch {
+      // Offline: cached copy, else let the browser try the original request itself.
+      return (await caches.match(e.request, { ignoreSearch: true })) || fetch(e.request);
+    }
+  })());
 });
 
 // Morning summary sent by the GitHub Action (tools/morning.mjs).
