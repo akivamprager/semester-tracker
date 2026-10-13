@@ -58,6 +58,14 @@ const courseTitle = (c) =>
   `<span class="course-name">${c.emoji} <bdi>${esc(c.short)}</bdi> <span class="code-badge">${esc(c.code)}</span></span>`;
 const courseStyle = (c) => `style="--c:${esc(c.color)}"`;
 
+// Session length in academic hours (45 min + break): 45′ → שעה, 1:45 → שעתיים, 2:45 → 3 שעות.
+function durLabel(o) {
+  if (!o) return '';
+  const h = Math.max(1, Math.round((o.end - o.start) / 60000 / 55));
+  return h === 1 ? 'שעה' : h === 2 ? 'שעתיים' : `${h} שעות`;
+}
+const durTag = (o) => (o ? ` <span class="dur">⏱ ${durLabel(o)}</span>` : '');
+
 const roomText = (o) => (o?.room ? ` · 📍 <bdi>${esc(o.room)}</bdi>` : '');
 
 const statusOf = (key) => state.progress[key]?.s || null;
@@ -225,7 +233,7 @@ function viewTodo(courses, { withSoon = true } = {}) {
       .map((t) => ({ t, u: t.units.find((u) => !u.available) }))
       .filter((x) => x.u);
     const next = upcoming
-      .map(({ t, u }) => `${t.label} ${u.n}${u.topic ? ` (${esc(u.topic)})` : ''}: ${fmt(u.first.start)} · ${u.first.group.lecturer ? esc(u.first.group.lecturer) : 'קב׳ ' + grp(u.first.group.code)}${roomText(u.first)}`);
+      .map(({ t, u }) => `${t.label} ${u.n}${u.topic ? ` (${esc(u.topic)})` : ''}: ${fmt(u.first.start)} (${durLabel(u.first)}) · ${u.first.group.lecturer ? esc(u.first.group.lecturer) : 'קב׳ ' + grp(u.first.group.code)}${roomText(u.first)}`);
     if (!owed.length && !next.length) return null;
     // Courses with something to catch up on first (longest-waiting first),
     // then the rest by their next session.
@@ -243,10 +251,10 @@ function viewTodo(courses, { withSoon = true } = {}) {
           : 'אין מפגש מקביל בקבוצה שלך (בגלל חג/ביטול)';
       }
       return `<div class="unit">
-        <div class="name">${u.label} ${u.n}${u.topic ? ` · <span class="topic">${esc(u.topic)}</span>` : ''}</div>
+        <div class="name">${u.label} ${u.n}${durTag(u.own || u.first)}${u.topic ? ` · <span class="topic">${esc(u.topic)}</span>` : ''}</div>
         <div class="meta">${where}</div>
         <div class="actions">
-          <button class="attend" data-action="mark" data-key="${u.key}" data-s="done">✓ סיימתי</button>
+          <button class="attend" data-action="mark" data-key="${u.key}" data-s="done" data-label="${esc(`${c.short} · ${u.label} ${u.n}`)}">✓ סיימתי</button>
         </div>
       </div>`;
     }).join('');
@@ -318,7 +326,7 @@ function slotRow(x) {
   return `<div class="slot ${x.mine ? 'mine' : ''} ${live ? 'live' : ''}" ${courseStyle(c)}>
     <div class="slot-time">${hm(x.occ.start)}<small>–${hm(x.occ.end)}</small></div>
     <div class="slot-body">
-      <div class="name">${c.emoji} <bdi>${esc(c.short)}</bdi> · ${x.type.label} ${x.unit.n}${x.unit.topic ? ` <span class="topic">${esc(x.unit.topic)}</span>` : ''}</div>
+      <div class="name">${c.emoji} <bdi>${esc(c.short)}</bdi> · ${x.type.label} ${x.unit.n}${durTag(x.occ)}${x.unit.topic ? ` <span class="topic">${esc(x.unit.topic)}</span>` : ''}</div>
       <div class="meta">${x.group.lecturer ? esc(x.group.lecturer) + ' · ' : ''}קב׳ ${grp(x.group.code)}${roomText(x.occ)}</div>
       ${tags ? `<div class="pills">${tags}</div>` : ''}
     </div>
@@ -572,17 +580,14 @@ document.body.addEventListener('click', async (e) => {
   const el = e.target.closest('[data-action]');
   if (!el) return;
   const { action, id } = el.dataset;
-  if (action === 'mark') setStatus(el.dataset.key, el.dataset.s || null);
+  if (action === 'mark') {
+    if (el.dataset.s === 'done') markDone([el.dataset.key], el.dataset.label || 'סומן כבוצע');
+    else setStatus(el.dataset.key, el.dataset.s || null);
+  }
   if (action === 'mark-all') {
-    if (!confirm('לסמן את כל השיעורים שהתקיימו בקורס הזה כבוצעו?')) return;
     const c = computeUnits(state.sem, now()).find((x) => x.code === el.dataset.course);
-    const t = Date.now();
-    for (const ty of c.types) for (const u of ty.units) {
-      if (u.available && !statusOf(u.key)) state.progress[u.key] = { s: 'done', t };
-    }
-    store.saveLocal(state.progress);
-    render();
-    scheduleSync();
+    const keys = c.types.flatMap((ty) => ty.units).filter((u) => u.available && !statusOf(u.key)).map((u) => u.key);
+    markDone(keys, `${keys.length} שיעורים ב${c.short} סומנו כבוצעו`);
   }
   if (action === 'toggle-task') setStatus(taskDoneKey(id), el.checked ? 'done' : null);
   if (action === 'new-task' || action === 'edit-task') {
@@ -713,7 +718,8 @@ document.body.addEventListener('change', async (e) => {
 // ---------- Moodle .ics import ----------
 // Entry points: the Settings button, dropping a file on the window, opening an .ics with
 // the installed app (file_handlers, Mac/Chrome) and Android's share menu (share_target).
-function toast(msg) {
+// Bottom message; with { action: { label, run } } it gets a button (e.g. undo).
+function toast(msg, { action, ms = 4000 } = {}) {
   let el = document.getElementById('toast');
   if (!el) {
     el = document.createElement('div');
@@ -722,9 +728,45 @@ function toast(msg) {
     document.body.append(el);
   }
   el.textContent = msg;
+  el.classList.toggle('has-action', !!action);
+  if (action) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = action.label;
+    btn.addEventListener('click', () => {
+      el.classList.remove('show');
+      clearTimeout(toast.timer);
+      action.run();
+    }, { once: true });
+    el.append(btn);
+  }
   el.classList.add('show');
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => el.classList.remove('show'), 4000);
+  toast.timer = setTimeout(() => el.classList.remove('show'), ms);
+}
+
+// Mark lesson units done, with a few seconds to undo (restores the previous entries).
+function markDone(keys, label) {
+  const before = keys.map((k) => [k, state.progress[k]]);
+  const t = Date.now();
+  for (const k of keys) state.progress[k] = { s: 'done', t };
+  store.saveLocal(state.progress);
+  render();
+  scheduleSync();
+  toast(`✓ ${label}`, {
+    ms: 6000,
+    action: {
+      label: '↶ בטל',
+      run: () => {
+        const t2 = Date.now();
+        // Undo = a newer entry with the old status, so other devices pick it up too.
+        for (const [k, prev] of before) state.progress[k] = { s: prev?.s ?? null, t: t2 };
+        store.saveLocal(state.progress);
+        render();
+        scheduleSync();
+      },
+    },
+  });
 }
 
 async function importIcsFile(file) {
