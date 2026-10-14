@@ -2,7 +2,7 @@ import { computeUnits, mergeTasks, sessionsBetween, DAY_LABELS } from './schedul
 import { dailySummary } from './summary.js';
 import { badgeCount, badgePrefs, PREFS_KEY } from './badge.js';
 import { buildCalendar } from './calendar.js';
-import { planDay, prayerPrefs, PRAYER_PREFS_KEY, PRAYER_LABELS } from './prayer.js';
+import { planDay, prayerPrefs, prayerKey, PRAYER_PREFS_KEY, PRAYER_LABELS } from './prayer.js';
 import { parseIcs, icsTaskChanges } from './ics.js';
 import * as store from './sync.js';
 
@@ -331,7 +331,10 @@ function openSessions(courses, to) {
   const prefs = prayerPrefs(state.progress);
   if (prefs.enabled) {
     for (let d = startOfDay(t0); d < to; d.setDate(d.getDate() + 1)) {
-      prayers.push(...planDay(state.sem, courses, new Date(d), prefs).filter((p) => p.end > t0).map((p) => ({ prayer: p, start: p.start })));
+      // Today's prayers stay (dimmed after their time) until marked, so they can still be checked off.
+      prayers.push(...planDay(state.sem, courses, new Date(d), prefs)
+        .map((p) => ({ prayer: p, start: p.start, key: prayerKey(state.sem, p) }))
+        .filter((x) => !statusOf(x.key) && (x.prayer.end > t0 || dayDiff(x.start) === 0)));
     }
   }
   return [...sessions, ...exams, ...prayers].sort((a, b) => a.start - b.start);
@@ -343,20 +346,23 @@ function horizonEnd() {
   return end;
 }
 
-function prayerRow({ prayer: p }) {
+function prayerRow({ prayer: p, key }) {
   const t0 = now();
   const live = p.start <= t0 && t0 < p.end;
+  const past = p.end <= t0;
+  const today = dayDiff(p.start) === 0;
   const m = p.minyan;
   const clash = (o) => (o.overlap ? `חופף ${Math.round(o.overlap)} דק׳` : 'פנוי');
   const alts = p.alternatives
     .map((a) => `${a.minyan.sunsetOffset != null ? '≈' : ''}${hm(a.start)} ${esc(a.minyan.place)} (${clash(a)})`).join(' · ');
-  return `<div class="slot prayer ${live ? 'live' : ''}" style="--c:#64748b">
+  return `<div class="slot prayer ${live ? 'live' : ''} ${past ? 'past' : ''}" style="--c:#64748b">
     <div class="slot-time">${m.sunsetOffset != null ? '≈' : ''}${hm(p.start)}</div>
     <div class="slot-body">
       <div class="name">🙏 ${PRAYER_LABELS[p.prayer]}${m.kind ? ` <span class="dur">${esc(m.kind)}</span>` : ''}</div>
       <div class="meta">📍 ${esc(m.place)}${m.note ? ` · ${esc(m.note)}` : ''}</div>
       <div class="pills"><span class="pill mine">${p.overlap ? `הכי פחות מתנגש (${Math.round(p.overlap)} דק׳)` : 'מתאים למערכת שלך'}</span>${live ? '<span class="pill live"><span class="live-dot" aria-hidden="true"></span>עכשיו</span>' : ''}</div>
-      ${alts ? `<div class="meta alts">חלופות: ${alts}</div>` : ''}
+      ${alts && !past ? `<div class="meta alts">חלופות: ${alts}</div>` : ''}
+      ${today ? `<button class="mini-done" data-action="mark" data-key="${key}" data-s="done" data-label="🙏 ${PRAYER_LABELS[p.prayer]}">✓ סיימתי</button>` : ''}
     </div>
   </div>`;
 }

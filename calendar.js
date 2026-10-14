@@ -3,7 +3,7 @@
 // so Google Calendar / Apple Calendar can subscribe to its raw URL.
 // Output is deterministic (no "now" inside) so it's only re-uploaded when it changes.
 import { computeUnits, mergeTasks, ymd } from './schedule.js';
-import { planSemester, prayerPrefs, PRAYER_LABELS } from './prayer.js';
+import { planSemester, prayerPrefs, prayerKey, PRAYER_LABELS } from './prayer.js';
 
 export const CALENDAR_FILE = 'calendar.ics';
 
@@ -62,7 +62,7 @@ export function buildCalendar(sem, progress) {
       `UID:prayer-${ymd(p.start)}-${p.prayer}@semester-tracker`,
       `DTSTART:${utc(p.start)}`,
       `DTEND:${utc(p.end)}`,
-      `SUMMARY:${text(`🙏 ${PRAYER_LABELS[p.prayer]}${p.minyan.sunsetOffset != null ? ' (≈)' : ''}`)}`,
+      `SUMMARY:${text(`${progress[prayerKey(sem, p)]?.s ? '✓ ' : ''}🙏 ${PRAYER_LABELS[p.prayer]}${p.minyan.sunsetOffset != null ? ' (≈)' : ''}`)}`,
       `LOCATION:${text(p.minyan.place)}`,
       p.minyan.note ? `DESCRIPTION:${text(p.minyan.note)}` : null,
     ].filter(Boolean));

@@ -94,6 +94,9 @@ function ownSessions(courses, date) {
     .sort((a, b) => a.start - b.start);
 }
 
+// Progress key for "davened this prayer on that day" (same map as lessons/tasks).
+export const prayerKey = (sem, p) => `${sem.id}/prayer/${ymd(p.start)}/${p.prayer}`;
+
 // Plan for one day: [{ prayer, minyan, start, end, overlap, alternatives: [...] }].
 export function planDay(sem, courses, date, prefs) {
   if (!prefs.enabled || prefs.skipDays.includes(date.getDay())) return [];

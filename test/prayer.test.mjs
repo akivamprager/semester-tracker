@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { computeUnits } from '../schedule.js';
-import { planDay, sunset, sunsetFor, PRAYER_DEFAULTS, PRAYER_PREFS_KEY } from '../prayer.js';
+import { planDay, sunset, sunsetFor, prayerKey, PRAYER_DEFAULTS, PRAYER_PREFS_KEY } from '../prayer.js';
 import { dailySummary } from '../summary.js';
 import { buildCalendar } from '../calendar.js';
 import { parseIcs } from '../ics.js';
@@ -71,4 +71,15 @@ test('published sunset table (Hebcal) is used and agrees with the calculation', 
     const [h, mi] = hhmm.split(':').map(Number);
     assert.ok(Math.abs(calc.getHours() * 60 + calc.getMinutes() - (h * 60 + mi)) <= 1, `${day}: ${hhmm} vs calc`);
   }
+});
+
+test('a prayer marked done gets a ✓ in the calendar', () => {
+  const p = planDay(sem, courses, new Date(2026, 10, 3), on)[0]; // Tue 3.11 mincha
+  assert.equal(prayerKey(sem, p), '2027A/prayer/2026-11-03/mincha');
+  const progress = {
+    [PRAYER_PREFS_KEY]: { s: 'set', t: 1, d: { enabled: true } },
+    [prayerKey(sem, p)]: { s: 'done', t: 2 },
+  };
+  const ev = parseIcs(buildCalendar(sem, progress)).find((e) => e.uid === 'prayer-2026-11-03-mincha@semester-tracker');
+  assert.ok(ev.summary.startsWith('✓ 🙏'), ev.summary);
 });
