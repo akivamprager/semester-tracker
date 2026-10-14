@@ -7,6 +7,8 @@ on:
     # The script sends once a day, on the first run at/after 07:00 Israel time; the other
     # runs just exit (and keep the subscription calendar fresh).
     - cron: '7,27,47 4-7 * * *'
+    # Moodle check every 2 hours during the day (≈ 08:37–22:37 Israel time).
+    - cron: '37 6-20/2 * * *'
   workflow_dispatch: # "Run workflow" button: sends right away (for testing)
   push: # schedule data changed → refresh the subscription calendar only
     branches: [main]
@@ -25,6 +27,7 @@ jobs:
         env:
           TZ: Asia/Jerusalem
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          MOODLE_ICS_URL: ${{ secrets.MOODLE_ICS_URL }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           FORCE: ${{ github.event_name == 'workflow_dispatch' }}
           EVENT: ${{ github.event_name }}

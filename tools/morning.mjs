@@ -1,16 +1,25 @@
-// Sends the morning summary as a Web Push notification. Run by
-// .github/workflows/morning.yml; reads progress + push subscriptions from the sync gist.
-// Env: GIST_TOKEN, VAPID_PRIVATE_KEY, TZ=Asia/Jerusalem, FORCE=true to send regardless
-// of the hour / whether today's summary was already sent.
+// Runs from .github/workflows/morning.yml. On every run:
+//   1. Moodle (if MOODLE_ICS_URL is set): fetch the calendar export, compare it with the
+//      previous fetch (gist file moodle-feed.json) → messages in the app's notification
+//      center + a push; and apply the task changes (new / moved / deleted assignments).
+//   2. Keep the subscription calendar (calendar.ics) current.
+//   3. Once a day after 07:00: the morning summary push.
+// Progress, subscriptions and snapshots live in the private sync gist.
+// Env: GIST_TOKEN, VAPID_PRIVATE_KEY, MOODLE_ICS_URL (optional), TZ=Asia/Jerusalem,
+//      FORCE=true (send the morning summary now), EVENT (push = calendar only).
 import { readFileSync } from 'node:fs';
 import webpush from 'web-push';
 import { dailySummary } from '../summary.js';
-import { ymd } from '../schedule.js';
+import { ymd, computeUnits, mergeTasks } from '../schedule.js';
 import { buildCalendar, CALENDAR_FILE } from '../calendar.js';
+import { parseIcs, icsTaskChanges } from '../ics.js';
+import { feedSnapshot, diffFeeds, diffMessages, INBOX_PREFIX } from '../moodle.js';
+import { merge } from '../sync.js';
 
 const SEND_HOUR = 7;
 const SEND_UNTIL = 11; // a "good morning" summary arriving later than this is useless
 const GIST_DESC = 'semester-tracker-progress';
+const FEED_FILE = 'moodle-feed.json';
 const SITE = 'https://akivamprager.github.io/semester-tracker/';
 const force = process.env.FORCE === 'true';
 // On a push (schedule data changed) only the calendar is refreshed, no notification.
@@ -40,50 +49,19 @@ async function findGist() {
 }
 
 const fileJson = (gist, name) => JSON.parse(gist.files[name]?.content || '{}');
+const writeFiles = (gist, files) => gh(`/gists/${gist.id}`, {
+  method: 'PATCH',
+  body: JSON.stringify({ files: Object.fromEntries(Object.entries(files).map(([k, v]) => [k, { content: v }])) }),
+});
 
-const now = new Date();
-const today = ymd(now);
-const gist = await findGist();
-const push = fileJson(gist, 'push.json');
-
-const index = JSON.parse(readFileSync(new URL('../semesters/index.json', import.meta.url)));
-const entry = index.semesters.find((s) => s.id === index.default) || index.semesters[0];
-const sem = JSON.parse(readFileSync(new URL(`../semesters/${entry.file}`, import.meta.url)));
-const progress = fileJson(gist, 'progress.json');
-
-// Keep the subscription calendar current (if turned on in the app).
-if (progress['prefs/calendar']?.d?.enabled) {
-  const ics = buildCalendar(sem, progress);
-  if (gist.files[CALENDAR_FILE]?.content !== ics) {
-    await gh(`/gists/${gist.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ files: { [CALENDAR_FILE]: { content: ics } } }),
-    });
-    console.log('Calendar updated');
-  }
-}
-if (calendarOnly) process.exit(0);
-
-if (!force && (now.getHours() < SEND_HOUR || now.getHours() >= SEND_UNTIL || push.lastSent === today)) {
-  console.log(`Skip: hour ${now.getHours()}, last sent ${push.lastSent}`);
-  process.exit(0);
-}
-if (!push.subs?.length) {
-  console.log('No subscriptions — turn on the morning notification in the app.');
-  process.exit(0);
-}
-
-const summary = dailySummary(sem, progress, now);
-if (!summary && !force) {
-  console.log('Nothing to report today.');
-} else {
-  const payload = JSON.stringify(summary || { title: 'בוקר טוב!', body: 'אין היום שום דבר פתוח 🎉' });
+async function sendPush(push, payload) {
+  if (!push.subs?.length) { console.log('No subscriptions — turn on the morning notification in the app.'); return; }
   const { vapidPublicKey } = JSON.parse(readFileSync(new URL('../push-config.json', import.meta.url)));
   webpush.setVapidDetails(SITE, vapidPublicKey, process.env.VAPID_PRIVATE_KEY);
   const alive = [];
   for (const sub of push.subs) {
     try {
-      await webpush.sendNotification(sub, payload, { TTL: 6 * 3600, urgency: 'normal' });
+      await webpush.sendNotification(sub, JSON.stringify(payload), { TTL: 6 * 3600, urgency: 'normal' });
       alive.push(sub);
       console.log('Sent to', sub.label || '(unnamed device)', '—', new URL(sub.endpoint).host);
     } catch (e) {
@@ -95,8 +73,89 @@ if (!summary && !force) {
   push.subs = alive;
 }
 
-push.lastSent = today;
-await gh(`/gists/${gist.id}`, {
-  method: 'PATCH',
-  body: JSON.stringify({ files: { 'push.json': { content: JSON.stringify(push, null, 1) } } }),
-});
+const now = new Date();
+const today = ymd(now);
+let gist = await findGist();
+const push = fileJson(gist, 'push.json');
+let pushChanged = false;
+
+const index = JSON.parse(readFileSync(new URL('../semesters/index.json', import.meta.url)));
+const entry = index.semesters.find((s) => s.id === index.default) || index.semesters[0];
+const sem = JSON.parse(readFileSync(new URL(`../semesters/${entry.file}`, import.meta.url)));
+let progress = fileJson(gist, 'progress.json');
+
+// ---- 1. Moodle ----
+if (process.env.MOODLE_ICS_URL && !calendarOnly) {
+  try {
+    const res = await fetch(process.env.MOODLE_ICS_URL);
+    if (!res.ok) throw new Error(`Moodle ${res.status}`);
+    const events = parseIcs(await res.text());
+    if (!events.length) throw new Error('Moodle export is empty (link expired?)');
+    const prev = gist.files[FEED_FILE] ? fileJson(gist, FEED_FILE) : null;
+    const courses = computeUnits(sem, now);
+    const updates = {};
+
+    // a. notification center: anything that changed since the previous fetch
+    if (prev) {
+      const ignore = (sem.icsRules || []).filter((r) => r.ignore).map((r) => r.match);
+      const shortName = (code) => sem.courses.find((c) => c.code === code)?.short;
+      const messages = diffMessages(diffFeeds(prev, events, now, ignore), shortName);
+      messages.forEach((m, i) => {
+        updates[`${INBOX_PREFIX(sem)}${now.getTime()}-${i}`] = { s: 'set', t: now.getTime(), d: { ...m, at: now.toISOString(), read: false } };
+      });
+      console.log(`Moodle: ${messages.length} change(s) since the previous fetch`);
+      if (messages.length) {
+        const lines = messages.slice(0, 4).map((m) => `${m.icon} ${m.text}`);
+        if (messages.length > 4) lines.push(`ועוד ${messages.length - 4}`);
+        await sendPush(push, { title: '📥 עדכונים מהמודל', body: lines.join('\n'), tag: 'moodle', url: './?inbox=1' });
+        pushChanged = true;
+      }
+    } else {
+      console.log('Moodle: first fetch — saved as the baseline, no notifications');
+    }
+
+    // b. tasks: new / moved / deleted assignments (same logic as the app's import button)
+    const tasks = mergeTasks(sem, courses, progress, now, { includeHidden: true });
+    for (const { id, d } of icsTaskChanges(sem, events, tasks, { now })) {
+      const key = `${sem.id}/taskdata/${id}`;
+      updates[key] = { s: 'set', t: now.getTime(), d: { ...(progress[key]?.d || {}), ...d } };
+    }
+    console.log(`Moodle: ${Object.keys(updates).length} progress update(s)`);
+
+    // c. save: re-read progress first so app changes made meanwhile aren't overwritten
+    const snapshot = JSON.stringify(feedSnapshot(events));
+    if (Object.keys(updates).length || gist.files[FEED_FILE]?.content !== snapshot) {
+      gist = await gh(`/gists/${gist.id}`);
+      progress = merge(fileJson(gist, 'progress.json'), updates);
+      await writeFiles(gist, { 'progress.json': JSON.stringify(progress), [FEED_FILE]: snapshot });
+    }
+  } catch (e) {
+    console.error('Moodle import failed:', e.message); // never block the rest of the run
+  }
+}
+
+// ---- 2. calendar ----
+if (progress['prefs/calendar']?.d?.enabled) {
+  const ics = buildCalendar(sem, progress);
+  if (gist.files[CALENDAR_FILE]?.content !== ics) {
+    await writeFiles(gist, { [CALENDAR_FILE]: ics });
+    console.log('Calendar updated');
+  }
+}
+
+// ---- 3. morning summary ----
+const sendMorning = !calendarOnly
+  && (force || (now.getHours() >= SEND_HOUR && now.getHours() < SEND_UNTIL && push.lastSent !== today));
+if (!sendMorning) {
+  console.log(`Morning summary: skip (hour ${now.getHours()}, last sent ${push.lastSent})`);
+} else {
+  const summary = dailySummary(sem, progress, now);
+  if (summary || force) {
+    await sendPush(push, summary || { title: 'בוקר טוב!', body: 'אין היום שום דבר פתוח 🎉' });
+  } else {
+    console.log('Nothing to report today.');
+  }
+  push.lastSent = today;
+  pushChanged = true;
+}
+if (pushChanged) await writeFiles(gist, { 'push.json': JSON.stringify(push, null, 1) });

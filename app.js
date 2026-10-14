@@ -20,6 +20,7 @@ const state = {
   sync: { status: 'idle', msg: '' },
   editing: null, // task id whose edit form is open ('new' for a new task)
   sheetKey: null, // unit whose "all sessions" sheet is open
+  panel: null, // 'inbox' when the notification center is open
   expanded: new Set(), // to-do items whose sessions drop-down is open
   taskQuery: '', // tasks search box
   horizon: 'short', // timetable range: 'short' = today + tomorrow, 'week' = 7 days
@@ -763,7 +764,7 @@ function sheetEl() {
     d.setAttribute('aria-label', 'כל המועדים');
     // Tap on the dimmed backdrop (outside the content) closes it.
     d.addEventListener('click', (e) => { if (e.target === d) closeSheet(); });
-    d.addEventListener('close', () => { state.sheetKey = null; });
+    d.addEventListener('close', () => { state.sheetKey = null; state.panel = null; });
     document.body.append(d);
   }
   return d;
@@ -771,6 +772,7 @@ function sheetEl() {
 
 function openSheet(key) {
   state.sheetKey = key;
+  state.panel = null;
   const d = sheetEl();
   d.innerHTML = `<div class="sheet-inner">${sheetHtml(computeUnits(state.sem, now()), key)}</div>`;
   if (!d.open) d.showModal();
@@ -781,6 +783,75 @@ function closeSheet() {
   const d = document.getElementById('sheet');
   if (d?.open) d.close();
   state.sheetKey = null;
+}
+
+// ---------- notification center (Moodle changes, written by the GitHub job) ----------
+function inboxEntries() {
+  const prefix = `${state.sem.id}/inbox/`;
+  return Object.entries(state.progress)
+    .filter(([k, v]) => k.startsWith(prefix) && v.d && !v.d.hidden)
+    .map(([key, v]) => ({ key, ...v.d }))
+    .sort((a, b) => (b.at || '').localeCompare(a.at || ''));
+}
+
+function agoLabel(iso) {
+  const min = Math.round((now() - new Date(iso)) / 60000);
+  if (min < 1) return 'עכשיו';
+  if (min < 60) return `לפני ${min} דק׳`;
+  const h = Math.round(min / 60);
+  if (h < 24) return h === 1 ? 'לפני שעה' : h === 2 ? 'לפני שעתיים' : `לפני ${h} שעות`;
+  const d = Math.round(h / 24);
+  return d === 1 ? 'אתמול' : `לפני ${d} ימים`;
+}
+
+function inboxHtml(entries) {
+  const courses = computeUnits(state.sem, now());
+  const rows = entries.map((m) => {
+    const c = courses.find((x) => x.code === m.course);
+    return `<div class="inbox-item ${m.read ? '' : 'unread'}">
+      <span class="inbox-icon" aria-hidden="true">${m.icon || '📥'}</span>
+      <div class="inbox-body">
+        <div class="inbox-text">${esc(m.text)}</div>
+        <div class="meta">${c ? `<span class="course-tag colored" ${courseStyle(c)}>${c.emoji} <bdi>${esc(c.short)}</bdi></span> · ` : ''}${agoLabel(m.at)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="sheet-head" style="--c: var(--accent)">
+      <div>
+        <div class="sheet-title">🔔 עדכונים מהמודל</div>
+        <div class="meta">שינויים שזוהו בלוח השנה של המודל (נבדק כל שעתיים)</div>
+      </div>
+      <button class="icon-btn sheet-close" data-action="sheet-close" aria-label="סגור">✕</button>
+    </div>
+    <div class="sheet-list">${rows || '<div class="empty">אין עדכונים עדיין. כשמשהו ישתנה במודל — מטלה חדשה, מועד שזז או מטלה שנמחקה — זה יופיע כאן.</div>'}</div>
+    <div class="sheet-actions">
+      <button class="link" data-action="inbox-tasks">למשימות ›</button>
+      ${rows ? '<button class="link inbox-clear" data-action="inbox-clear">נקה הכל</button>' : ''}
+    </div>`;
+}
+
+function openInbox() {
+  state.panel = 'inbox';
+  state.sheetKey = null;
+  const entries = inboxEntries();
+  const d = sheetEl();
+  d.innerHTML = `<div class="sheet-inner">${inboxHtml(entries)}</div>`;
+  if (!d.open) d.showModal();
+  // Seen now (still highlighted in this view); synced so the bell clears on every device.
+  const unread = entries.filter((m) => !m.read);
+  if (unread.length) {
+    const t = Date.now();
+    for (const m of unread) state.progress[m.key] = { s: 'set', d: { ...state.progress[m.key].d, read: true }, t };
+    store.saveLocal(state.progress);
+    updateInboxBadge();
+    scheduleSync();
+  }
+}
+
+function updateInboxBadge() {
+  const n = inboxEntries().filter((m) => !m.read).length;
+  const el = document.getElementById('inbox-count');
+  if (el) el.textContent = n || '';
 }
 
 function render() {
@@ -809,6 +880,10 @@ function render() {
   else if (state.tab === 'courses') main.innerHTML = viewCourses(courses);
   else if (!document.getElementById('sem-select')) { main.innerHTML = viewSettings(); renderPushCard(); }
   applyTaskFilter();
+  updateInboxBadge();
+  if (state.panel === 'inbox' && document.getElementById('sheet')?.open) {
+    document.querySelector('#sheet .sheet-inner').innerHTML = inboxHtml(inboxEntries());
+  }
   if (state.sheetKey && document.getElementById('sheet')?.open) {
     document.querySelector('#sheet .sheet-inner').innerHTML = sheetHtml(courses, state.sheetKey);
   }
@@ -887,6 +962,15 @@ document.body.addEventListener('click', async (e) => {
     render();
   }
   if (action === 'sheet-close') closeSheet();
+  if (action === 'inbox') openInbox();
+  if (action === 'inbox-tasks') { closeSheet(); switchTab('tasks'); }
+  if (action === 'inbox-clear') {
+    const t = Date.now();
+    for (const m of inboxEntries()) state.progress[m.key] = { s: 'set', d: { ...state.progress[m.key].d, read: true, hidden: true }, t };
+    store.saveLocal(state.progress);
+    render();
+    scheduleSync();
+  }
   if (action === 'sheet-done') {
     closeSheet(); // the sheet is in the top layer — close it so the undo toast is visible
     markDone([el.dataset.key], el.dataset.label || 'סומן כבוצע');
@@ -1069,17 +1153,19 @@ async function importIcsFile(file) {
     if (!events.length) { toast('הקובץ לא נראה כמו ייצוא לוח שנה מהמודל.'); return; }
     const courses = computeUnits(state.sem, now());
     const all = mergeTasks(state.sem, courses, state.progress, now(), { includeHidden: true });
-    const changes = icsTaskChanges(state.sem, events, all);
+    const changes = icsTaskChanges(state.sem, events, all, { now: now() });
     const t = Date.now();
     let added = 0;
+    let removed = 0;
     for (const { id, d } of changes) {
       const key = taskDataKey(id);
       if (d.title) added++;
+      if (d.deleted) removed++;
       state.progress[key] = { s: 'set', d: { ...(state.progress[key]?.d || {}), ...d }, t };
     }
     store.saveLocal(state.progress);
     toast(changes.length
-      ? `📥 נוספו ${added} מטלות, עודכנו ${changes.length - added} מועדים.`
+      ? `📥 נוספו ${added}, עודכנו ${changes.length - added - removed}${removed ? `, הוסרו ${removed} (נמחקו במודל)` : ''}.`
       : `📥 אין שום דבר חדש (${events.length} אירועים בקובץ).`);
     render();
     scheduleSync(0);
@@ -1472,6 +1558,7 @@ async function boot() {
   runSync();
   handleLaunchedFiles();
   handleSharedFile();
+  if (new URLSearchParams(location.search).get('inbox')) openInbox();
 }
 
 boot().catch((e) => {

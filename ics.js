@@ -5,7 +5,9 @@
 //   { "match": "regex", "ignore": true }                         skip the event
 //   { "match": "regex", "task": "67315-lab-{1}", "field": "due" } set a field of an
 //      existing task ({1} = first regex group); field is "due" or "showFrom"
-// Without a rule, only "... is due" / "... closes" events are imported.
+// Without a rule, only deadline events are imported: "X is due" / "X closes", or Moodle's
+// Hebrew "יש להגיש את 'X'" / "X נסגר". With { now }, upcoming `ics-` tasks that are no longer
+// in the export (deleted in Moodle) are removed.
 
 const p2 = (n) => String(n).padStart(2, '0');
 const localStamp = (d) =>
@@ -43,15 +45,22 @@ export function parseIcs(text) {
   return events.filter((e) => e.uid && e.summary && e.start);
 }
 
+// The assignment name from a Moodle deadline event, or null if it isn't one.
+export function deadlineTitle(summary) {
+  const m = summary.match(/^(.+?)\s+(?:is due|closes)$/i)
+    || summary.match(/^יש להגיש את\s+['"׳״‘’“”](.+?)['"׳״‘’“”]\s*$/)
+    || summary.match(/^(.+?)\s+נסגר(?:ת)?$/);
+  return m ? m[1].trim() : null;
+}
+
 export const cleanTitle = (summary) =>
-  summary
-    .replace(/\s+(is due|closes)$/i, '')
+  (deadlineTitle(summary) ?? summary)
     .replace(/\s+\d{4}-\d{2}\b/g, '')
     .trim();
 
 // Returns [{ id, d }] — task data to merge into `<sem>/taskdata/<id>`:
 // for new tasks the full task, for existing tasks only the changed date field.
-export function icsTaskChanges(sem, events, existingTasks) {
+export function icsTaskChanges(sem, events, existingTasks, { now } = {}) {
   const courseCodes = new Set(sem.courses.map((c) => c.code));
   const byId = new Map(existingTasks.map((t) => [t.id, t]));
   const changes = [];
@@ -69,7 +78,7 @@ export function icsTaskChanges(sem, events, existingTasks) {
       }
       continue;
     }
-    if (!/\s(is due|closes)$/i.test(ev.summary)) continue;
+    if (deadlineTitle(ev.summary) === null) continue;
     const course = ev.category?.match(/^(\d{5})/)?.[1];
     if (!courseCodes.has(course)) continue;
     const id = 'ics-' + ev.uid.split('@')[0];
@@ -78,6 +87,18 @@ export function icsTaskChanges(sem, events, existingTasks) {
       changes.push({ id, d: { course, title: cleanTitle(ev.summary), kind: 'hw', due: stamp, note: 'מהמודל' } });
     } else if (existing.due !== stamp) {
       changes.push({ id, d: { due: stamp } });
+    }
+  }
+  // Deleted in Moodle: an upcoming `ics-` task inside the export's time window that the export
+  // no longer contains. (Past ones are kept — the export only reaches a few days back.)
+  if (now) {
+    const inFeed = new Set(events.map((ev) => 'ics-' + ev.uid.split('@')[0]));
+    const windowEnd = Math.max(...events.map((ev) => +ev.start));
+    for (const t of existingTasks) {
+      if (t.id.startsWith('ics-') && !t.deleted && !inFeed.has(t.id)
+        && t.dueDate && t.dueDate > now && +t.dueDate <= windowEnd) {
+        changes.push({ id: t.id, d: { deleted: true } });
+      }
     }
   }
   return changes;

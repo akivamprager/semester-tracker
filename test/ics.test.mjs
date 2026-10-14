@@ -44,13 +44,62 @@ test('Moodle export: UTC → Israel time, rules, no duplicates', () => {
   ]); // lab 2 and the waves exercise already match; attendance ignored; "opens" skipped
 });
 
-test('the real export adds nothing new (already in the semester data)', () => {
-  const text = readFileSync(new URL('./fixtures/moodle-sample.ics', import.meta.url), 'utf8');
-  assert.deepEqual(icsTaskChanges(sem, parseIcs(text), tasksAt(new Date(2027, 1, 1))), []);
+// Apply import changes the way the app/morning job do: merge into <sem>/taskdata/<id>.
+function applyChanges(progress, changes) {
+  const out = { ...progress };
+  for (const { id, d } of changes) {
+    const key = `${sem.id}/taskdata/${id}`;
+    out[key] = { s: 'set', d: { ...(out[key]?.d || {}), ...d }, t: 1 };
+  }
+  return out;
+}
+
+test('an outdated export (12.10) cannot bring back assignments Moodle has deleted', () => {
+  const now = new Date(2026, 9, 14, 12);
+  const old = parseIcs(readFileSync(new URL('./fixtures/moodle-sample.ics', import.meta.url), 'utf8'));
+  const tasks = mergeTasks(sem, computeUnits(sem, now), {}, now, { includeHidden: true });
+  const progress = applyChanges({}, icsTaskChanges(sem, old, tasks, { now }));
+  const visible = mergeTasks(sem, computeUnits(sem, now), progress, now).map((x) => x.id);
+  for (const id of ['ics-54053', 'ics-54054', 'ics-54055', 'ics-54056', 'ics-54058']) assert.ok(!visible.includes(id), id);
+});
+
+test('live export (Hebrew titles, C++ labs, deletions)', () => {
+  const now = new Date(2026, 9, 14, 12); // 14.10
+  const events = parseIcs(ics([
+    { uid: 54051, summary: "יש להגיש את 'Ex 01'", start: '20261023T215900Z', cat: '83335-מבוא להנדסת חשמל' },
+    { uid: 60001, summary: "יש להגיש את 'תרגיל 2'", start: '20261102T215900Z', cat: '83325-גלים' },
+    { uid: 60002, summary: 'בוחן קצר נסגר', start: '20261105T100000Z', cat: '67315_1-C' },
+    { uid: 30111, summary: 'C++ Lab week 7 closes', start: '20261204T215900Z', cat: '67315_1-C' },
+    { uid: 1, summary: "תחילת סמסטר א'", start: '20261010T210000Z', cat: 'אירועי מערכת' },
+  ]));
+  const tasks = mergeTasks(sem, computeUnits(sem, now), {}, now, { includeHidden: true });
+  const changes = icsTaskChanges(sem, events, tasks, { now });
+  const byId = Object.fromEntries(changes.map((c) => [c.id, c.d]));
+  assert.equal(byId['ics-60001'].title, 'תרגיל 2'); // Hebrew "submit 'X'" → new task X
+  assert.equal(byId['ics-60001'].due, '2026-11-02T23:59'); // 21:59Z after the clock change = 23:59
+  assert.equal(byId['ics-60002'].title, 'בוחן קצר'); // Hebrew "X closes"
+  assert.deepEqual(byId['67315-lab-7'], { due: '2026-12-04T23:59' }); // "C++ Lab" counts as a lab
+  assert.equal(byId['ics-54051'], undefined); // Ex 01 already at its new date
+  // Waves ex 1 (due 19.10) is missing from this feed, upcoming and inside its window → removed
+  assert.deepEqual(byId['ics-46354'], { deleted: true });
+});
+
+test('a missing assignment is removed only if upcoming and inside the export window', () => {
+  const now = new Date(2026, 9, 14, 12);
+  const tasks = [
+    { id: 'ics-1', dueDate: new Date(2026, 9, 20) }, // upcoming, inside window → removed
+    { id: 'ics-2', dueDate: new Date(2026, 9, 10) }, // already past → kept
+    { id: 'ics-3', dueDate: new Date(2027, 0, 30) }, // beyond the window → kept
+    { id: '67315-lab-9', dueDate: new Date(2026, 9, 20) }, // not from Moodle → kept
+  ];
+  const events = parseIcs(ics([{ uid: 9, summary: 'x is due', start: '20261201T100000Z', cat: '83335-EE' }]));
+  const removed = icsTaskChanges(sem, events, tasks, { now }).filter((c) => c.d.deleted).map((c) => c.id);
+  assert.deepEqual(removed, ['ics-1']);
 });
 
 test('cleanTitle', () => {
   assert.equal(cleanTitle('תרגיל 02 2025-26 is due'), 'תרגיל 02');
+  assert.equal(cleanTitle("יש להגיש את 'Ex 01'"), 'Ex 01');
 });
 
 test('import also updates tasks that are still hidden', () => {

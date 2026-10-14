@@ -90,6 +90,10 @@ export function dailySummary(sem, progress, now) {
     lines.push('📘 לא נבדקים: ' + practiceList.map(([c, n]) => `${c} ${n}`).join(' · '));
   }
 
+  const unread = Object.entries(progress)
+    .filter(([k, v]) => k.startsWith(`${sem.id}/inbox/`) && v.d && !v.d.read).length;
+  if (unread) lines.push(`📥 ${unread} עדכונים מהמודל שלא נקראו`);
+
   if (!lines.length) return null;
   return {
     title: `בוקר טוב! יום ${DAY_LABELS[now.getDay()]} ${now.getDate()}.${now.getMonth() + 1}`,
