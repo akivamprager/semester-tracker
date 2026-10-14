@@ -511,3 +511,14 @@ dialog#sheet::backdrop { background: rgba(10, 14, 24, 0.35); animation: fade-in 
 .inbox-body { flex: 1; min-width: 0; }
 .inbox-text { font-size: 14px; line-height: 1.5; }
 .sheet-actions .inbox-clear { margin-inline-start: auto; color: var(--muted); }
+
+/* Settings: groups and status lines */
+.settings-group { font-size: 13px; font-weight: 700; color: var(--muted); margin: 22px 4px 4px; letter-spacing: 0.02em; }
+.status-line { font-size: 13px; line-height: 1.55; padding: 8px 10px; border-radius: 10px; margin: 8px 0; background: var(--bg); }
+.status-line.ok { background: color-mix(in srgb, var(--ok) 10%, transparent); }
+.status-line.warn { background: color-mix(in srgb, var(--warn) 12%, transparent); }
+.status-line .link { margin-inline-start: 6px; font-size: 12px; color: var(--muted); }
+details.setup { margin-top: 10px; }
+details.setup summary { font-size: 14px; }
+ol.help { padding-inline-start: 20px; margin: 6px 0; }
+ol.help li { margin: 3px 0; }

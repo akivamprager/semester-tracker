@@ -50,6 +50,7 @@
     .mock-tabs { display: flex; gap: 6px; margin: 8px 0 4px; }
     .mock-tabs > span { flex: 1; text-align: center; padding: 8px 0; border-radius: 10px; background: var(--card); font-size: 13px; }
     .mock-tabs > span.on { background: var(--accent); color: #fff; }
+    .mock-tabs > span.on .badge { background: var(--on-color); color: var(--accent); }
     .devices { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 10px 0; }
     .device { background: var(--card); border-radius: 14px; padding: 12px 14px; }
     .device h3 { margin: 0 0 4px; }
@@ -129,21 +130,27 @@
     <div class="strip"><span>📅 היום: <b>4</b> אפשרויות · מחר: <b>6</b></span><span class="strip-next">הבא: 🌊 גלים תרגול 4 12:00 (שלך) <span class="chev"></span></span></div>
     <section class="card course" style="--c:#0d9488">
       <h2><span class="course-name">🌊 <bdi>גלים</bdi> <span class="code-badge">83325</span></span> <small>2 להשלים</small></h2>
-      <div class="unit">
-        <div class="name">הרצאה 7</div>
-        <div class="meta">התקיים בקבוצה שלך: אתמול, יום א׳ 1.11 14:00</div>
+      <div class="unit live">
+        <div class="name">הרצאה 8 <span class="dur">⏱ שעתיים</span> <span class="pill live"><span class="live-dot" aria-hidden="true"></span>מתקיים עכשיו</span></div>
+        <div class="meta">16:00–18:00 · פרופ׳ ניר בר-גיל · קב׳ <bdi dir="ltr">1-01</bdi> · 📍 קנדה · הקבוצה שלך</div>
         <div class="actions"><button class="attend">✓ סיימתי</button></div>
+        <div class="sessions-toggle">📅 מועדים בכל הקבוצות<span class="caret" aria-hidden="true"></span></div>
       </div>
       <div class="unit">
-        <div class="name">תרגול 4</div>
+        <div class="name">תרגול 4 <span class="dur">⏱ שעתיים</span></div>
         <div class="meta">התקיים לראשונה: היום, יום ב׳ 2.11 10:00 · יואב בן חיים (קב׳ <bdi dir="ltr">2-03</bdi>)<br>בקבוצה שלך: היום, יום ב׳ 2.11 12:00 (עוד לא) · 📍 קפלן</div>
         <div class="actions"><button class="attend">✓ סיימתי</button></div>
+        <div class="sessions-toggle">📅 מועדים בכל הקבוצות<span class="caret" aria-hidden="true"></span></div>
       </div>
       <div class="upcoming">הבא: הרצאה 9: יום א׳ 8.11 14:00 · פרופ׳ ניר בר-גיל · 📍 קנדה</div>
     </section>
   </div>
   <ul>
     <li><b>"התקיים לראשונה"</b> — הקבוצה שהעבירה את החומר הכי מוקדם (משם תגיע ההקלטה), ומתי זה בקבוצה שלך.</li>
+    <li><b>✓ סיימתי</b> — אחרי שהלכת או צפית בהקלטה. טעית? <b>↶ בטל</b> מופיע למטה ל-6 שניות.
+      שיעור שמתקיים <b>עכשיו</b> (נקודה אדומה מהבהבת) אפשר לסמן כבר תוך כדי.</li>
+    <li><b>⏱</b> — כמה זמן השיעור (שעה / שעתיים / 3 שעות).</li>
+    <li><b>📅 מועדים בכל הקבוצות ⌄</b> — נפתח בתוך הכרטיס: כל הקבוצות שמלמדות את אותו חומר, מתי, איפה ועם מי.</li>
     <li><b>"הבא"</b> — מתי ההרצאה/התרגול הבאים, איפה ועם מי.</li>
     <li><b>הפס הכחול למעלה</b> — כמה מפגשים אפשר לתפוס היום ומחר. לוחצים עליו כדי לעבור ל"מערכת".</li>
     <li><b>סמן הכל כבוצע</b> — לתחילת הסמסטר, אם כבר השלמת הכל בקורס.</li>
@@ -155,29 +162,40 @@
     ככה רואים שיש תרגול מקביל היום בשעה שנוחה יותר — ובוחרים כל שבוע מחדש.</p>
   <div class="mock">
     <section class="card day">
-      <h2>היום · יום ב׳ 2.11 <span class="h2-side"><small>3 מפגשים</small><span class="link share-btn">↗ שתף</span></span></h2>
+      <h2>היום · יום ב׳ 2.11 <span class="h2-side"><small>2 מפגשים</small><span class="link share-btn">↗ שתף</span></span></h2>
       <div class="slot" style="--c:#0d9488">
         <div class="slot-time">10:00<small>–11:45</small></div>
-        <div class="slot-body"><div class="name">🌊 גלים · תרגול 4</div>
+        <div class="slot-body"><div class="name">🌊 גלים · תרגול 4 <span class="dur">⏱ שעתיים</span></div>
           <div class="meta">יואב בן חיים · קב׳ <bdi dir="ltr">2-03</bdi> · 📍 ברנדמן ב 102</div>
-          <div class="pills"><span class="pill">בקבוצה שלך: היום 12:00</span></div></div>
+          <div class="pills"><span class="pill">בקבוצה שלך: היום 14:00</span></div></div>
+      </div>
+      <div class="slot gap">
+        <div class="slot-time">11:45<small>–14:00</small></div>
+        <div class="slot-body"><div class="name">☕ חלון של שעתיים ורבע</div>
+          <div class="meta">אפשר להשלים: 🎲 <bdi>הסתברות</bdi> הרצאה 3 (שעתיים)</div></div>
+      </div>
+      <div class="slot prayer" style="--c:#64748b">
+        <div class="slot-time">13:30</div>
+        <div class="slot-body"><div class="name">🙏 מנחה <span class="dur">רגיל</span></div>
+          <div class="meta">📍 הספריה הלאומית</div>
+          <div class="pills"><span class="pill mine">מתאים למערכת שלך</span></div>
+          <button class="mini-done">✓ סיימתי</button></div>
       </div>
       <div class="slot mine live" style="--c:#0d9488">
-        <div class="slot-time">12:00<small>–14:00</small></div>
-        <div class="slot-body"><div class="name">🌊 גלים · תרגול 4</div>
-          <div class="meta">יוגב קורן · קב׳ <bdi dir="ltr">2-02</bdi> · 📍 קפלן</div>
-          <div class="pills"><span class="pill mine">הקבוצה שלך</span><span class="pill live">● עכשיו</span></div></div>
-      </div>
-      <div class="slot" style="--c:#8b5cf6">
         <div class="slot-time">14:00<small>–15:45</small></div>
-        <div class="slot-body"><div class="name">🎲 הסתברות · הרצאה 4</div>
-          <div class="meta">ד״ר אורי רוזנשטיין · קב׳ <bdi dir="ltr">1-02</bdi> · 📍 פלדמן ב</div>
-          <div class="pills"><span class="pill">בקבוצה שלך: יום ג׳ 10.11 10:00</span></div></div>
+        <div class="slot-body"><div class="name">🌊 גלים · תרגול 4 <span class="dur">⏱ שעתיים</span></div>
+          <div class="meta">יואב בן חיים · קב׳ <bdi dir="ltr">2-01</bdi> · 📍 B220 הנדסה</div>
+          <div class="pills"><span class="pill mine">הקבוצה שלך</span><span class="pill live"><span class="live-dot" aria-hidden="true"></span>עכשיו</span></div>
+          <button class="mini-done">✓ סיימתי</button></div>
       </div>
     </section>
   </div>
   <ul>
-    <li><b>הקבוצה שלך</b> מודגשת, ומה שקורה עכשיו מסומן <b>● עכשיו</b>.</li>
+    <li><b>הקבוצה שלך</b> מודגשת, ומה שקורה עכשיו מסומן בנקודה אדומה מהבהבת.</li>
+    <li><b>לחיצה על מפגש</b> — פותחת את כל המועדים שלו בכל הקבוצות, עם כפתור ✓ סיימתי (אחרי שהתחיל).</li>
+    <li><b>☕ חלון</b> — זמן פנוי של חצי שעה ומעלה בין השיעורים שלך, עם הצעה מה אפשר להשלים בו.</li>
+    <li><b>🙏 מנחה / ערבית</b> (אופציונלי, מפעילים ב-⚙️ ← תכנון): המניין שהכי מתאים למערכת של אותו יום,
+      עם חלופות ו-✓ סיימתי. מניין רגיל עדיף על המניין הקצר; ערבית רק אחרי השקיעה ורק אם מסיימים מאוחר.</li>
     <li><b>↗ שתף</b> — שולח את רשימת האפשרויות של היום בוואטסאפ, כדי לתאם עם חברים.</li>
   </ul>
 
@@ -227,15 +245,22 @@
 
   <h2 class="step" id="calendar"><span class="num">8</span> המערכת ביומן Google (ווידג׳ט ותזכורות)</h2>
   <p>אחרי שהסנכרון מחובר: <b>⚙️ ← 📆 יומן ← הפעל יומן</b>. נוצר יומן חי עם השיעורים של הקבוצות שלך (כולל כיתות ושינויים),
-    הגשות ובחינות.</p>
+    הגשות, בחינות ותפילות (אם הפעלת). משם הוא מגיע ל-Google Calendar <b>בטלפון ובטאבלט</b> — כולל ה<b>ווידג׳ט</b> במסך הבית.</p>
+  <h3>הדרך המומלצת — מתעדכן כל שעה</h3>
+  <p>סקריפט קטן ב-Google (חינם, בחשבון שלך) מעתיק את היומן כל שעה ליומן אמיתי בשם "מעקב שיעורים", צבוע לפי קורס,
+    עם תזכורת 15 דקות לפני שיעור ויום לפני הגשה. ההוראות המלאות נמצאות ב-<b>⚙️ ← 📆 יומן</b>, ובקצרה:</p>
   <ol>
-    <li>במחשב: ללחוץ <b>"הוסף ל-Google Calendar"</b> ולאשר.</li>
-    <li>תוך כמה דקות היומן מופיע ב-Google Calendar <b>בטלפון ובטאבלט</b> — כולל ב<b>ווידג׳ט</b> של Google Calendar במסך הבית.</li>
-    <li>תזכורות לפני כל שיעור: ב-Google Calendar ← הגדרות ← היומן "שיעורים" ← <b>התראות ברירת מחדל</b> (למשל 15 דקות לפני).</li>
+    <li>script.google.com ← פרויקט חדש ← להדביק את הקוד מהקישור שבהגדרות ← שמירה.</li>
+    <li>⚙️ Project Settings ← Script properties ← <code>CALENDAR_URL</code> = הכתובת מ-⚙️ ← 📆 יומן ← "העתק".</li>
+    <li>לבחור <code>setup</code> ← Run ← לאשר הרשאות. (במילוי הראשון זה לוקח 2–3 הרצות — זה נמשך לבד כל שעה.)</li>
+    <li>באפליקציה: ⚙️ ← 📆 יומן ← <b>"הגדרתי את הסקריפט"</b>.</li>
   </ol>
+  <h3>הדרך הפשוטה — בלי סקריפט</h3>
+  <p>⚙️ ← 📆 יומן ← "הוספה כקישור" ← <b>Google Calendar</b>. עובד מיד, אבל Google מרענן יומן כזה רק פעם ב-8–24 שעות,
+    ותזכורות מגדירים ב-Google Calendar ← הגדרות היומן ← <b>התראות ברירת מחדל</b>.</p>
 
-  <h2 class="step" id="moodle"><span class="num">9</span> הגשות מהמודל, אוטומטית</h2>
-  <p>במקום להקליד מועדים — מייבאים אותם מהמודל:</p>
+  <h2 class="step" id="moodle"><span class="num">9</span> הגשות מהמודל</h2>
+  <p>במקום להקליד מועדים — מייבאים אותם מהמודל (⚙️ ← 📥 מודל ← ייבוא ידני):</p>
   <ol>
     <li>במודל: <b>לוח שנה</b> ← <b>ייצוא לוח שנה</b> ← "כל הקורסים", "אירועים אחרונים וקרובים" ← <b>ייצוא</b>. יורד קובץ <bdi dir="ltr">.ics</bdi>.</li>
     <li>להכניס אותו לאפליקציה באחת הדרכים:
@@ -246,7 +271,11 @@
       </ul>
     </li>
   </ol>
-  <p>מטלות חדשות נוספות, מועדים שהשתנו מתעדכנים, ומה שכבר סימנת נשאר. כדאי לחזור על זה פעם בשבוע-שבועיים.</p>
+  <p>מטלות חדשות נוספות, מועדים שהשתנו מתעדכנים, מטלות שנמחקו במודל יורדות, ומה שכבר סימנת נשאר.
+    כדאי לחזור על זה פעם בשבוע-שבועיים.</p>
+  <div class="tip">🔔 <b>מרכז העדכונים</b> (הפעמון למעלה): כשיש סנכרון אוטומטי עם המודל, כל שינוי — מטלה חדשה, מועד שזז,
+    מטלה שנמחקה — מופיע שם ונשלח כהתראה. כרגע זה פועל רק אצל מי שהקים את האפליקציה (הבדיקה רצה מהשרת שלו);
+    אצלך הייבוא הידני עושה את אותו הדבר.</div>
 
   <h2 class="step" id="tips"><span class="num">10</span> טיפים קטנים</h2>
   <ul>
@@ -255,10 +284,11 @@
     <li><b>טאבלט לרוחב / מחשב:</b> "לעשות" ו"משימות" מוצגים זה לצד זה.</li>
     <li><b>במחשב — מקלדת:</b> <kbd>1</kbd>–<kbd>5</kbd> מעבר בין לשוניות, <kbd>N</kbd> מטלה חדשה, <kbd>/</kbd> חיפוש, <kbd>S</kbd> סנכרון, <kbd>?</kbd> רשימת הקיצורים.</li>
     <li><b>במחשב:</b> ⌃ בפס הכותרת של חלון האפליקציה מעביר את הלשוניות לפס הכותרת — נראה כמו אפליקציה רגילה.</li>
-    <li><b>מצב כהה</b> עובד אוטומטית לפי הגדרות המכשיר.</li>
+    <li><b>🎨 מראה</b> (⚙️): אוטומטי לפי המכשיר, בהיר או כהה — לכל מכשיר בנפרד.</li>
+    <li><b>המספר על האייקון</b>: בוחרים ב-⚙️ מה הוא סופר — שיעורים להשלים, הגשות קרובות, בחינות, מפגשים שנשארו היום.</li>
   </ul>
-  <div class="note">ℹ️ <b>התראת הבוקר</b> (סיכום יומי ב-07:00) נשלחת מהשרת של מי שהקים את האפליקציה ועובדת כרגע רק אצלו —
-    אין טעם להפעיל אותה. היומן ב-Google עם תזכורות (שלב 8) נותן תחליף טוב.</div>
+  <div class="note">ℹ️ <b>התראת הבוקר</b> (סיכום יומי ב-07:00) ו<b>עדכוני המודל</b> נשלחים מהשרת של מי שהקים את האפליקציה
+    ועובדים כרגע רק אצלו — אין טעם להפעיל אותם. היומן ב-Google עם התזכורות (שלב 8) נותן תחליף טוב.</div>
 
   <footer class="guide-foot">
     <div class="cta">

@@ -535,13 +535,9 @@ function viewSettings() {
     </div>
     <p class="help">"אוטומטי" עוקב אחרי הגדרות המכשיר. נשמר בכל מכשיר בנפרד.</p>
   </section>
+  <h3 class="settings-group">חשבון וסנכרון</h3>
   <section class="card">
-    <h2>סמסטר</h2>
-    <select id="sem-select">${sems}</select>
-    <p class="help">ההתקדמות נשמרת לכל סמסטר בנפרד. לסמסטר חדש מוסיפים קובץ ב-<code>semesters/</code>.</p>
-  </section>
-  <section class="card">
-    <h2>סנכרון בין מכשירים</h2>
+    <h2>☁️ סנכרון בין מכשירים</h2>
     ${connected
       ? `<p class="help">מחובר ל-GitHub Gist פרטי. ${state.sync.status === 'err' ? 'שגיאה: ' + esc(state.sync.msg) : ''}</p>
          <div class="row">
@@ -555,17 +551,18 @@ function viewSettings() {
          <input id="token" type="password" autocomplete="off" placeholder="ghp_…">
          <div class="row"><button class="btn primary" data-action="connect">התחבר</button></div>`}
   </section>
-  <section class="card" id="push-card"><h2>התראת בוקר</h2><p class="help">טוען…</p></section>
-  ${badgeCard()}
-  ${prayerCard()}
+  ${moodleCard()}
+  <h3 class="settings-group">התראות ויומן</h3>
+  <section class="card" id="push-card"><h2>🔔 התראות</h2><p class="help">טוען…</p></section>
   ${calendarCard()}
+  ${badgeCard()}
+  <h3 class="settings-group">תכנון</h3>
+  ${prayerCard()}
+  <h3 class="settings-group">מתקדם</h3>
   <section class="card">
-    <h2>ייבוא מטלות מהמודל</h2>
-    <p class="help">במודל: לוח שנה → ייצוא לוח שנה (כל הקורסים, השבועות הקרובים) → ייצוא. בחר כאן את קובץ ה-<bdi>.ics</bdi>
-      שירד. מטלות חדשות יתווספו ומועדים שהשתנו יתעדכנו — מה שסימנת כבוצע נשאר.</p>
-    <div class="row"><button class="btn" data-action="import-ics">בחר קובץ <bdi>.ics</bdi></button></div>
-    <p class="help">אפשר גם לגרור את הקובץ לחלון האפליקציה, לפתוח אותו ישירות עם האפליקציה (Mac), או לשתף אותו לאפליקציה (אנדרואיד).</p>
-    <input id="ics-file" type="file" accept=".ics,text/calendar" hidden>
+    <h2>סמסטר</h2>
+    <select id="sem-select">${sems}</select>
+    <p class="help">ההתקדמות נשמרת לכל סמסטר בנפרד. לסמסטר חדש מוסיפים קובץ ב-<code>semesters/</code>.</p>
   </section>
   <section class="card desktop-only">
     <h2>קיצורי מקלדת</h2>
@@ -656,7 +653,7 @@ function badgeCard() {
       <span>${label}</span>${extra}
     </label>`;
   return `<section class="card" id="badge-card">
-    <h2>מספר על אייקון האפליקציה</h2>
+    <h2>🔢 מספר על אייקון האפליקציה</h2>
     ${check('lessons', 'הרצאות ותרגולים שהתקיימו ולא סימנתי')}
     ${check('hw', 'מטלות להגשה שמועדן בעוד', ' ' + days('hwDays', p.hwDays) + ' <span>או שעבר</span>')}
     ${check('practice', 'תרגול עצמי (לא נבדק) שעוד פתוח')}
@@ -941,6 +938,10 @@ document.body.addEventListener('click', async (e) => {
   if (action === 'cal-on' || action === 'cal-off') {
     el.disabled = true;
     try { await setCalendar(action === 'cal-on'); } catch (err) { toast('שגיאה: ' + err.message); }
+    rerenderSettings();
+  }
+  if (action === 'gcal-script') {
+    put(GCAL_SCRIPT_KEY, { s: 'set', d: { enabled: el.dataset.on === '1' } });
     rerenderSettings();
   }
   if (action === 'cal-copy') { await navigator.clipboard.writeText(el.dataset.url); toast('📋 הכתובת הועתקה'); }
@@ -1261,6 +1262,7 @@ function rerenderSettings() {
 // ---------- calendar subscription ----------
 // calendar.ics in the sync gist (see calendar.js); the GitHub Action keeps it fresh too.
 const CAL_PREFS_KEY = 'prefs/calendar';
+const GCAL_SCRIPT_KEY = 'prefs/gcal-script'; // user confirmed the Apps Script companion is set up
 const calendarEnabled = () => !!state.progress[CAL_PREFS_KEY]?.d?.enabled && !!store.getToken();
 
 function calendarCard() {
@@ -1277,20 +1279,61 @@ function calendarCard() {
       <div class="row"><button class="btn primary" data-action="cal-on">הפעל יומן</button></div></section>`;
   }
   const webcal = url.replace(/^https:/, 'webcal:');
+  const script = !!state.progress[GCAL_SCRIPT_KEY]?.d?.enabled;
+  const scriptUrl = 'https://github.com/akivamprager/semester-tracker/blob/main/tools/google-apps-script.gs';
   return `<section class="card"><h2>📆 יומן (Google / Apple)</h2>
-    <p class="help">פעיל ✓ — מתעדכן בכל סנכרון ופעם ביום.</p>
-    <div class="row">
-      <a class="btn" href="https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}" target="_blank" rel="noopener">הוסף ל-Google Calendar</a>
-      <a class="btn" href="${esc(webcal)}">הוסף ל-Apple Calendar</a>
-    </div>
+    <p class="help">קובץ היומן פעיל ✓ — מתעדכן בכל סנכרון ובכל ריצה של המשימה האוטומטית.</p>
+    ${script
+      ? `<div class="status-line ok">✓ <b>Google Calendar</b> מסונכרן כל שעה דרך הסקריפט — היומן "מעקב שיעורים", צבע לפי קורס, תזכורת 15 דק׳ לפני שיעור ויום לפני הגשה.
+          <button class="link" data-action="gcal-script" data-on="0">לא הגדרתי</button></div>`
+      : `<details class="setup">
+          <summary><b>Google Calendar שמתעדכן כל שעה</b> (מומלץ)</summary>
+          <p class="help">Google קורא יומן-בקישור רק פעם ב-8–24 שעות. סקריפט קטן בחשבון Google שלך מעתיק את היומן כל שעה ליומן אמיתי,
+            וגם מפעיל את התראת הבוקר בזמן (07:00–07:30):</p>
+          <ol class="help">
+            <li>script.google.com ← פרויקט חדש ← להדביק את <a href="${scriptUrl}" target="_blank" rel="noopener">הקוד הזה</a> ← שמירה.</li>
+            <li>⚙️ Project Settings ← Script properties: <code>CALENDAR_URL</code> = הכתובת למטה,
+              ו-<code>GITHUB_TOKEN</code> (לא חובה — רק להתראת הבוקר ולבדיקת המודל).</li>
+            <li>לבחור <code>setup</code> ← Run ← לאשר הרשאות.</li>
+            <li>ב-Google Calendar למחוק את היומן-בקישור הישן, כדי שלא יהיו כפילויות.</li>
+          </ol>
+          <div class="row"><button class="btn" data-action="gcal-script" data-on="1">✓ הגדרתי את הסקריפט</button></div>
+        </details>`}
     <div class="row">
       <input type="text" readonly value="${esc(url)}" class="cal-url" dir="ltr">
       <button class="btn" data-action="cal-copy" data-url="${esc(url)}">העתק</button>
     </div>
-    <p class="help"><b>אנדרואיד:</b> מוסיפים דרך "Google Calendar" (בדפדפן) — היומן יופיע באפליקציה ובווידג׳ט של Google Calendar.
-      תזכורות: בהגדרות היומן ב-Google Calendar → "התראות כברירת מחדל" (למשל 15 דקות לפני).<br>
-      <b>מק/אייפון:</b> בחלון ההרשמה הורידו את הסימון מ"הסר: התראות" ובחרו "רענון: כל שעה".</p>
+    <details class="setup">
+      <summary>הוספה כקישור (בלי סקריפט)</summary>
+      <div class="row">
+        <a class="btn" href="https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}" target="_blank" rel="noopener">Google Calendar (מתעדכן לאט)</a>
+        <a class="btn" href="${esc(webcal)}">Apple Calendar</a>
+      </div>
+      <p class="help"><b>Google:</b> מתעדכן רק פעם ב-8–24 שעות; תזכורות דרך "התראות כברירת מחדל" בהגדרות היומן.<br>
+        <b>Apple:</b> בחלון ההרשמה להוריד את הסימון מ"הסר: התראות" ולבחור "רענון: כל שעה".</p>
+    </details>
     <div class="row"><button class="btn danger" data-action="cal-off">כבה יומן</button></div>
+  </section>`;
+}
+
+// Moodle: automatic check by the GitHub job (status written to status/moodle) + manual import.
+function moodleCard() {
+  const st = state.progress['status/moodle']?.d;
+  const stale = st && now() - new Date(st.at) > 6 * 3600e3;
+  return `<section class="card">
+    <h2>📥 מודל</h2>
+    ${st
+      ? `<div class="status-line ${stale ? 'warn' : 'ok'}">${stale ? '⚠️' : '✓'} <b>סנכרון אוטומטי</b> — נבדק לאחרונה ${agoLabel(st.at)} (${st.events} אירועים).
+          מטלות חדשות, מועדים שזזו ומטלות שנמחקו מתעדכנים לבד, ומופיעים ב-🔔.
+          ${stale ? '<br>לא נבדק כבר כמה שעות — אם זה נמשך, ייתכן שהקישור למודל פג (צריך קישור חדש ב-GitHub secret).' : ''}</div>`
+      : `<p class="help">אין עדיין סנכרון אוטומטי. אפשר לייבא ידנית:</p>`}
+    <details class="setup" ${st ? '' : 'open'}>
+      <summary>ייבוא ידני מקובץ</summary>
+      <p class="help">במודל: לוח שנה → ייצוא לוח שנה (כל הקורסים, אירועים אחרונים וקרובים) → ייצוא. בחר כאן את קובץ ה-<bdi>.ics</bdi>
+        שירד, או גרור אותו לחלון האפליקציה / שתף אותו לאפליקציה (אנדרואיד). מה שסימנת כבוצע נשאר.</p>
+      <div class="row"><button class="btn" data-action="import-ics">בחר קובץ <bdi>.ics</bdi></button></div>
+    </details>
+    <input id="ics-file" type="file" accept=".ics,text/calendar" hidden>
   </section>`;
 }
 
@@ -1372,16 +1415,21 @@ async function renderPushCard() {
   } else if (!store.getToken()) {
     body = '<p class="help">כדי לקבל התראות צריך קודם לחבר סנכרון (למעלה).</p>';
   } else if (sub) {
-    body = `<p class="help">פעיל ✓ — כל בוקר בסביבות 07:00 תגיע התראה עם השיעורים של היום, מה שנשאר להשלים ומטלות קרובות.</p>
+    const st = state.progress['status/morning']?.d;
+    const sentToday = st && dayDiff(new Date(st.at)) === 0;
+    body = `<p class="help">פעיל במכשיר הזה ✓ — <b>סיכום בוקר</b> (07:00–07:30): השיעורים של היום, מה שנשאר להשלים ומטלות קרובות,
+        ו<b>עדכונים מהמודל</b> כשמשהו משתנה (גם ב-🔔).</p>
+      ${st ? `<div class="status-line ${sentToday ? 'ok' : ''}">${sentToday ? '✓' : '🕑'} סיכום הבוקר נשלח לאחרונה: ${sentToday ? 'היום' : fmt(new Date(st.at), false)} ב-${hm(new Date(st.at))}
+        ${st.devices ? `ל-${st.devices} מכשירים` : ''}</div>` : ''}
       <div class="row">
         <button class="btn" data-action="push-test">הצג דוגמה</button>
         <button class="btn" data-action="push-off">כבה</button>
       </div>`;
   } else {
-    body = `<p class="help">כל בוקר בסביבות 07:00: השיעורים של היום, מה שנשאר להשלים ומטלות קרובות.</p>
+    body = `<p class="help">סיכום בוקר (07:00–07:30) ועדכונים מהמודל כהתראה בטלפון. ההפעלה היא לכל מכשיר בנפרד.</p>
       <div class="row"><button class="btn primary" data-action="push-on">הפעל התראת בוקר</button></div>`;
   }
-  card.innerHTML = `<h2>התראת בוקר</h2>${body}`;
+  card.innerHTML = `<h2>🔔 התראות</h2>${body}`;
 }
 
 async function pushOn() {

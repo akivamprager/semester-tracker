@@ -13,6 +13,7 @@
  *  2. Project Settings (⚙️) → Script properties → add:
  *       CALENDAR_URL  = the address from the app: ⚙️ → 📆 יומן → "העתק"
  *       GITHUB_TOKEN  = fine-grained token, repo semester-tracker only, Actions: Read and write
+ *                       (optional — without it only the calendar sync runs)
  *  3. Editor → choose the function "setup" → Run → allow the permissions it asks for.
  *     It creates the triggers and fills the calendar the first time.
  *  Then in Google Calendar: remove the old link-subscribed "שיעורים" calendar (duplicates).
@@ -42,11 +43,16 @@ const COLORS = {
 function setup() {
   ScriptApp.getProjectTriggers().forEach((t) => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('syncCalendar').timeBased().everyHours(1).create();
-  // nearMinute(15) → runs between 07:00 and 07:30 (the job only sends from 07:00)
-  ScriptApp.newTrigger('morning').timeBased().atHour(7).nearMinute(15).everyDays(1).inTimezone(TZ).create();
-  ScriptApp.newTrigger('checkMoodle').timeBased().everyHours(2).create();
+  const hasToken = !!PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN');
+  if (hasToken) {
+    // nearMinute(15) → runs between 07:00 and 07:30 (the job only sends from 07:00)
+    ScriptApp.newTrigger('morning').timeBased().atHour(7).nearMinute(15).everyDays(1).inTimezone(TZ).create();
+    ScriptApp.newTrigger('checkMoodle').timeBased().everyHours(2).create();
+  }
   syncCalendar();
-  Logger.log('Triggers created: syncCalendar (hourly), morning (07:00–07:30), checkMoodle (every 2h).');
+  Logger.log(hasToken
+    ? 'Triggers created: syncCalendar (hourly), morning (07:00–07:30), checkMoodle (every 2h).'
+    : 'Trigger created: syncCalendar (hourly). No GITHUB_TOKEN — morning/Moodle triggers skipped.');
 }
 
 function morning() { triggerJob_(false); }

@@ -121,14 +121,13 @@ if (process.env.MOODLE_ICS_URL && !calendarOnly) {
       updates[key] = { s: 'set', t: now.getTime(), d: { ...(progress[key]?.d || {}), ...d } };
     }
     console.log(`Moodle: ${Object.keys(updates).length} progress update(s)`);
+    // shown in the app's Settings ("last checked …")
+    updates['status/moodle'] = { s: 'set', t: now.getTime(), d: { at: now.toISOString(), events: events.length } };
 
     // c. save: re-read progress first so app changes made meanwhile aren't overwritten
-    const snapshot = JSON.stringify(feedSnapshot(events));
-    if (Object.keys(updates).length || gist.files[FEED_FILE]?.content !== snapshot) {
-      gist = await gh(`/gists/${gist.id}`);
-      progress = merge(fileJson(gist, 'progress.json'), updates);
-      await writeFiles(gist, { 'progress.json': JSON.stringify(progress), [FEED_FILE]: snapshot });
-    }
+    gist = await gh(`/gists/${gist.id}`);
+    progress = merge(fileJson(gist, 'progress.json'), updates);
+    await writeFiles(gist, { 'progress.json': JSON.stringify(progress), [FEED_FILE]: JSON.stringify(feedSnapshot(events)) });
   } catch (e) {
     console.error('Moodle import failed:', e.message); // never block the rest of the run
   }
@@ -157,5 +156,11 @@ if (!sendMorning) {
   }
   push.lastSent = today;
   pushChanged = true;
+  // shown in the app's Settings ("sent today at 07:12 to 3 devices")
+  gist = await gh(`/gists/${gist.id}`);
+  progress = merge(fileJson(gist, 'progress.json'), {
+    'status/morning': { s: 'set', t: Date.now(), d: { at: new Date().toISOString(), devices: push.subs?.length || 0, sent: !!(summary || force) } },
+  });
+  await writeFiles(gist, { 'progress.json': JSON.stringify(progress) });
 }
 if (pushChanged) await writeFiles(gist, { 'push.json': JSON.stringify(push, null, 1) });
