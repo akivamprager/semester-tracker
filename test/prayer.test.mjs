@@ -25,9 +25,10 @@ test('sunset in Jerusalem (with elevation), matches the published time', () => {
 });
 
 test('weekday plans', () => {
-  // Tue 3.11: C/C++ ends 13:45, DS recitation 14:00 → short Mincha in B125; done at 15:45 → no Maariv
-  assert.deepEqual(plan(2026, 11, 3), ['mincha 13:50 mincha-1350']);
-  // Wed 4.11: 13:50 falls in the break of the C/C++ recitation (13:00–14:45); finishes 16:45 → no Maariv
+  // Tue 3.11: both the short 13:50 (between C/C++ and the DS recitation) and the regular 15:45
+  // (right after the last class) are workable → the regular one; done at 15:45 → no Maariv
+  assert.deepEqual(plan(2026, 11, 3), ['mincha 15:45 mincha-1545']);
+  // Wed 4.11: only the short 13:50 is workable (break of the C/C++ recitation); 15:45 and sunset clash
   assert.deepEqual(plan(2026, 11, 4), ['mincha 13:50 mincha-1350']);
   // Thu 5.11: Probability lecture until 13:45, Data Structures 14:00 → 13:50 in B125
   assert.deepEqual(plan(2026, 11, 5), ['mincha 13:50 mincha-1350']);
@@ -44,8 +45,8 @@ test('weekday plans', () => {
 
 test('prayers reach the morning summary and the calendar only when enabled', () => {
   const progress = { [PRAYER_PREFS_KEY]: { s: 'set', t: 1, d: { enabled: true } } };
-  const tue = dailySummary(sem, progress, new Date(2026, 10, 3, 7, 0)).body;
-  assert.ok(tue.includes('🙏 מנחה 13:50 (B125)'), tue);
+  const wed = dailySummary(sem, progress, new Date(2026, 10, 4, 7, 0)).body;
+  assert.ok(wed.includes('🙏 מנחה 13:50 (B125)'), wed);
   const sun = dailySummary(sem, progress, new Date(2026, 10, 8, 7, 0)).body; // recitation until 17:45
   assert.ok(sun.includes('🙏 ערבית 18:00'), sun);
   const withPrayers = parseIcs(buildCalendar(sem, progress)).filter((e) => e.uid.startsWith('prayer-'));
@@ -82,4 +83,13 @@ test('a prayer marked done gets a ✓ in the calendar', () => {
   };
   const ev = parseIcs(buildCalendar(sem, progress)).find((e) => e.uid === 'prayer-2026-11-03-mincha@semester-tracker');
   assert.ok(ev.summary.startsWith('✓ 🙏'), ev.summary);
+});
+
+test('short minyan only when no regular one is workable', () => {
+  // Remove the regular 15:45 → Tuesday falls back to the short 13:50
+  const noLate = { ...sem, minyanim: sem.minyanim.filter((m) => m.id !== 'mincha-1545') };
+  const tue = planDay(noLate, courses, new Date(2026, 10, 3), on).map((p) => p.minyan.id);
+  assert.deepEqual(tue, ['mincha-1350']);
+  // Sunday: regular 13:30 fits before the 14:00 lecture → never the short one
+  assert.equal(planDay(sem, courses, new Date(2026, 10, 8), on)[0].minyan.id, 'mincha-1330');
 });

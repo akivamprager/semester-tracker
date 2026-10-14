@@ -121,9 +121,17 @@ export function planDay(sem, courses, date, prefs) {
 
   const plan = [];
   // Mincha: while on campus (from 30 min before the first session to 20 min after the last).
+  // "Workable" = clashes by at most the walking margin. Among workable minyanim a regular one
+  // always beats a short one (short isn't לכתחילה); otherwise the least clashing, regular first.
+  const workable = (o) => o.overlap <= prefs.walk;
   const mincha = options('mincha')
     .filter((o) => o.start >= addMin(first, -30) && o.end <= addMin(last, 20))
-    .sort((a, b) => a.overlap - b.overlap || a.start - b.start);
+    .sort((a, b) =>
+      workable(b) - workable(a)
+      || (workable(a) ? !!a.minyan.short - !!b.minyan.short : a.overlap - b.overlap)
+      || !!a.minyan.short - !!b.minyan.short
+      || a.overlap - b.overlap
+      || a.start - b.start);
   if (mincha.length) plan.push({ ...mincha[0], alternatives: mincha.slice(1) });
   // Maariv: only after sunset (no early "plag" minyanim), and only if it starts soon
   // after the last session ends.

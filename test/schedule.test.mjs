@@ -84,3 +84,15 @@ test('sessionsBetween lists every comparable group, with unit numbers', async ()
     [4, '1-01', 1, true],
   ]);
 });
+
+test('gaps between own sessions (≥30 min; 15-min breaks are not gaps)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { gapsOn } = await import('../schedule.js');
+  const real = JSON.parse(readFileSync(new URL('../semesters/2027A.json', import.meta.url)));
+  const courses = computeUnits(real, new Date(2027, 1, 1));
+  const hm = (d) => d.toTimeString().slice(0, 5);
+  const g = (d) => gapsOn(courses, new Date(2026, 10, d)).map((x) => `${hm(x.start)}-${hm(x.end)}`);
+  assert.deepEqual(g(11), ['11:45-13:00']); // Wed: EE lecture → C/C++ recitation
+  assert.deepEqual(g(10), []); // Tue: back to back
+  assert.deepEqual(g(12), []); // Thu: back to back
+});

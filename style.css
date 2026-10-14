@@ -487,3 +487,12 @@ dialog#sheet::backdrop { background: rgba(10, 14, 24, 0.35); animation: fade-in 
 .sessions-inline .slot { border-top-color: var(--line); }
 .sessions-inline .slot:first-child { border-top: none; }
 @media (prefers-reduced-motion: reduce) { .sessions-inline, .sessions-toggle .caret { animation: none; transition: none; } }
+
+/* Gaps between own lessons (timetable) */
+.slot.gap {
+  --c: var(--line);
+  border-inline-start: 4px dashed color-mix(in srgb, var(--muted) 45%, transparent);
+  background: repeating-linear-gradient(-45deg, transparent 0 8px, color-mix(in srgb, var(--muted) 5%, transparent) 8px 16px);
+}
+.slot.gap .slot-time { color: var(--muted); font-weight: 600; }
+.slot.gap .name { font-weight: 600; }

@@ -1,4 +1,4 @@
-import { computeUnits, mergeTasks, sessionsBetween, DAY_LABELS } from './schedule.js';
+import { computeUnits, mergeTasks, sessionsBetween, gapsOn, DAY_LABELS } from './schedule.js';
 import { dailySummary } from './summary.js';
 import { badgeCount, badgePrefs, PREFS_KEY } from './badge.js';
 import { buildCalendar } from './calendar.js';
@@ -368,6 +368,7 @@ function prayerRow({ prayer: p, key }) {
 }
 
 function slotRow(x) {
+  if (x.gap) return gapRow(x);
   if (x.prayer) return prayerRow(x);
   const c = x.course;
   if (x.exam) {
@@ -396,8 +397,52 @@ function slotRow(x) {
   </div>`;
 }
 
+// "שעה ורבע", "45 דק׳", "שעתיים" …
+function minutesLabel(min) {
+  const h = Math.floor(min / 60);
+  const m = Math.round(min % 60);
+  const hours = h === 0 ? '' : h === 1 ? 'שעה' : h === 2 ? 'שעתיים' : `${h} שעות`;
+  if (!m) return hours;
+  if (!h) return `${m} דק׳`;
+  const part = { 15: 'ורבע', 30: 'וחצי', 45: 'ושלושה רבעים' }[m] || `ו-${m} דק׳`;
+  return `${hours} ${part}`;
+}
+
+// Gaps of the user's own day, as timetable items, with a catch-up suggestion that fits.
+function gapItems(courses, from, to) {
+  const t0 = now();
+  const owed = courses
+    .flatMap((c) => c.types.flatMap((t) => t.units
+      .filter((u) => u.available && !statusOf(u.key))
+      .map((u) => ({ c, t, u, len: ((u.own || u.first).end - (u.own || u.first).start) / 60e3 }))))
+    .sort((a, b) => a.u.first.end - b.u.first.end);
+  const items = [];
+  for (let d = startOfDay(from); d < to; d.setDate(d.getDate() + 1)) {
+    for (const g of gapsOn(courses, new Date(d))) {
+      if (g.end <= t0) continue;
+      const min = (g.end - g.start) / 60e3;
+      const fit = owed.find((x) => x.len <= min);
+      items.push({ gap: g, start: g.start, min, suggest: fit });
+    }
+  }
+  return items;
+}
+
+function gapRow({ gap, min, suggest }) {
+  const t0 = now();
+  const live = gap.start <= t0 && t0 < gap.end;
+  return `<div class="slot gap ${live ? 'live' : ''}">
+    <div class="slot-time">${hm(gap.start)}<small>–${hm(gap.end)}</small></div>
+    <div class="slot-body">
+      <div class="name">☕ חלון של ${minutesLabel(min)}${live ? ' <span class="pill live"><span class="live-dot" aria-hidden="true"></span>עכשיו</span>' : ''}</div>
+      ${suggest ? `<div class="meta">אפשר להשלים: ${suggest.c.emoji} <bdi>${esc(suggest.c.short)}</bdi> ${suggest.t.label} ${suggest.u.n} (${durLabel(suggest.u.own || suggest.u.first)})</div>` : ''}
+    </div>
+  </div>`;
+}
+
 function viewSchedule(courses) {
-  const list = openSessions(courses, horizonEnd());
+  const list = [...openSessions(courses, horizonEnd()), ...gapItems(courses, now(), horizonEnd())]
+    .sort((a, b) => a.start - b.start || (b.gap ? 1 : 0) - (a.gap ? 1 : 0));
   const days = new Map();
   for (const x of list) {
     const k = startOfDay(x.start).getTime();
@@ -594,7 +639,7 @@ function prayerCard() {
     </div>
     ${hint.length ? `<p class="help"><b>השבוע:</b><br>${hint.map(esc).join('<br>')}</p>` : ''}
     <details><summary>איך נבחר המניין</summary>
-      <p class="help">מנחה: הזמן שהכי פחות מתנגש עם השיעורים שלך באותו יום (הפסקות בין שעות אקדמיות נחשבות פנויות, 5 דק׳ הליכה לכל כיוון).
+      <p class="help">מנחה: מניין רגיל שמתאים למערכת שלך באותו יום (הפסקות בין שעות אקדמיות נחשבות פנויות, 5 דק׳ הליכה לכל כיוון). המניין הקצר רק אם אין מניין רגיל שמתאים.
         ערבית: רק במניין שאחרי השקיעה, ורק אם השיעור האחרון נגמר עד חצי שעה לפני המניין. מניין "15 דק׳ לפני השקיעה" מחושב לפי שקיעה בגבעת רם ומעוגל — השעה המדויקת בבית הכנסת.</p>
     </details>
   </section>`;

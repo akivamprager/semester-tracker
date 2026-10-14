@@ -224,3 +224,25 @@ export function sessionsBetween(courses, from, to) {
   }
   return out.sort((a, b) => a.occ.start - b.occ.start || (b.mine - a.mine));
 }
+
+// The user's own sessions on a date (all courses/types, done or not), sorted by start.
+export function ownSessionsOn(courses, date) {
+  const day = ymd(date);
+  return courses
+    .flatMap((c) => c.types.flatMap((t) => t.units.filter((u) => u.own && ymd(u.own.start) === day)
+      .map((u) => ({ course: c, type: t, unit: u, start: u.own.start, end: u.own.end }))))
+    .sort((a, b) => a.start - b.start);
+}
+
+// Free stretches of at least `minMinutes` between the user's own sessions that day.
+// The usual 15-minute break between back-to-back classes is not a gap.
+export function gapsOn(courses, date, minMinutes = 30) {
+  const own = ownSessionsOn(courses, date);
+  const gaps = [];
+  let lastEnd = null;
+  for (const s of own) {
+    if (lastEnd && (s.start - lastEnd) / 60e3 >= minMinutes) gaps.push({ start: lastEnd, end: s.start });
+    if (!lastEnd || s.end > lastEnd) lastEnd = s.end;
+  }
+  return gaps;
+}
