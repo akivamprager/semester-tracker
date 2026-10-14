@@ -1,0 +1,203 @@
+/**
+ * מעקב שיעורים — Google Apps Script companion (runs in your own Google account, free).
+ *
+ *  • every hour: copies the app's calendar (calendar.ics in your sync gist) into a real Google
+ *    calendar "מעקב שיעורים" — adds / updates / removes events, colors by course, reminders.
+ *    (A link-subscribed calendar is refreshed by Google only every ~8–24h; this is ≤1h.)
+ *  • 07:00–07:30 daily: starts the morning job on GitHub (the morning push) — on time,
+ *    unlike GitHub's own scheduler.
+ *  • every 2 hours (07:00–23:00): starts the job again for the Moodle check.
+ *
+ * Setup (once):
+ *  1. script.google.com → New project → paste this file over Code.gs → Save.
+ *  2. Project Settings (⚙️) → Script properties → add:
+ *       CALENDAR_URL  = the address from the app: ⚙️ → 📆 יומן → "העתק"
+ *       GITHUB_TOKEN  = fine-grained token, repo semester-tracker only, Actions: Read and write
+ *  3. Editor → choose the function "setup" → Run → allow the permissions it asks for.
+ *     It creates the triggers and fills the calendar the first time.
+ *  Then in Google Calendar: remove the old link-subscribed "שיעורים" calendar (duplicates).
+ *
+ * Other functions you can run by hand: syncCalendar, testMorningNow (sends the summary now).
+ */
+
+const OWNER = 'akivamprager';
+const REPO = 'semester-tracker';
+const CAL_NAME = 'מעקב שיעורים';
+const TZ = 'Asia/Jerusalem';
+const REMINDER_CLASS_MIN = 15; // classes, prayers (0 = none)
+const REMINDER_DEADLINE_MIN = 24 * 60; // deadlines and exams: a day before (0 = none)
+const RANGE_BACK_DAYS = 30; // events older than this are left alone
+const RANGE_AHEAD_DAYS = 200;
+const MAX_RUN_MS = 4.5 * 60 * 1000; // Apps Script stops at 6 min; the next run continues
+// Course name (CATEGORIES in the .ics) → Google event color.
+const COLORS = {
+  'גלים': 'CYAN',
+  'הסתברות': 'MAUVE',
+  'מבוא להנדסת חשמל': 'ORANGE',
+  'מבני נתונים': 'GREEN',
+  'C/C++': 'RED',
+};
+
+// ---------- triggers ----------
+function setup() {
+  ScriptApp.getProjectTriggers().forEach((t) => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('syncCalendar').timeBased().everyHours(1).create();
+  // nearMinute(15) → runs between 07:00 and 07:30 (the job only sends from 07:00)
+  ScriptApp.newTrigger('morning').timeBased().atHour(7).nearMinute(15).everyDays(1).inTimezone(TZ).create();
+  ScriptApp.newTrigger('checkMoodle').timeBased().everyHours(2).create();
+  syncCalendar();
+  Logger.log('Triggers created: syncCalendar (hourly), morning (07:00–07:30), checkMoodle (every 2h).');
+}
+
+function morning() { triggerJob_(false); }
+
+function checkMoodle() {
+  const hour = Number(Utilities.formatDate(new Date(), TZ, 'H'));
+  if (hour >= 7 && hour <= 23) triggerJob_(false);
+}
+
+function testMorningNow() { triggerJob_(true); }
+
+// Starts .github/workflows/morning.yml. force=false keeps the "once a day from 07:00" rule.
+function triggerJob_(force) {
+  const res = UrlFetchApp.fetch(
+    `https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/morning.yml/dispatches`,
+    {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { Authorization: 'Bearer ' + prop_('GITHUB_TOKEN'), Accept: 'application/vnd.github+json' },
+      payload: JSON.stringify({ ref: 'main', inputs: { force: force ? 'true' : 'false' } }),
+      muteHttpExceptions: true,
+    },
+  );
+  const code = res.getResponseCode();
+  if (code !== 204) throw new Error(`GitHub ${code}: ${res.getContentText().slice(0, 300)}`);
+  Logger.log(`Morning job started (force=${force}).`);
+}
+
+// ---------- calendar sync ----------
+function syncCalendar() {
+  const started = Date.now();
+  const res = UrlFetchApp.fetch(prop_('CALENDAR_URL'), { muteHttpExceptions: true });
+  if (res.getResponseCode() !== 200) throw new Error('calendar.ics: HTTP ' + res.getResponseCode());
+  const events = parseIcs_(res.getContentText());
+  if (!events.length) throw new Error('calendar.ics is empty — is the calendar turned on in the app?');
+
+  const cal = getCalendar_();
+  const from = new Date(Date.now() - RANGE_BACK_DAYS * 864e5);
+  const to = new Date(Date.now() + RANGE_AHEAD_DAYS * 864e5);
+  const existing = {};
+  for (const ev of cal.getEvents(from, to)) {
+    const uid = ev.getTag('uid');
+    if (!uid) continue;
+    if (existing[uid]) ev.deleteEvent(); // a duplicate from an interrupted run
+    else existing[uid] = ev;
+  }
+
+  let created = 0, updated = 0, deleted = 0, unchanged = 0, finished = true;
+  for (const e of events) {
+    if (Date.now() - started > MAX_RUN_MS) { finished = false; break; }
+    if (e.end < from || e.start > to) continue;
+    const cur = existing[e.uid];
+    delete existing[e.uid];
+    if (!cur) {
+      const ev = e.allDay
+        ? cal.createAllDayEvent(e.title, e.start, { location: e.location, description: e.description })
+        : cal.createEvent(e.title, e.start, e.end, { location: e.location, description: e.description });
+      ev.setTag('uid', e.uid);
+      decorate_(ev, e);
+      created++;
+      Utilities.sleep(120); // Google rate-limits bursts of event creation
+    } else if (differs_(cur, e)) {
+      cur.setTitle(e.title);
+      if (e.allDay) cur.setAllDayDate(e.start); else cur.setTime(e.start, e.end);
+      cur.setLocation(e.location);
+      cur.setDescription(e.description);
+      decorate_(cur, e);
+      updated++;
+      Utilities.sleep(80);
+    } else {
+      unchanged++;
+    }
+  }
+  // Only remove leftovers after a complete pass (a timed-out run hasn't seen everything).
+  if (finished) {
+    for (const uid in existing) { existing[uid].deleteEvent(); deleted++; Utilities.sleep(80); }
+  }
+  Logger.log(`Calendar: +${created} ~${updated} -${deleted} =${unchanged}${finished ? '' : ' (continues next hour)'}`);
+}
+
+function getCalendar_() {
+  const own = CalendarApp.getCalendarsByName(CAL_NAME).filter((c) => c.isOwnedByMe());
+  if (own.length) return own[0];
+  const cal = CalendarApp.createCalendar(CAL_NAME, { color: CalendarApp.Color.BLUE });
+  cal.setTimeZone(TZ);
+  return cal;
+}
+
+function differs_(ev, e) {
+  if (ev.getTitle() !== e.title || (ev.getLocation() || '') !== e.location
+    || (ev.getDescription() || '') !== e.description || ev.isAllDayEvent() !== e.allDay) return true;
+  if (e.allDay) return ev.getAllDayStartDate().getTime() !== e.start.getTime();
+  return ev.getStartTime().getTime() !== e.start.getTime() || ev.getEndTime().getTime() !== e.end.getTime();
+}
+
+// Color by course; reminders: classes/prayers 15 min, deadlines/exams a day before; none once done.
+function decorate_(ev, e) {
+  const color = COLORS[e.category];
+  if (color) ev.setColor(CalendarApp.EventColor[color]);
+  else if (e.uid.startsWith('prayer-')) ev.setColor(CalendarApp.EventColor.GRAY);
+  ev.removeAllReminders();
+  if (e.allDay || e.title.startsWith('✓')) return;
+  const minutes = e.uid.startsWith('task-') ? REMINDER_DEADLINE_MIN : REMINDER_CLASS_MIN;
+  if (minutes) ev.addPopupReminder(minutes);
+}
+
+// ---------- helpers ----------
+function prop_(name) {
+  const v = PropertiesService.getScriptProperties().getProperty(name);
+  if (!v) throw new Error(`Missing script property ${name} (Project Settings → Script properties).`);
+  return v.trim();
+}
+
+function parseIcs_(text) {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\n[ \t]/g, '').split('\n');
+  const unescape = (s) => s.replace(/\\n/gi, '\n').replace(/\\([,;\\])/g, '$1');
+  const date = (name, value) => {
+    const m = value.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z)?)?$/);
+    if (!m) return null;
+    if (!m[4] || /VALUE=DATE(?!-)/.test(name)) return { d: new Date(+m[1], m[2] - 1, +m[3]), allDay: true };
+    return {
+      d: m[7] ? new Date(Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]))
+        : new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +m[6]),
+      allDay: false,
+    };
+  };
+  const out = [];
+  let ev = null;
+  for (const line of lines) {
+    if (line === 'BEGIN:VEVENT') { ev = { location: '', description: '', category: '' }; continue; }
+    if (line === 'END:VEVENT') {
+      if (ev && ev.uid && ev.start) {
+        if (!ev.end) ev.end = ev.allDay ? ev.start : new Date(ev.start.getTime() + 15 * 60e3);
+        out.push(ev);
+      }
+      ev = null;
+      continue;
+    }
+    if (!ev) continue;
+    const i = line.indexOf(':');
+    if (i < 0) continue;
+    const name = line.slice(0, i);
+    const key = name.split(';')[0];
+    const value = line.slice(i + 1);
+    if (key === 'UID') ev.uid = value;
+    else if (key === 'SUMMARY') ev.title = unescape(value);
+    else if (key === 'LOCATION') ev.location = unescape(value);
+    else if (key === 'DESCRIPTION') ev.description = unescape(value);
+    else if (key === 'CATEGORIES') ev.category = unescape(value);
+    else if (key === 'DTSTART') { const r = date(name, value); if (r) { ev.start = r.d; ev.allDay = r.allDay; } }
+    else if (key === 'DTEND') { const r = date(name, value); if (r) ev.end = r.d; }
+  }
+  return out;
+}

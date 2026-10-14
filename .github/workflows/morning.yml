@@ -9,7 +9,15 @@ on:
     - cron: '7,27,47 4-7 * * *'
     # Moodle check every 2 hours during the day (≈ 08:37–22:37 Israel time).
     - cron: '37 6-20/2 * * *'
-  workflow_dispatch: # "Run workflow" button: sends right away (for testing)
+  # Manual / external trigger. By default sends the morning summary right away (testing).
+  # An external scheduler (cron-job.org) dispatches with force=false: then the normal
+  # "once a day, from 07:00" rule applies, so it never duplicates the morning summary.
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Send the morning summary now (ignore the hour / once-a-day check)'
+        type: boolean
+        default: true
   push: # schedule data changed → refresh the subscription calendar only
     branches: [main]
     paths: ['semesters/**', 'calendar.js', 'schedule.js']
@@ -29,5 +37,5 @@ jobs:
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
           MOODLE_ICS_URL: ${{ secrets.MOODLE_ICS_URL }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
-          FORCE: ${{ github.event_name == 'workflow_dispatch' }}
+          FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force }}
           EVENT: ${{ github.event_name }}
