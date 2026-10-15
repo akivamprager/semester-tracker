@@ -93,7 +93,7 @@ export function buildCalendar(sem, progress) {
     'PRODID:-//semester-tracker//HE',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    `X-WR-CALNAME:${text(`שיעורים · ${sem.name}`)}`,
+    `X-WR-CALNAME:${text(`הסמסטרון · ${sem.name}`)}`,
     'X-WR-TIMEZONE:Asia/Jerusalem',
     'REFRESH-INTERVAL;VALUE=DURATION:PT1H',
     'X-PUBLISHED-TTL:PT1H',

@@ -1,8 +1,8 @@
 /**
- * מעקב שיעורים — Google Apps Script companion (runs in your own Google account, free).
+ * הסמסטרון — Google Apps Script companion (runs in your own Google account, free).
  *
  *  • every hour: copies the app's calendar (calendar.ics in your sync gist) into a real Google
- *    calendar "מעקב שיעורים" — adds / updates / removes events, colors by course, reminders.
+ *    calendar "הסמסטרון" — adds / updates / removes events, colors by course, reminders.
  *    (A link-subscribed calendar is refreshed by Google only every ~8–24h; this is ≤1h.)
  *  • 07:00–07:30 daily: starts the morning job on GitHub (the morning push) — on time,
  *    unlike GitHub's own scheduler.
@@ -28,7 +28,8 @@
 
 const OWNER = 'akivamprager';
 const REPO = 'semester-tracker';
-const CAL_NAME = 'מעקב שיעורים';
+const CAL_NAME = 'הסמסטרון';
+const OLD_CAL_NAMES = ['מעקב שיעורים', 'סמסטרון']; // renamed in place (keeps its events and settings)
 const TZ = 'Asia/Jerusalem';
 const REMINDER_CLASS_MIN = 15; // classes, prayers (0 = none)
 const REMINDER_DEADLINE_MIN = 24 * 60; // deadlines and exams: a day before (0 = none)
@@ -237,6 +238,10 @@ function syncCalendar() {
 function getCalendar_() {
   const own = CalendarApp.getCalendarsByName(CAL_NAME).filter((c) => c.isOwnedByMe());
   if (own.length) return own[0];
+  for (const old of OLD_CAL_NAMES) {
+    const prev = CalendarApp.getCalendarsByName(old).filter((c) => c.isOwnedByMe());
+    if (prev.length) { prev[0].setName(CAL_NAME); return prev[0]; }
+  }
   const cal = CalendarApp.createCalendar(CAL_NAME, { color: CalendarApp.Color.BLUE });
   cal.setTimeZone(TZ);
   return cal;

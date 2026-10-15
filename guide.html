@@ -6,7 +6,7 @@
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f3f5f9">
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#111520">
   <script src="theme.js"></script>
-  <title>מעקב שיעורים — מדריך</title>
+  <title>הסמסטרון — מדריך</title>
   <meta name="description" content="מדריך קצר לאפליקציית מעקב השיעורים: מה כל לשונית עושה ואיך מתקינים בטלפון, בטאבלט ובמחשב.">
   <link rel="icon" href="icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" sizes="167x167" href="icon-167.png">
   <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="מעקב שיעורים">
+  <meta name="apple-mobile-web-app-title" content="הסמסטרון">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&display=swap">
@@ -67,7 +67,7 @@
 
   <section class="hero">
     <img src="icon-192.png" alt="">
-    <h1>מעקב שיעורים</h1>
+    <h1>הסמסטרון</h1>
     <p>אפליקציה קטנה שזוכרת בשבילך אילו הרצאות ותרגולים כבר עשית, מה עוד צריך להשלים, ומתי ההגשות והבחינות —
       בכל הקורסים של סמסטר א׳ תשפ״ז.</p>
     <div class="cta">
@@ -98,7 +98,7 @@
       <ol>
         <li>לפתוח את הכתובת ב-<b>Chrome</b>.</li>
         <li>תפריט <b>⋮</b> ← <b>התקנת אפליקציה</b> (או "הוספה למסך הבית").</li>
-        <li>מעכשיו פותחים מהאייקון "שיעורים".</li>
+        <li>מעכשיו פותחים מהאייקון "הסמסטרון".</li>
       </ol>
     </div>
     <div class="device">
@@ -247,7 +247,7 @@
   <p>אחרי שהסנכרון מחובר: <b>⚙️ ← 📆 יומן ← הפעל יומן</b>. נוצר יומן חי עם השיעורים של הקבוצות שלך (כולל כיתות ושינויים),
     הגשות, בחינות ותפילות (אם הפעלת). משם הוא מגיע ל-Google Calendar <b>בטלפון ובטאבלט</b> — כולל ה<b>ווידג׳ט</b> במסך הבית.</p>
   <h3>הדרך המומלצת — מתעדכן כל שעה</h3>
-  <p>סקריפט קטן ב-Google (חינם, בחשבון שלך) מעתיק את היומן כל שעה ליומן אמיתי בשם "מעקב שיעורים", צבוע לפי קורס,
+  <p>סקריפט קטן ב-Google (חינם, בחשבון שלך) מעתיק את היומן כל שעה ליומן אמיתי בשם "הסמסטרון", צבוע לפי קורס,
     עם תזכורת 15 דקות לפני שיעור ויום לפני הגשה. ההוראות המלאות נמצאות ב-<b>⚙️ ← 📆 יומן</b>, ובקצרה:</p>
   <ol>
     <li>script.google.com ← פרויקט חדש ← להדביק את הקוד מהקישור שבהגדרות ← שמירה.</li>
@@ -301,7 +301,7 @@
 <script>
   document.getElementById('share-guide').addEventListener('click', async () => {
     const url = location.href.split('#')[0];
-    const data = { title: 'מעקב שיעורים — מדריך', text: 'אפליקציה למעקב אחרי הרצאות, תרגולים והגשות בסמסטר:', url };
+    const data = { title: 'הסמסטרון — מדריך', text: 'אפליקציה למעקב אחרי הרצאות, תרגולים והגשות בסמסטר:', url };
     try {
       if (navigator.share) { await navigator.share(data); return; }
     } catch (e) { if (e.name === 'AbortError') return; }

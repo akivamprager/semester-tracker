@@ -1,7 +1,7 @@
 // Network-first for everything (so schedule/app updates show up), cache as offline fallback.
 // Requests revalidate with the server (cache: 'no-cache') instead of using the browser's
 // HTTP cache, so the app never mixes a fresh index.html with a stale app.js.
-const CACHE = 'tracker-v56';
+const CACHE = 'tracker-v57';
 const SHELL = ['./', 'index.html', 'guide.html', 'theme.js', 'style.css', 'app.js', 'schedule.js', 'sync.js', 'summary.js', 'ics.js', 'badge.js', 'calendar.js', 'prayer.js', 'moodle.js', 'recordings.js',
   'manifest.webmanifest', 'icon-192.png', 'semesters/index.json'];
 
@@ -56,7 +56,7 @@ self.addEventListener('fetch', (e) => {
 
 // Morning summary sent by the GitHub Action (tools/morning.mjs).
 self.addEventListener('push', (e) => {
-  const data = e.data ? e.data.json() : { title: 'מעקב שיעורים', body: '' };
+  const data = e.data ? e.data.json() : { title: 'הסמסטרון', body: '' };
   if (typeof data.badge === 'number' && 'setAppBadge' in self.navigator) {
     self.navigator.setAppBadge(data.badge).catch(() => {});
   }

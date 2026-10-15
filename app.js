@@ -987,7 +987,7 @@ document.body.addEventListener('click', async (e) => {
   if (action === 'share-guide') {
     const url = new URL('guide.html', location.href).href;
     try {
-      if (navigator.share) await navigator.share({ title: 'מעקב שיעורים', text: 'אפליקציה למעקב אחרי הרצאות, תרגולים והגשות:', url });
+      if (navigator.share) await navigator.share({ title: 'הסמסטרון', text: 'אפליקציה למעקב אחרי הרצאות, תרגולים והגשות:', url });
       else { await navigator.clipboard.writeText(url); toast('📋 הקישור למדריך הועתק'); }
     } catch (err) { if (err.name !== 'AbortError') toast('לא הצלחתי לשתף'); }
   }
@@ -1321,7 +1321,7 @@ function calendarCard() {
   return `<section class="card"><h2>📆 יומן (Google / Apple)</h2>
     <p class="help">קובץ היומן פעיל ✓ — מתעדכן בכל סנכרון ובכל ריצה של המשימה האוטומטית.</p>
     ${script
-      ? `<div class="status-line ok">✓ <b>Google Calendar</b> מסונכרן כל שעה דרך הסקריפט — היומן "מעקב שיעורים", צבע לפי קורס, תזכורת 15 דק׳ לפני שיעור ויום לפני הגשה.
+      ? `<div class="status-line ok">✓ <b>Google Calendar</b> מסונכרן כל שעה דרך הסקריפט — היומן "הסמסטרון", צבע לפי קורס, תזכורת 15 דק׳ לפני שיעור ויום לפני הגשה.
           <button class="link" data-action="gcal-script" data-on="0">לא הגדרתי</button></div>`
       : `<details class="setup">
           <summary><b>Google Calendar שמתעדכן כל שעה</b> (מומלץ)</summary>

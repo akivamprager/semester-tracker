@@ -1,4 +1,4 @@
-# מעקב שיעורים — lecture/recitation tracker
+# הסמסטרון — semester companion (lectures, recordings, deadlines)
 
 Static PWA (no build step). Shows every lecture/recitation that already happened in *any*
 group of your courses and that you haven't checked off yet.
@@ -72,7 +72,7 @@ days missing from the table fall back to the built-in calculation.
 ## Google Apps Script companion (reliable timing)
 GitHub's scheduler can be hours late or skip runs, and Google Calendar re-reads subscribed
 calendars only every ~8–24h. `tools/google-apps-script.gs` runs in your Google account and
-fixes both: hourly it syncs `calendar.ics` into a real Google calendar ("מעקב שיעורים"), at
+fixes both: hourly it syncs `calendar.ics` into a real Google calendar ("הסמסטרון"), at
 07:00–07:30 it starts the morning job, and every 2 hours the Moodle check. Setup steps are at
 the top of the file (script properties `CALENDAR_URL` and `GITHUB_TOKEN`, then run `setup`).
 
