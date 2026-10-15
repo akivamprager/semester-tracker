@@ -812,6 +812,7 @@ function inboxHtml(entries) {
         <div class="inbox-text">${esc(m.text)}</div>
         <div class="meta">${c ? `<span class="course-tag colored" ${courseStyle(c)}>${c.emoji} <bdi>${esc(c.short)}</bdi></span> · ` : ''}${m.from ? `${esc(m.from)} · ` : ''}${agoLabel(m.at)}</div>
         ${m.body ? `<details class="inbox-mail"><summary>הצג הודעה</summary><div class="inbox-mail-body">${linkify(m.body)}</div></details>` : ''}
+        ${m.link ? `<a class="inbox-link" href="${esc(m.link)}" target="_blank" rel="noopener">פתח במודל ›</a>` : ''}
       </div>
     </div>`;
   }).join('');

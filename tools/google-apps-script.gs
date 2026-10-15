@@ -40,6 +40,8 @@ const MAIL_SENDERS = ['noreply@moodle.huji.ac.il', 'do_not_reply@savion.huji.ac.
 const MAIL_FIRST_DAYS = 14; // the first run brings the last two weeks (shown, no push)
 const MAIL_KEEP_DAYS = 45;
 const MAIL_MAX_CHARS = 4000;
+// Automatic mails that are never course news — not copied at all (login alerts hold your IP).
+const MAIL_SKIP = /כניסה חדשה לחשבון|new sign-?in|מועד הפעילויות הבאות מתקרב|upcoming activities/i;
 // Course name (CATEGORIES in the .ics) → Google event color.
 const COLORS = {
   'גלים': 'CYAN',
@@ -115,6 +117,7 @@ function checkMail() {
       const fromRaw = msg.getFrom();
       const from = MAIL_SENDERS.find((s) => fromRaw.toLowerCase().includes(s));
       if (!from) continue; // a reply from someone else in the same thread
+      if (MAIL_SKIP.test(msg.getSubject())) { seen.add(id); continue; }
       store.messages.push({
         id,
         from,
@@ -128,12 +131,13 @@ function checkMail() {
     }
   }
   const keepFrom = Date.now() - MAIL_KEEP_DAYS * 864e5;
-  store.messages = store.messages.filter((m) => new Date(m.date) >= keepFrom)
+  const before = store.messages.length;
+  store.messages = store.messages.filter((m) => new Date(m.date) >= keepFrom && !MAIL_SKIP.test(m.subject))
     .sort((a, b) => a.date.localeCompare(b.date));
 
   // Write when something arrived, and every few hours anyway (the app shows "last checked").
   const stale = !store.checkedAt || Date.now() - new Date(store.checkedAt) > 3 * 3600e3;
-  if (added || stale) {
+  if (added || stale || store.messages.length < before) { // new, periodic, or something removed
     store.checkedAt = new Date().toISOString();
     gist_('patch', gistId, { files: { 'mail.json': { content: JSON.stringify(store, null, 1) } } });
   }
