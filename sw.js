@@ -1,7 +1,11 @@
-// Network-first for everything (so schedule/app updates show up), cache as offline fallback.
-// Requests revalidate with the server (cache: 'no-cache') instead of using the browser's
-// HTTP cache, so the app never mixes a fresh index.html with a stale app.js.
-const CACHE = 'tracker-v59';
+// App code (the SHELL files) is served straight from this version's cache, so the app opens
+// instantly even on a weak connection. Every code change ships a new sw.js (CACHE is a hash
+// of the shell files — run `node tools/stamp-sw.mjs`; a test checks it), which the browser
+// installs in the background; the app then reloads at a safe moment (app.js reloadWhenSafe).
+// A whole version is cached at once, so a fresh index.html never meets a stale app.js.
+// Data (semesters/*.json, push-config.json): the saved copy right away, refreshed from the
+// network in the background; requests with ?fresh go to the network first (refreshData).
+const CACHE = 'tracker-108efd9c';
 const SHELL = ['./', 'index.html', 'guide.html', 'theme.js', 'style.css', 'app.js', 'schedule.js', 'sync.js', 'summary.js', 'ics.js', 'badge.js', 'calendar.js', 'prayer.js', 'moodle.js', 'recordings.js',
   'manifest.webmanifest', 'icon-192.png', 'semesters/index.json'];
 
@@ -14,11 +18,21 @@ self.addEventListener('install', (e) => {
 });
 
 self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== 'tracker-share').map((k) => caches.delete(k))))
-      .then(() => self.clients.claim()),
-  );
+  e.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    for (const k of await caches.keys()) {
+      if (k === CACHE || k === 'tracker-share') continue;
+      // keep the saved data (semester files etc.) so the first start after an update is instant too
+      const old = await caches.open(k);
+      for (const req of await old.keys()) {
+        if (/\.json$/.test(new URL(req.url).pathname) && !(await cache.match(req))) {
+          await cache.put(req, await old.match(req));
+        }
+      }
+      await caches.delete(k);
+    }
+    await self.clients.claim();
+  })());
 });
 
 self.addEventListener('fetch', (e) => {
@@ -36,21 +50,35 @@ self.addEventListener('fetch', (e) => {
   // Icons/images: leave them to the browser. iOS fetches apple-touch-icons for "Add to Home
   // Screen" itself; intercepting them (and failing) made iPadOS fall back to a letter icon.
   if (/\.(png|jpe?g|svg|ico|webp)$/i.test(url.pathname)) return;
-  e.respondWith((async () => {
-    // A fresh GET by URL — WebKit rejects fetch(request, init) for some request modes
-    // (e.g. navigations), which used to drop straight to the cache.
-    const fresh = new Request(e.request.url, { cache: 'no-cache', credentials: 'same-origin' });
-    try {
-      const res = await fetch(fresh);
-      if (res.ok) {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request.url, copy));
-      }
-      return res;
-    } catch {
-      // Offline: cached copy, else let the browser try the original request itself.
-      return (await caches.match(e.request, { ignoreSearch: true })) || fetch(e.request);
+  const path = url.pathname.replace(/^.*\//, '') || './';
+  const key = url.origin + url.pathname; // cache entries without the query string
+  const network = async () => {
+    // A fresh GET by URL — WebKit rejects fetch(request, init) for some request modes.
+    const res = await fetch(new Request(key, { cache: 'no-cache', credentials: 'same-origin' }));
+    if (res.ok) {
+      const copy = res.clone();
+      caches.open(CACHE).then((c) => c.put(key, copy));
     }
+    return res;
+  };
+  const cached = () => caches.open(CACHE).then((c) => c.match(key));
+  if (/\.json$/.test(path)) {
+    e.respondWith((async () => {
+      if (url.searchParams.has('fresh')) {
+        try { return await network(); } catch { return (await cached()) || Response.error(); }
+      }
+      const hit = await cached();
+      const update = network().catch(() => null);
+      if (hit) { e.waitUntil(update); return hit; }
+      return (await update) || Response.error();
+    })());
+    return;
+  }
+  // App shell (pages, scripts, styles): this version's copy; anything missing from the network.
+  e.respondWith((async () => {
+    const hit = await cached();
+    if (hit) return hit;
+    try { return await network(); } catch { return (await caches.match(e.request, { ignoreSearch: true })) || fetch(e.request); }
   })());
 });
 

@@ -1597,10 +1597,11 @@ const busy = () => !!state.editing || !!document.activeElement?.closest?.('input
 
 async function refreshData() {
   try {
-    const index = await (await fetch('semesters/index.json', { cache: 'no-cache' })).json();
+    // ?fresh: straight from the network (the service worker otherwise answers from its copy)
+    const index = await (await fetch('semesters/index.json?fresh=1', { cache: 'no-cache' })).json();
     const id = localStorage.getItem(LS_SEMESTER) || index.default;
     const entry = index.semesters.find((x) => x.id === id) || index.semesters[0];
-    const text = await (await fetch(`semesters/${entry.file}`, { cache: 'no-cache' })).text();
+    const text = await (await fetch(`semesters/${entry.file}?fresh=1`, { cache: 'no-cache' })).text();
     state.index = index;
     if (text !== state.semText) {
       state.semText = text;
@@ -1662,9 +1663,10 @@ async function boot() {
   pushConfig = await fetch('push-config.json', { cache: 'no-cache' })
     .then((r) => (r.ok ? r.json() : null))
     .catch(() => null);
-  await loadSemester();
+  await loadSemester(); // the saved copy (instant); refreshData below brings any newer one
   render();
   restoreAfterReload();
+  refreshData();
   navigator.storage?.persist?.();
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     // When a new version takes over, reload (at a safe moment) so all files match.
