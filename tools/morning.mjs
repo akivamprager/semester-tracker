@@ -2,6 +2,8 @@
 //   1. Moodle (if MOODLE_ICS_URL is set): fetch the calendar export, compare it with the
 //      previous fetch (gist file moodle-feed.json) → messages in the app's notification
 //      center + a push; and apply the task changes (new / moved / deleted assignments).
+//   1b. Course emails (gist file mail.json, filled by the Google Apps Script) → notification
+//      center + a push. Only counts are logged (the repo, and so its logs, are public).
 //   2. Keep the subscription calendar (calendar.ics) current.
 //   3. Once a day after 07:00: the morning summary push.
 // Progress, subscriptions and snapshots live in the private sync gist.
@@ -14,6 +16,7 @@ import { ymd, computeUnits, mergeTasks } from '../schedule.js';
 import { buildCalendar, CALENDAR_FILE } from '../calendar.js';
 import { parseIcs, icsTaskChanges } from '../ics.js';
 import { feedSnapshot, diffFeeds, diffMessages, INBOX_PREFIX } from '../moodle.js';
+import { MAIL_FILE, mailInboxUpdates } from '../mail.js';
 import { merge } from '../sync.js';
 
 const SEND_HOUR = 7;
@@ -49,6 +52,14 @@ async function findGist() {
 }
 
 const fileJson = (gist, name) => JSON.parse(gist.files[name]?.content || '{}');
+// Big gist files come back truncated; the full text is at raw_url.
+const fullJson = async (gist, name) => {
+  const f = gist.files[name];
+  if (!f) return {};
+  if (!f.truncated) return JSON.parse(f.content);
+  const res = await fetch(f.raw_url, { headers: { Authorization: `Bearer ${process.env.GIST_TOKEN}` } });
+  return res.json();
+};
 const writeFiles = (gist, files) => gh(`/gists/${gist.id}`, {
   method: 'PATCH',
   body: JSON.stringify({ files: Object.fromEntries(Object.entries(files).map(([k, v]) => [k, { content: v }])) }),
@@ -130,6 +141,33 @@ if (process.env.MOODLE_ICS_URL && !calendarOnly) {
     await writeFiles(gist, { 'progress.json': JSON.stringify(progress), [FEED_FILE]: JSON.stringify(feedSnapshot(events)) });
   } catch (e) {
     console.error('Moodle import failed:', e.message); // never block the rest of the run
+  }
+}
+
+// ---- 1b. course emails ----
+if (!calendarOnly && gist.files[MAIL_FILE]) {
+  try {
+    const mail = await fullJson(gist, MAIL_FILE);
+    const { updates, notify } = mailInboxUpdates(sem, mail, progress, now);
+    console.log(`Mail: ${Object.keys(updates).length} new message(s), ${notify.length} to notify`);
+    // shown in the app's Settings ("last checked …")
+    if (mail.checkedAt && progress['status/mail']?.d?.at !== mail.checkedAt) {
+      updates['status/mail'] = { s: 'set', t: now.getTime(), d: { at: mail.checkedAt, messages: mail.messages?.length || 0 } };
+    }
+    if (Object.keys(updates).length) {
+      gist = await gh(`/gists/${gist.id}`);
+      progress = merge(fileJson(gist, 'progress.json'), updates);
+      await writeFiles(gist, { 'progress.json': JSON.stringify(progress) });
+    }
+    if (notify.length) {
+      const shortName = (code) => sem.courses.find((c) => c.code === code)?.short;
+      const lines = notify.slice(0, 4).map((m) => (m.course ? `${shortName(m.course)}: ${m.subject}` : m.subject));
+      if (notify.length > 4) lines.push(`ועוד ${notify.length - 4}`);
+      await sendPush(push, { title: '📢 הודעות בקורסים', body: lines.join('\n'), tag: 'mail', url: './?inbox=1' });
+      pushChanged = true;
+    }
+  } catch (e) {
+    console.error('Mail import failed:', e.message);
   }
 }
 

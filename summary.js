@@ -92,7 +92,7 @@ export function dailySummary(sem, progress, now) {
 
   const unread = Object.entries(progress)
     .filter(([k, v]) => k.startsWith(`${sem.id}/inbox/`) && v.d && !v.d.read).length;
-  if (unread) lines.push(`📥 ${unread} עדכונים מהמודל שלא נקראו`);
+  if (unread) lines.push(`🔔 ${unread} עדכונים שלא נקראו (מודל ומייל)`);
 
   if (!lines.length) return null;
   return {

@@ -7,6 +7,10 @@
  *  • 07:00–07:30 daily: starts the morning job on GitHub (the morning push) — on time,
  *    unlike GitHub's own scheduler.
  *  • every 2 hours (07:00–23:00): starts the job again for the Moodle check.
+ *  • every 30 minutes: copies new emails from Moodle and the university (MAIL_SENDERS only)
+ *    into the sync gist (mail.json) and starts the job, which shows them in the app's 🔔.
+ *    Read-only: nothing in Gmail is changed, labeled or sent. Email addresses and private
+ *    links are removed from the copied text.
  *
  * Setup (once):
  *  1. script.google.com → New project → paste this file over Code.gs → Save.
@@ -14,11 +18,12 @@
  *       CALENDAR_URL  = the address from the app: ⚙️ → 📆 יומן → "העתק"
  *       GITHUB_TOKEN  = fine-grained token, repo semester-tracker only, Actions: Read and write
  *                       (optional — without it only the calendar sync runs)
+ *       GIST_TOKEN    = classic token with only the "gist" scope (optional — for the emails)
  *  3. Editor → choose the function "setup" → Run → allow the permissions it asks for.
  *     It creates the triggers and fills the calendar the first time.
  *  Then in Google Calendar: remove the old link-subscribed "שיעורים" calendar (duplicates).
  *
- * Other functions you can run by hand: syncCalendar, testMorningNow (sends the summary now).
+ * Other functions you can run by hand: syncCalendar, checkMail, testMorningNow (sends the summary now).
  */
 
 const OWNER = 'akivamprager';
@@ -30,6 +35,11 @@ const REMINDER_DEADLINE_MIN = 24 * 60; // deadlines and exams: a day before (0 =
 const RANGE_BACK_DAYS = 30; // events older than this are left alone
 const RANGE_AHEAD_DAYS = 200;
 const MAX_RUN_MS = 4.5 * 60 * 1000; // Apps Script stops at 6 min; the next run continues
+// Emails copied into the app. Nothing else in the mailbox is read.
+const MAIL_SENDERS = ['noreply@moodle.huji.ac.il', 'do_not_reply@savion.huji.ac.il', 'estii@savion.huji.ac.il'];
+const MAIL_FIRST_DAYS = 14; // the first run brings the last two weeks (shown, no push)
+const MAIL_KEEP_DAYS = 45;
+const MAIL_MAX_CHARS = 4000;
 // Course name (CATEGORIES in the .ics) → Google event color.
 const COLORS = {
   'גלים': 'CYAN',
@@ -43,16 +53,20 @@ const COLORS = {
 function setup() {
   ScriptApp.getProjectTriggers().forEach((t) => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('syncCalendar').timeBased().everyHours(1).create();
-  const hasToken = !!PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN');
+  const props = PropertiesService.getScriptProperties();
+  const hasToken = !!props.getProperty('GITHUB_TOKEN');
+  const hasGist = !!props.getProperty('GIST_TOKEN');
+  if (hasGist) ScriptApp.newTrigger('checkMail').timeBased().everyMinutes(30).create();
   if (hasToken) {
     // nearMinute(15) → runs between 07:00 and 07:30 (the job only sends from 07:00)
     ScriptApp.newTrigger('morning').timeBased().atHour(7).nearMinute(15).everyDays(1).inTimezone(TZ).create();
     ScriptApp.newTrigger('checkMoodle').timeBased().everyHours(2).create();
   }
   syncCalendar();
-  Logger.log(hasToken
-    ? 'Triggers created: syncCalendar (hourly), morning (07:00–07:30), checkMoodle (every 2h).'
-    : 'Trigger created: syncCalendar (hourly). No GITHUB_TOKEN — morning/Moodle triggers skipped.');
+  if (hasGist) checkMail();
+  Logger.log('Triggers: syncCalendar (hourly)'
+    + (hasToken ? ', morning (07:00–07:30), checkMoodle (every 2h)' : ' — no GITHUB_TOKEN: morning/Moodle skipped')
+    + (hasGist ? ', checkMail (every 30 min).' : ' — no GIST_TOKEN: emails skipped.'));
 }
 
 function morning() { triggerJob_(false); }
@@ -79,6 +93,89 @@ function triggerJob_(force) {
   const code = res.getResponseCode();
   if (code !== 204) throw new Error(`GitHub ${code}: ${res.getContentText().slice(0, 300)}`);
   Logger.log(`Morning job started (force=${force}).`);
+}
+
+// ---------- course emails ----------
+function checkMail() {
+  const gistId = gistId_();
+  const gist = gist_('get', gistId);
+  const file = gist.files['mail.json'];
+  const store = file
+    ? JSON.parse(file.truncated ? UrlFetchApp.fetch(file.raw_url, gistAuth_()).getContentText() : file.content)
+    : { messages: [] };
+  const seen = new Set(store.messages.map((m) => m.id));
+  const days = store.messages.length ? 3 : MAIL_FIRST_DAYS;
+  const query = `from:(${MAIL_SENDERS.join(' OR ')}) newer_than:${days}d`;
+
+  let added = 0;
+  for (const thread of GmailApp.search(query, 0, 100)) {
+    for (const msg of thread.getMessages()) {
+      const id = msg.getId();
+      if (seen.has(id)) continue;
+      const fromRaw = msg.getFrom();
+      const from = MAIL_SENDERS.find((s) => fromRaw.toLowerCase().includes(s));
+      if (!from) continue; // a reply from someone else in the same thread
+      store.messages.push({
+        id,
+        from,
+        fromName: ((fromRaw.match(/^"?([^"<]*)"?\s*</) || [])[1] || '').trim(),
+        subject: msg.getSubject(),
+        date: msg.getDate().toISOString(),
+        text: cleanMail_(msg.getPlainBody()),
+      });
+      seen.add(id);
+      added++;
+    }
+  }
+  const keepFrom = Date.now() - MAIL_KEEP_DAYS * 864e5;
+  store.messages = store.messages.filter((m) => new Date(m.date) >= keepFrom)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  // Write when something arrived, and every few hours anyway (the app shows "last checked").
+  const stale = !store.checkedAt || Date.now() - new Date(store.checkedAt) > 3 * 3600e3;
+  if (added || stale) {
+    store.checkedAt = new Date().toISOString();
+    gist_('patch', gistId, { files: { 'mail.json': { content: JSON.stringify(store, null, 1) } } });
+  }
+  Logger.log(`Mail: ${added} new`);
+  // Let the job put them in the app now (daytime only — at night the 07:00 run does it).
+  const hour = Number(Utilities.formatDate(new Date(), TZ, 'H'));
+  if (added && hour >= 7 && hour <= 23 && PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN')) {
+    triggerJob_(false);
+  }
+}
+
+// No email addresses, no links that carry a key/token, no Moodle footer, limited length.
+function cleanMail_(text) {
+  return (text || '')
+    .replace(/\r/g, '')
+    .replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, '[מייל]')
+    .replace(/https?:\/\/\S*(token|key|sesskey|unsubscribe|auth)\S*/gi, '[קישור]')
+    .split('\n')
+    .filter((l) => !/unsubscribe|לביטול המינוי|הפסקת המינוי|העדפות|preferences/i.test(l))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .slice(0, MAIL_MAX_CHARS);
+}
+
+// The gist id is part of the calendar address (…/<user>/<id>/raw/calendar.ics).
+function gistId_() {
+  const m = prop_('CALENDAR_URL').match(/gist\.githubusercontent\.com\/[^/]+\/([0-9a-f]+)/);
+  if (!m) throw new Error('CALENDAR_URL is not a gist address');
+  return m[1];
+}
+
+function gistAuth_() {
+  return { headers: { Authorization: 'Bearer ' + prop_('GIST_TOKEN'), Accept: 'application/vnd.github+json' }, muteHttpExceptions: true };
+}
+
+function gist_(method, id, body) {
+  const opts = { ...gistAuth_(), method };
+  if (body) { opts.contentType = 'application/json'; opts.payload = JSON.stringify(body); }
+  const res = UrlFetchApp.fetch('https://api.github.com/gists/' + id, opts);
+  if (res.getResponseCode() !== 200) throw new Error(`Gist ${res.getResponseCode()}: ${res.getContentText().slice(0, 200)}`);
+  return JSON.parse(res.getContentText());
 }
 
 // ---------- calendar sync ----------

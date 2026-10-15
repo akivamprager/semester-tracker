@@ -75,3 +75,11 @@ calendars only every ~8–24h. `tools/google-apps-script.gs` runs in your Google
 fixes both: hourly it syncs `calendar.ics` into a real Google calendar ("מעקב שיעורים"), at
 07:00–07:30 it starts the morning job, and every 2 hours the Moodle check. Setup steps are at
 the top of the file (script properties `CALENDAR_URL` and `GITHUB_TOKEN`, then run `setup`).
+
+### Course emails
+With the script property `GIST_TOKEN` (classic token, `gist` scope only), `checkMail` runs every
+30 minutes: it reads (never changes) Gmail messages from `MAIL_SENDERS` only, strips email
+addresses and token links, and keeps the last 45 days in the gist file `mail.json`. The job
+(`mail.js`) turns new ones into 🔔 entries: Moodle mail and mail naming one of the courses →
+unread + push; general university mail → listed quietly. The job logs counts only (public repo).
+

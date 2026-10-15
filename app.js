@@ -552,6 +552,7 @@ function viewSettings() {
          <div class="row"><button class="btn primary" data-action="connect">התחבר</button></div>`}
   </section>
   ${moodleCard()}
+  ${mailCard()}
   <h3 class="settings-group">התראות ויומן</h3>
   <section class="card" id="push-card"><h2>🔔 התראות</h2><p class="help">טוען…</p></section>
   ${calendarCard()}
@@ -782,7 +783,7 @@ function closeSheet() {
   state.sheetKey = null;
 }
 
-// ---------- notification center (Moodle changes, written by the GitHub job) ----------
+// ---------- notification center (Moodle changes and course emails, written by the GitHub job) ----------
 function inboxEntries() {
   const prefix = `${state.sem.id}/inbox/`;
   return Object.entries(state.progress)
@@ -809,22 +810,29 @@ function inboxHtml(entries) {
       <span class="inbox-icon" aria-hidden="true">${m.icon || '📥'}</span>
       <div class="inbox-body">
         <div class="inbox-text">${esc(m.text)}</div>
-        <div class="meta">${c ? `<span class="course-tag colored" ${courseStyle(c)}>${c.emoji} <bdi>${esc(c.short)}</bdi></span> · ` : ''}${agoLabel(m.at)}</div>
+        <div class="meta">${c ? `<span class="course-tag colored" ${courseStyle(c)}>${c.emoji} <bdi>${esc(c.short)}</bdi></span> · ` : ''}${m.from ? `${esc(m.from)} · ` : ''}${agoLabel(m.at)}</div>
+        ${m.body ? `<details class="inbox-mail"><summary>הצג הודעה</summary><div class="inbox-mail-body">${linkify(m.body)}</div></details>` : ''}
       </div>
     </div>`;
   }).join('');
   return `<div class="sheet-head" style="--c: var(--accent)">
       <div>
-        <div class="sheet-title">🔔 עדכונים מהמודל</div>
-        <div class="meta">שינויים שזוהו בלוח השנה של המודל (נבדק כל שעתיים)</div>
+        <div class="sheet-title">🔔 עדכונים</div>
+        <div class="meta">שינויים בלוח השנה של המודל והודעות מהמייל</div>
       </div>
       <button class="icon-btn sheet-close" data-action="sheet-close" aria-label="סגור">✕</button>
     </div>
-    <div class="sheet-list">${rows || '<div class="empty">אין עדכונים עדיין. כשמשהו ישתנה במודל — מטלה חדשה, מועד שזז או מטלה שנמחקה — זה יופיע כאן.</div>'}</div>
+    <div class="sheet-list">${rows || '<div class="empty">אין עדכונים עדיין. כשמשהו ישתנה במודל — מטלה חדשה, מועד שזז או מטלה שנמחקה — או כשתגיע הודעה בקורס, זה יופיע כאן.</div>'}</div>
     <div class="sheet-actions">
       <button class="link" data-action="inbox-tasks">למשימות ›</button>
       ${rows ? '<button class="link inbox-clear" data-action="inbox-clear">נקה הכל</button>' : ''}
     </div>`;
+}
+
+// Escaped text with clickable http(s) links (course emails).
+function linkify(text) {
+  return esc(text).replace(/https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"]/g,
+    (u) => `<a href="${u}" target="_blank" rel="noopener">${u.length > 50 ? u.slice(0, 47) + '…' : u}</a>`);
 }
 
 function openInbox() {
@@ -1317,6 +1325,24 @@ function calendarCard() {
 }
 
 // Moodle: automatic check by the GitHub job (status written to status/moodle) + manual import.
+function mailCard() {
+  const st = state.progress['status/mail']?.d;
+  if (!st) {
+    return `<section class="card">
+      <h2>📢 הודעות מהמייל</h2>
+      <p class="help">עדיין לא מחובר. הודעות מהמודל ומהאוניברסיטה שמגיעות ל-Gmail יכולות להופיע כאן ב-🔔 —
+        ההגדרה בסקריפט של Google (<bdi>GIST_TOKEN</bdi> ואז <bdi>setup</bdi>), ההוראות בראש הקובץ <bdi>tools/google-apps-script.gs</bdi>.</p>
+    </section>`;
+  }
+  const stale = now() - new Date(st.at) > 8 * 3600e3;
+  return `<section class="card">
+    <h2>📢 הודעות מהמייל</h2>
+    <div class="status-line ${stale ? 'warn' : 'ok'}">${stale ? '⚠️' : '✓'} <b>מחובר</b> — נבדק לאחרונה ${agoLabel(st.at)}.
+      הודעות מהמודל ומהקורסים שלך מגיעות ל-🔔 עם התראה; הודעות כלליות של האוניברסיטה נכנסות בשקט.
+      ${stale ? '<br>לא נבדק כבר כמה שעות — לבדוק ב-script.google.com → Executions.' : ''}</div>
+  </section>`;
+}
+
 function moodleCard() {
   const st = state.progress['status/moodle']?.d;
   const stale = st && now() - new Date(st.at) > 6 * 3600e3;

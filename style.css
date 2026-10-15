@@ -522,3 +522,6 @@ details.setup { margin-top: 10px; }
 details.setup summary { font-size: 14px; }
 ol.help { padding-inline-start: 20px; margin: 6px 0; }
 ol.help li { margin: 3px 0; }
+.inbox-mail { margin-top: 4px; }
+.inbox-mail summary { cursor: pointer; font-size: 13px; color: var(--accent); }
+.inbox-mail-body { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.55; margin-top: 6px; padding: 8px 10px; border-radius: 8px; background: var(--bg); }
