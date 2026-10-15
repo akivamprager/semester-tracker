@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { expandGroup, computeUnits } from '../schedule.js';
+import { readFileSync } from 'node:fs';
+import { expandGroup, computeUnits, ymd } from '../schedule.js';
 
 // 2026-11-01 is a Sunday.
 const sem = {
@@ -95,4 +96,15 @@ test('gaps between own sessions (≥30 min; 15-min breaks are not gaps)', async 
   assert.deepEqual(g(11), ['11:45-13:00']); // Wed: EE lecture → C/C++ recitation
   assert.deepEqual(g(10), []); // Tue: back to back
   assert.deepEqual(g(12), []); // Thu: back to back
+});
+
+test('roomChanges: permanent move from a date, earlier sessions keep the old room', () => {
+  const sem = JSON.parse(readFileSync(new URL('../semesters/2027A.json', import.meta.url)));
+  const course = sem.courses.find((c) => c.code === '83335');
+  const occ = expandGroup(sem, course, course.groups.find((g) => g.code === '1-01'));
+  const on = (ds) => occ.find((o) => ymd(o.start) === ds).room;
+  assert.equal(on('2026-10-14'), 'ברנדמן ב 101');
+  assert.equal(on('2026-10-21'), 'אולם קפלן');
+  const rec = expandGroup(sem, course, course.groups.find((g) => g.code === '2-03'));
+  assert.equal(rec.find((o) => ymd(o.start) === '2026-10-21').room, 'ברנדמן ב 101');
 });

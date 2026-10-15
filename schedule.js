@@ -35,13 +35,19 @@ export function expandGroup(sem, course, group) {
   const cancelled = (sem.cancellations || []).filter(
     (c) => c.course === course.code && (!c.group || c.group === group.code),
   );
+  // Permanent room moves from a date on (latest one wins); earlier sessions keep the old room.
+  const moves = (sem.roomChanges || [])
+    .filter((r) => r.course === course.code && (!r.group || r.group === group.code))
+    .sort((a, b) => (a.from < b.from ? -1 : 1));
+  const roomOn = (ds, slot) => moves.filter((r) => r.from <= ds && (!r.start || r.start === slot.start))
+    .reduce((room, r) => r.room, slot.room || '');
   for (let d = new Date(first); d <= last; d.setDate(d.getDate() + 1)) {
     const ds = ymd(d);
     if (inRanges(ds, sem.noClass)) continue;
     for (const slot of group.slots) {
       if (slot.day !== d.getDay()) continue;
       if (cancelled.some((c) => c.date === ds && (!c.start || c.start === slot.start))) continue;
-      occ.push({ start: at(d, slot.start), end: at(d, slot.end), room: slot.room || '' });
+      occ.push({ start: at(d, slot.start), end: at(d, slot.end), room: roomOn(ds, slot) });
     }
   }
   for (const x of sem.extras || []) {

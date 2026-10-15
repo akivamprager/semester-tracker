@@ -29,8 +29,9 @@ semester's `icsRules` can ignore events or map them onto existing tasks (e.g.
 `C Lab week N closes` → due date of `67315-lab-N`). Weekly tasks on a fixed pattern use
 `generatedTasks[].weekly` (`open`/`due` day + time, `confirmed` = how many match Moodle).
 
-One-off changes: `cancellations` (`course`, `group`, `date`) and `extras`
-(`course`, `group`, `date`, `start`, `end`). A group can start late with `"from": "YYYY-MM-DD"`.
+One-off changes: `cancellations` (`course`, `group`, `date`), `extras`
+(`course`, `group`, `date`, `start`, `end`) and permanent room moves `roomChanges`
+(`course`, `group`, `from`, `room`; earlier sessions keep the old room). A group can start late with `"from": "YYYY-MM-DD"`.
 
 ## Develop
 ```
