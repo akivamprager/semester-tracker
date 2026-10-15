@@ -66,7 +66,7 @@ test('an outdated export (12.10) cannot bring back assignments Moodle has delete
 test('live export (Hebrew titles, C++ labs, deletions)', () => {
   const now = new Date(2026, 9, 14, 12); // 14.10
   const events = parseIcs(ics([
-    { uid: 54051, summary: "יש להגיש את 'Ex 01'", start: '20261023T215900Z', cat: '83335-מבוא להנדסת חשמל' },
+    { uid: 54051, summary: "יש להגיש את 'Ex 01'", start: '20261024T215900Z', cat: '83335-מבוא להנדסת חשמל' },
     { uid: 60001, summary: "יש להגיש את 'תרגיל 2'", start: '20261102T215900Z', cat: '83325-גלים' },
     { uid: 60002, summary: 'בוחן קצר נסגר', start: '20261105T100000Z', cat: '67315_1-C' },
     { uid: 30111, summary: 'C++ Lab week 7 closes', start: '20261204T215900Z', cat: '67315_1-C' },
