@@ -83,3 +83,12 @@ addresses and token links, and keeps the last 45 days in the gist file `mail.jso
 (`mail.js`) turns new ones into 🔔 entries: Moodle mail and mail naming one of the courses →
 unread + push; general university mail → listed quietly. The job logs counts only (public repo).
 
+
+## Panopto recordings
+`node tools/panopto-login.mjs` (once, on the Mac): browser login to Panopto with an API client
+(Server-side Web Application, redirect `http://localhost:9127/callback`); saves GitHub secrets
+`PANOPTO_CLIENT_ID` / `_SECRET` / `_KEY` and the refresh token, encrypted with `PANOPTO_KEY`, in the
+sync gist (`panopto-token.json`, rotated by the job). The semester's `panopto` block has the host
+and each course's folder id. Every job run lists the folders and matches recordings to sessions
+(`recordings.js`: by the name "<code> <date> שעור/תרגיל <group in Hebrew numerals>", else by
+date + time) → progress `<sem>/rec/<course>` → "▶ צפה בהקלטה" in the app.

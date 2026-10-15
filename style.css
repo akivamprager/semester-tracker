@@ -89,6 +89,12 @@ main { padding: 0 12px 24px; max-width: 640px; margin: 0 auto; }
   background: transparent; color: var(--text); font-size: 14px;
 }
 .actions button.attend { border-color: var(--ok); color: var(--ok); }
+.actions a.watch {
+  flex: 1; padding: 9px 6px; border-radius: 10px; border: 1px solid var(--accent); color: var(--accent);
+  font-size: 14px; text-align: center; text-decoration: none;
+}
+.actions a.watch:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+a.pill.rec { text-decoration: none; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); font-weight: 600; }
 .btn.primary { background: var(--accent); color: var(--on-color); border: none; }
 .link { background: none; border: none; color: var(--accent); font-size: 13px; padding: 0; }
 .chip {

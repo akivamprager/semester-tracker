@@ -4,6 +4,7 @@ import { badgeCount, badgePrefs, PREFS_KEY } from './badge.js';
 import { buildCalendar } from './calendar.js';
 import { planDay, prayerPrefs, prayerKey, PRAYER_PREFS_KEY, PRAYER_LABELS } from './prayer.js';
 import { parseIcs, icsTaskChanges } from './ics.js';
+import { recKey, sessionKey, viewerUrl } from './recordings.js';
 import * as store from './sync.js';
 
 const LS_SEMESTER = 'tracker.semester';
@@ -246,7 +247,7 @@ function viewTodo(courses, { withSoon = true } = {}) {
     const live = liveByCourse.get(c.code) || [];
     const liveKeys = new Set(live.map((x) => x.unit.key));
     const owed = c.types
-      .flatMap((t) => t.units.map((u) => ({ ...u, label: t.label, mine: t.mine })))
+      .flatMap((t) => t.units.map((u) => ({ ...u, label: t.label, mine: t.mine, options: t.options })))
       .filter((u) => u.available && !statusOf(u.key))
       .sort((a, b) => a.first.end - b.first.end);
     total += owed.length;
@@ -284,6 +285,7 @@ function viewTodo(courses, { withSoon = true } = {}) {
         <div class="meta">${where}</div>
         <div class="actions">
           <button class="attend" data-action="mark" data-key="${u.key}" data-s="done" data-label="${esc(`${c.short} · ${u.label} ${u.n}`)}">✓ סיימתי</button>
+          ${watchButton(c, u)}
         </div>
         ${sessionsDropdown(courses, u.key)}
       </div>`;
@@ -553,6 +555,7 @@ function viewSettings() {
   </section>
   ${moodleCard()}
   ${mailCard()}
+  ${panoptoCard()}
   <h3 class="settings-group">התראות ויומן</h3>
   <section class="card" id="push-card"><h2>🔔 התראות</h2><p class="help">טוען…</p></section>
   ${calendarCard()}
@@ -689,6 +692,27 @@ function findUnit(courses, key) {
   return null;
 }
 
+// ---------- Panopto recordings (matched by the GitHub job, see recordings.js) ----------
+const recordingsOf = (code) => state.progress[recKey(state.sem, code)]?.d || null;
+const recIds = (recs, group, o) => (recs && o ? recs[sessionKey(group, o)] || null : null);
+
+// The recording to watch for a unit: own group's, else the group that taught it first, else any.
+function watchButton(c, u) {
+  const recs = recordingsOf(c.code);
+  if (!recs || !state.sem.panopto) return '';
+  const i = u.n - 1;
+  const order = [...u.options].sort((a, b) => (b.group === u.mine) - (a.group === u.mine)
+    || (b.group === u.first.group) - (a.group === u.first.group));
+  for (const { group, occ } of order) {
+    const ids = recIds(recs, group, occ[i]);
+    if (ids) {
+      const who = group === u.mine ? 'הקבוצה שלך' : group.lecturer || `קב׳ ${grp(group.code)}`;
+      return `<a class="watch" href="${viewerUrl(state.sem, ids[0][0])}" target="_blank" rel="noopener" title="${esc(who)}">▶ צפה בהקלטה</a>`;
+    }
+  }
+  return '';
+}
+
 // All sessions (every comparable group) of one unit → { count, html } of timetable-style rows.
 function sessionRows(courses, key) {
   const found = findUnit(courses, key);
@@ -696,6 +720,7 @@ function sessionRows(courses, key) {
   const { course: c, type, unit } = found;
   const t0 = now();
   const i = unit.n - 1;
+  const recs = state.sem.panopto ? recordingsOf(c.code) : null;
   const sessions = type.options
     .map(({ group, occ }) => ({ group, o: occ[i] }))
     .filter((x) => x.o)
@@ -704,10 +729,13 @@ function sessionRows(courses, key) {
     const mine = group === type.mine;
     const live = o.start <= t0 && t0 < o.end;
     const past = o.end <= t0;
+    const ids = recIds(recs, group, o);
     const pills = [
       mine ? '<span class="pill mine">הקבוצה שלך</span>' : '',
       live ? '<span class="pill live"><span class="live-dot" aria-hidden="true"></span>עכשיו</span>' : '',
-      past ? '<span class="pill">התקיים · יש הקלטה</span>' : '',
+      // with Panopto data: a link per recording; without it (e.g. a friend's copy): the old hint
+      ids ? ids.map(([id], k) => `<a class="pill rec" href="${viewerUrl(state.sem, id)}" target="_blank" rel="noopener">▶ הקלטה${ids.length > 1 ? ' ' + (k + 1) : ''}</a>`).join('')
+        : past ? `<span class="pill">${recs ? 'התקיים · אין הקלטה עדיין' : 'התקיים · יש הקלטה'}</span>` : '',
     ].join('');
     return `<div class="slot ${mine ? 'mine' : ''} ${live ? 'live' : ''} ${past ? 'past' : ''}" ${courseStyle(c)}>
       <div class="slot-time">${hm(o.start)}<small>–${hm(o.end)}</small></div>
@@ -1326,6 +1354,24 @@ function calendarCard() {
 }
 
 // Moodle: automatic check by the GitHub job (status written to status/moodle) + manual import.
+function panoptoCard() {
+  if (!state.sem.panopto) return '';
+  const st = state.progress['status/panopto']?.d;
+  if (!st) {
+    return `<section class="card"><h2>🎬 הקלטות (Panopto)</h2>
+      <p class="help">עדיין לא חובר. ההתחברות פעם אחת מהמק: <bdi>node tools/panopto-login.mjs</bdi>.</p></section>`;
+  }
+  const failed = st.error && (!st.at || st.errorAt > st.at);
+  const stale = !failed && now() - new Date(st.at) > 8 * 3600e3;
+  return `<section class="card"><h2>🎬 הקלטות (Panopto)</h2>
+    <div class="status-line ${failed || stale ? 'warn' : 'ok'}">${failed
+      ? `⚠️ <b>${st.error === 'expired' ? 'ההתחברות ל-Panopto פגה' : 'הבדיקה האחרונה נכשלה'}</b> (${agoLabel(st.errorAt)}).
+         ${st.error === 'expired' ? 'צריך להתחבר מחדש מהמק: <bdi>node tools/panopto-login.mjs</bdi>.' : 'ננסה שוב בבדיקה הבאה.'}`
+      : `${stale ? '⚠️' : '✓'} <b>מחובר</b> — נבדק לאחרונה ${agoLabel(st.at)} (${st.sessions} מפגשים מוקלטים).
+         ליד כל שיעור להשלמה יש ▶ צפה בהקלטה, וב"מועדים בכל הקבוצות" — הקלטה לכל קבוצה.`}</div>
+  </section>`;
+}
+
 function mailCard() {
   const st = state.progress['status/mail']?.d;
   if (!st) {

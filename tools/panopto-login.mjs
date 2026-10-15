@@ -89,14 +89,32 @@ try { execFileSync('open', [authUrl]); } catch { /* the link above */ }
 const code = await codePromise;
 
 // ---- 3. code → tokens ----
-const basic = 'Basic ' + Buffer.from(`${encodeURIComponent(clientId)}:${encodeURIComponent(clientSecret)}`).toString('base64');
-const res = await fetch(`https://${host}/Panopto/oauth2/connect/token`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/x-www-form-urlencoded', Authorization: basic },
-  body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: REDIRECT }),
-});
-const tok = await res.json().catch(() => ({}));
-if (!res.ok || !tok.access_token) throw new Error(`Token request failed (${res.status}): ${tok.error || ''} ${tok.error_description || ''}`);
+// Servers differ in how they expect the client credentials; try the common ways in turn
+// (a rejected client does not use up the one-time code).
+const basic = (id, secret) => 'Basic ' + Buffer.from(`${id}:${secret}`).toString('base64');
+const form = { grant_type: 'authorization_code', code, redirect_uri: REDIRECT };
+const attempts = [
+  { name: 'basic', headers: { Authorization: basic(clientId, clientSecret) }, body: form },
+  { name: 'post', headers: {}, body: { ...form, client_id: clientId, client_secret: clientSecret } },
+  { name: 'basic-encoded', headers: { Authorization: basic(encodeURIComponent(clientId), encodeURIComponent(clientSecret)) }, body: form },
+];
+let res;
+let tok = {};
+for (const a of attempts) {
+  res = await fetch(`https://${host}/Panopto/oauth2/connect/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', ...a.headers },
+    body: new URLSearchParams(a.body),
+  });
+  tok = await res.json().catch(() => ({}));
+  console.log(`  token request (${a.name}): ${res.status}${tok.error ? ' ' + tok.error : ''}`);
+  if (tok.error !== 'invalid_client') break;
+}
+if (!res.ok || !tok.access_token) {
+  throw new Error(`Token request failed (${res.status}): ${tok.error || ''} ${tok.error_description || ''}`
+    + (tok.error === 'invalid_client' ? `\nThe Client ID / Secret were not accepted (the secret you pasted is ${clientSecret.length} characters). `
+      + 'Check the secret in Panopto, or create a new API client, and run again.' : ''));
+}
 console.log(`✓ Logged in. Refresh token: ${tok.refresh_token ? 'yes' : 'NO (offline access not allowed — tell Claude)'}`);
 
 // ---- 4. save ----

@@ -22,6 +22,11 @@ on:
     branches: [main]
     paths: ['semesters/**', 'calendar.js', 'schedule.js']
 
+# One run at a time: runs share the Panopto refresh token (which may be single-use).
+concurrency:
+  group: morning-job
+  cancel-in-progress: false
+
 jobs:
   send:
     runs-on: ubuntu-latest
@@ -37,5 +42,8 @@ jobs:
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
           MOODLE_ICS_URL: ${{ secrets.MOODLE_ICS_URL }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          PANOPTO_CLIENT_ID: ${{ secrets.PANOPTO_CLIENT_ID }}
+          PANOPTO_CLIENT_SECRET: ${{ secrets.PANOPTO_CLIENT_SECRET }}
+          PANOPTO_KEY: ${{ secrets.PANOPTO_KEY }}
           FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force }}
           EVENT: ${{ github.event_name }}

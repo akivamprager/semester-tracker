@@ -4,6 +4,8 @@
 //      center + a push; and apply the task changes (new / moved / deleted assignments).
 //   1b. Course emails (gist file mail.json, filled by the Google Apps Script) → notification
 //      center + a push. Only counts are logged (the repo, and so its logs, are public).
+//   1c. Panopto (if the PANOPTO_* secrets and the token file exist): match each course
+//      folder's recordings to sessions → progress <sem>/rec/<course> (links in the app).
 //   2. Keep the subscription calendar (calendar.ics) current.
 //   3. Once a day after 07:00: the morning summary push.
 // Progress, subscriptions and snapshots live in the private sync gist.
@@ -17,6 +19,8 @@ import { buildCalendar, CALENDAR_FILE } from '../calendar.js';
 import { parseIcs, icsTaskChanges } from '../ics.js';
 import { feedSnapshot, diffFeeds, diffMessages, INBOX_PREFIX } from '../moodle.js';
 import { MAIL_FILE, mailInboxUpdates } from '../mail.js';
+import { matchRecordings, recKey } from '../recordings.js';
+import { TOKEN_FILE, encrypt, decrypt, refreshToken, folderSessions } from './panopto-lib.mjs';
 import { merge } from '../sync.js';
 
 const SEND_HOUR = 7;
@@ -168,6 +172,45 @@ if (!calendarOnly && gist.files[MAIL_FILE]) {
     }
   } catch (e) {
     console.error('Mail import failed:', e.message);
+  }
+}
+
+// ---- 1c. Panopto recordings ----
+if (!calendarOnly && sem.panopto && process.env.PANOPTO_KEY && gist.files[TOKEN_FILE]) {
+  const updates = {};
+  try {
+    const key = Buffer.from(process.env.PANOPTO_KEY, 'base64');
+    const saved = fileJson(gist, TOKEN_FILE);
+    const refresh = decrypt(saved.token, key);
+    const tok = await refreshToken(sem.panopto.host, refresh, process.env.PANOPTO_CLIENT_ID, process.env.PANOPTO_CLIENT_SECRET);
+    if (tok.refresh_token && tok.refresh_token !== refresh) {
+      // save the new one right away — the old one may already be invalid
+      await writeFiles(gist, { [TOKEN_FILE]: JSON.stringify({ ...saved, token: encrypt(tok.refresh_token, key), savedAt: now.toISOString() }) });
+    }
+    let total = 0;
+    for (const course of sem.courses) {
+      const folder = sem.panopto.folders?.[course.code];
+      if (!folder) continue;
+      const sessions = await folderSessions(sem.panopto.host, tok.access_token, folder, sem.start);
+      const map = matchRecordings(sem, course, sessions);
+      total += Object.keys(map).length;
+      if (JSON.stringify(map) !== JSON.stringify(progress[recKey(sem, course.code)]?.d)) {
+        updates[recKey(sem, course.code)] = { s: 'set', t: now.getTime(), d: map };
+      }
+    }
+    console.log(`Panopto: ${total} recorded session(s), ${Object.keys(updates).length} course(s) changed`);
+    updates['status/panopto'] = { s: 'set', t: now.getTime(), d: { at: now.toISOString(), sessions: total } };
+  } catch (e) {
+    const expired = e.message === 'expired';
+    console.error('Panopto failed:', expired ? 'login expired — run node tools/panopto-login.mjs again' : e.message);
+    updates['status/panopto'] = { s: 'set', t: now.getTime(), d: { ...(progress['status/panopto']?.d || {}), error: expired ? 'expired' : 'failed', errorAt: now.toISOString() } };
+  }
+  try {
+    gist = await gh(`/gists/${gist.id}`);
+    progress = merge(fileJson(gist, 'progress.json'), updates);
+    await writeFiles(gist, { 'progress.json': JSON.stringify(progress) });
+  } catch (e) {
+    console.error('Panopto save failed:', e.message);
   }
 }
 
