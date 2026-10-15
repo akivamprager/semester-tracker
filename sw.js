@@ -1,7 +1,7 @@
 // Network-first for everything (so schedule/app updates show up), cache as offline fallback.
 // Requests revalidate with the server (cache: 'no-cache') instead of using the browser's
 // HTTP cache, so the app never mixes a fresh index.html with a stale app.js.
-const CACHE = 'tracker-v58';
+const CACHE = 'tracker-v59';
 const SHELL = ['./', 'index.html', 'guide.html', 'theme.js', 'style.css', 'app.js', 'schedule.js', 'sync.js', 'summary.js', 'ics.js', 'badge.js', 'calendar.js', 'prayer.js', 'moodle.js', 'recordings.js',
   'manifest.webmanifest', 'icon-192.png', 'semesters/index.json'];
 
