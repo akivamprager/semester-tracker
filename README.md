@@ -92,3 +92,15 @@ sync gist (`panopto-token.json`, rotated by the job). The semester's `panopto` b
 and each course's folder id. Every job run lists the folders and matches recordings to sessions
 (`recordings.js`: by the name "<code> <date> שעור/תרגיל <group in Hebrew numerals>", else by
 date + time) → progress `<sem>/rec/<course>` → "▶ צפה בהקלטה" in the app.
+
+## Mac menu bar app + widget (mac/)
+`./mac/build.sh install` builds a small native app with Xcode's compiler (no Xcode project,
+no Apple account; signed locally) and puts it in /Applications. It only *displays*
+`widget.json` — a summary written to the sync gist by `widget.js` (from the web app on every
+sync and from the morning job): the next days' own sessions, lessons to catch up on (with
+the time each becomes available and its Panopto link), open tasks and prayers. The menu bar
+shows the running/next class; the panel lists everything; ✓ writes the same progress entry as
+the web app (needs the gist token, stored in the Keychain). The widget fetches the file
+itself (sandboxed, network only). The first build asks for the calendar address (to locate
+the gist), kept in `mac/gist.local`. Icon: `node tools/make-icons.mjs` also writes
+`mac/AppIcon.icns`.

@@ -167,3 +167,13 @@ export async function publishCalendar(content, fileName = 'calendar.ics') {
   localStorage.setItem(LS_CAL, JSON.stringify({ url, published: content }));
   return url;
 }
+
+// Summary for the Mac menu bar app / widget (widget.js). Uploaded only when it changed.
+const LS_WIDGET = 'tracker.widget';
+export async function publishWidget(data, content) {
+  const key = JSON.stringify(data);
+  if (localStorage.getItem(LS_WIDGET) === key) return;
+  const id = await gistId();
+  await gh(`/gists/${id}`, { method: 'PATCH', body: JSON.stringify({ files: { 'widget.json': { content } } }) });
+  localStorage.setItem(LS_WIDGET, key);
+}

@@ -5,6 +5,7 @@ import { buildCalendar } from './calendar.js';
 import { planDay, prayerPrefs, prayerKey, PRAYER_PREFS_KEY, PRAYER_LABELS } from './prayer.js';
 import { parseIcs, icsTaskChanges } from './ics.js';
 import { recKey, sessionKey, viewerUrl } from './recordings.js';
+import { buildWidget, widgetFile } from './widget.js';
 import * as store from './sync.js';
 
 const LS_SEMESTER = 'tracker.semester';
@@ -116,6 +117,9 @@ async function runSync() {
   try {
     state.progress = await store.sync();
     if (calendarEnabled()) await store.publishCalendar(buildCalendar(state.sem, state.progress));
+    // the Mac menu bar app reads this; failing to update it must not fail the sync
+    const widget = buildWidget(state.sem, state.progress, now());
+    await store.publishWidget(widget, widgetFile(widget, now())).catch(() => {});
     state.sync = { status: 'ok', msg: '' };
   } catch (e) {
     state.sync = { status: 'err', msg: e.message };

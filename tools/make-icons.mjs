@@ -64,7 +64,17 @@ function layers(x, y) {
 }
 
 // bg = null → transparent background, everything drawn white (Android notification badge).
-function icon(size, bg = [31, 95, 209]) {
+// mac: the macOS shape — a rounded square on a transparent margin (Apple's 824/1024 grid).
+function icon(size, bg = [31, 95, 209], { mac = false } = {}) {
+  const inset = mac ? 100 * (100 / 1024) : 0; // ≈9.77 of 100
+  const inner = 100 - 2 * inset;
+  const radius = mac ? inner * 0.2245 : 0;
+  const inShape = (x, y) => {
+    if (!mac) return true;
+    const dx = Math.max(inset + radius - x, 0, x - (100 - inset - radius));
+    const dy = Math.max(inset + radius - y, 0, y - (100 - inset - radius));
+    return x >= inset && x <= 100 - inset && y >= inset && y <= 100 - inset && Math.hypot(dx, dy) <= radius;
+  };
   const out = Buffer.alloc(size * size * 4);
   const SS = 4;
   for (let py = 0; py < size; py++) {
@@ -74,9 +84,11 @@ function icon(size, bg = [31, 95, 209]) {
         for (let sx = 0; sx < SS; sx++) {
           const x = ((px + (sx + 0.5) / SS) / size) * 100;
           const y = ((py + (sy + 0.5) / SS) / size) * 100;
+          if (!inShape(x, y)) continue; // transparent
           let c = bg ? [...bg] : [0, 0, 0];
           let alpha = bg ? 1 : 0;
-          for (const [color, op] of layers(x, y)) {
+          // the design is drawn on the inner square
+          for (const [color, op] of layers(((x - inset) / inner) * 100, ((y - inset) / inner) * 100)) {
             const col = bg ? color : WHITE;
             c = c.map((v, i) => v * (1 - op) + col[i] * op);
             alpha = alpha + op * (1 - alpha);
@@ -97,6 +109,18 @@ function icon(size, bg = [31, 95, 209]) {
 // 152 = iPad, 167 = iPad Pro, 180 = iPhone (apple-touch-icon); 192/512 = manifest (512 also
 // maskable: everything sits inside the central 80% circle).
 for (const size of [152, 167, 180, 192, 512]) writeFileSync(`icon-${size}.png`, icon(size));
+// macOS app icon: AppIcon.icns = PNGs of every size with their 4-letter type codes.
+writeFileSync('mac/icon-1024.png', icon(1024, undefined, { mac: true }));
+const icnsTypes = { icp4: 16, icp5: 32, ic11: 32, ic12: 64, ic07: 128, ic13: 256, ic08: 256, ic14: 512, ic09: 512, ic10: 1024 };
+const parts = Object.entries(icnsTypes).map(([type, size]) => {
+  const data = icon(size, undefined, { mac: true });
+  const head = Buffer.alloc(8);
+  head.write(type, 0, 'ascii'); head.writeUInt32BE(data.length + 8, 4);
+  return Buffer.concat([head, data]);
+});
+const icnsHead = Buffer.alloc(8);
+icnsHead.write('icns', 0, 'ascii'); icnsHead.writeUInt32BE(8 + parts.reduce((n, p) => n + p.length, 0), 4);
+writeFileSync('mac/AppIcon.icns', Buffer.concat([icnsHead, ...parts]));
 // Android notification badge: shape only, on transparent.
 writeFileSync('badge-96.png', icon(96, null));
 // App-icon shortcuts (long-press menu), one color per tab.

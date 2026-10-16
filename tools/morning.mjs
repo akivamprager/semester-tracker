@@ -20,6 +20,7 @@ import { parseIcs, icsTaskChanges } from '../ics.js';
 import { feedSnapshot, diffFeeds, diffMessages, INBOX_PREFIX } from '../moodle.js';
 import { MAIL_FILE, mailInboxUpdates } from '../mail.js';
 import { matchRecordings, recKey } from '../recordings.js';
+import { WIDGET_FILE, buildWidget, widgetFile, sameWidget } from '../widget.js';
 import { TOKEN_FILE, encrypt, decrypt, refreshToken, folderSessions } from './panopto-lib.mjs';
 import { merge } from '../sync.js';
 
@@ -221,6 +222,17 @@ if (progress['prefs/calendar']?.d?.enabled) {
     await writeFiles(gist, { [CALENDAR_FILE]: ics });
     console.log('Calendar updated');
   }
+}
+
+// ---- 2b. Mac menu bar / widget summary ----
+try {
+  const widget = buildWidget(sem, progress, now);
+  if (!sameWidget(gist.files[WIDGET_FILE]?.content, widget)) {
+    await writeFiles(gist, { [WIDGET_FILE]: widgetFile(widget, now) });
+    console.log('Widget summary updated');
+  }
+} catch (e) {
+  console.error('Widget summary failed:', e.message);
 }
 
 // ---- 3. morning summary ----

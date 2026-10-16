@@ -1,3 +1,5 @@
 .claude/
 .DS_Store
 *.local.json
+mac/build/
+mac/gist.local
