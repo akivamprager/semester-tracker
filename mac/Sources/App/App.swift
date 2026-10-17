@@ -44,9 +44,14 @@ struct HasemestronApp: App {
     }
 }
 
-/// hasemestron://show (the widget's ⚙️) or opening the app again → back in the menu bar.
+/// hasemestron://show (the widget's ⚙️) or opening the app again → back in the menu bar;
+/// hasemestron://open (tapping the widget) → the web app's own window.
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    func application(_ application: NSApplication, open urls: [URL]) { showInMenuBar() }
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            if url.host == "open" { WebApp.open() } else { showInMenuBar() }
+        }
+    }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showInMenuBar()

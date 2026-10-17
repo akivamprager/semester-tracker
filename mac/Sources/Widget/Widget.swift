@@ -15,7 +15,7 @@ struct HasemestronWidget: Widget {
             EntryView(entry: entry)
                 .environment(\.layoutDirection, .rightToLeft)
                 .containerBackground(.background, for: .widget)
-                .widgetURL(URL(string: Config.appURL))
+                .widgetURL(URL(string: "hasemestron://open")) // the menu bar app opens the app window
         }
         .configurationDisplayName("הסמסטרון")
         .description("השיעור הבא, מה להשלים והגשות קרובות.")

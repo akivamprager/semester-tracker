@@ -65,10 +65,10 @@ struct Panel: View {
 
     private var footer: some View {
         HStack {
-            Button("פתח את הסמסטרון") { open(Config.appURL) }
+            Button("פתח את הסמסטרון") { WebApp.open() }
             Spacer()
             if let n = model.summary?.inbox, n > 0 {
-                Button("🔔 \(n)") { open(Config.appURL + "?inbox=1") }.help("עדכונים שלא נקראו")
+                Button("🔔 \(n)") { WebApp.open(query: "?inbox=1") }.help("עדכונים שלא נקראו")
             }
             Button { showSettings.toggle() } label: { Image(systemName: "gearshape") }.help("הגדרות")
             Button { NSApp.terminate(nil) } label: { Image(systemName: "power") }.help("יציאה")
