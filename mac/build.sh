@@ -57,7 +57,9 @@ echo "▸ compiling the app"
   Sources/Shared/*.swift Sources/App/*.swift "$OUT/Config.swift" -o "$APP/Contents/MacOS/$NAME"
 
 echo "▸ compiling the widget"
-"$SWIFTC" "${SWIFT_FLAGS[@]}" -application-extension -module-name ${NAME}Widget \
+# Like Xcode's "App Extension" product type: the process starts in _NSExtensionMain, which sets
+# up the extension environment before WidgetKit runs (with Swift's own main it crashes at once).
+"$SWIFTC" "${SWIFT_FLAGS[@]}" -application-extension -Xlinker -e -Xlinker _NSExtensionMain -module-name ${NAME}Widget \
   Sources/Shared/*.swift Sources/Widget/*.swift "$OUT/Config.swift" -o "$EXT/Contents/MacOS/${NAME}Widget"
 
 VERSION=$(date +%Y.%m.%d)
@@ -72,6 +74,8 @@ cat > "$APP/Contents/Info.plist" <<EOF
   <key>CFBundleDisplayName</key><string>הסמסטרון</string>
   <key>CFBundleExecutable</key><string>$NAME</string>
   <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+  <key>CFBundleSupportedPlatforms</key><array><string>MacOSX</string></array>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundleVersion</key><string>$BUILD</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
@@ -91,6 +95,8 @@ cat > "$EXT/Contents/Info.plist" <<EOF
   <key>CFBundleDisplayName</key><string>הסמסטרון</string>
   <key>CFBundleExecutable</key><string>${NAME}Widget</string>
   <key>CFBundlePackageType</key><string>XPC!</string>
+  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+  <key>CFBundleSupportedPlatforms</key><array><string>MacOSX</string></array>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundleVersion</key><string>$BUILD</string>
   <key>CFBundleDevelopmentRegion</key><string>he</string>
@@ -113,9 +119,18 @@ EOF
 
 cp AppIcon.icns "$APP/Contents/Resources/AppIcon.icns" # made by tools/make-icons.mjs
 
-echo "▸ signing (local, no Apple account needed)"
-codesign --force --sign - --entitlements "$OUT/widget.entitlements" "$EXT"
-codesign --force --sign - "$APP"
+# Widgets are only accepted with a developer signature (an "Apple Development" certificate —
+# free with any Apple ID: Xcode → Settings → Accounts). Without one: local signing, which is
+# enough for the menu bar app but not for the widget.
+IDENTITY=${SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/Apple Development/ { print $2; exit }')}
+if [ -n "$IDENTITY" ]; then
+  echo "▸ signing as: $IDENTITY"
+else
+  IDENTITY=-
+  echo "▸ signing locally (no Apple Development certificate found — the widget will not show up)"
+fi
+codesign --force --sign "$IDENTITY" --timestamp=none --entitlements "$OUT/widget.entitlements" "$EXT"
+codesign --force --sign "$IDENTITY" --timestamp=none "$APP"
 
 echo "✓ built $APP"
 
@@ -125,6 +140,15 @@ if [ "${1:-}" = install ]; then
   cp -R "$APP" /Applications/
   # register the widget with the system, then start the menu bar app
   /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "/Applications/$NAME.app" || true
+  pluginkit -a "/Applications/$NAME.app/Contents/PlugIns/${NAME}Widget.appex" 2>/dev/null || true
   open "/Applications/$NAME.app"
   echo "✓ installed in /Applications and started — look for 🎓 next to the clock."
+  sleep 2
+  if pluginkit -m -i "$BUNDLE_ID.widget" 2>/dev/null | grep -q "$BUNDLE_ID.widget"; then
+    echo "✓ widget registered — right-click the desktop → Edit Widgets → הסמסטרון"
+  else
+    echo "✗ macOS did not register the widget. Details:"
+    pluginkit -mAvvv -i "$BUNDLE_ID.widget" 2>&1 | head -20 || true
+    codesign -dv "/Applications/$NAME.app/Contents/PlugIns/${NAME}Widget.appex" 2>&1 | grep -E "Authority|TeamIdentifier|Signature" || true
+  fi
 fi
