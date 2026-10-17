@@ -1325,7 +1325,7 @@ function calendarCard() {
   return `<section class="card"><h2>📆 יומן (Google / Apple)</h2>
     <p class="help">קובץ היומן פעיל ✓ — מתעדכן בכל סנכרון ובכל ריצה של המשימה האוטומטית.</p>
     ${script
-      ? `<div class="status-line ok">✓ <b>Google Calendar</b> מסונכרן כל שעה דרך הסקריפט — היומן "הסמסטרון", צבע לפי קורס, תזכורת 15 דק׳ לפני שיעור ויום לפני הגשה.
+      ? `<div class="status-line ok">✓ <b>Google Calendar</b> מסונכרן כל שעה דרך הסקריפט — היומן "הסמסטרון", צבע לפי קורס, תזכורות: 15 דק׳ לפני שיעור; הגשה — יום ו-3 שעות לפני; בחינה — שבוע, יום ושעה לפני (בלי תזכורות בשבת).
           <button class="link" data-action="gcal-script" data-on="0">לא הגדרתי</button></div>`
       : `<details class="setup">
           <summary><b>Google Calendar שמתעדכן כל שעה</b> (מומלץ)</summary>

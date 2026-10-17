@@ -32,8 +32,14 @@ const CAL_NAME = 'הסמסטרון';
 const OLD_CAL_NAMES = ['מעקב שיעורים', 'סמסטרון']; // renamed in place (keeps its events and settings)
 const TZ = 'Asia/Jerusalem';
 const REMINDER_CLASS_MIN = 15; // classes, prayers (0 = none)
-const REMINDER_DEADLINE_MIN = 24 * 60; // deadlines and exams: a day before (0 = none)
-const REMINDERS_VERSION = '2'; // bump when reminder rules change → existing events are redone
+// Deadlines (the icon in the title says which kind), minutes before. Timed: before the due time.
+// Date-only: before 00:00 of that day, so 900 = the day before at 09:00.
+const REMINDERS = {
+  hw: { timed: [24 * 60, 3 * 60], allDay: [900] }, // ✏️ a day before + 3 hours before
+  exam: { timed: [7 * 24 * 60, 24 * 60, 60], allDay: [7 * 1440 - 540, 900] }, // 📝 a week, a day, an hour
+  practice: { timed: [24 * 60], allDay: [900] }, // 📘 ungraded: a day before
+};
+const REMINDERS_VERSION = '3'; // bump when reminder rules change → existing events are redone
 const RANGE_BACK_DAYS = 30; // events older than this are left alone
 const RANGE_AHEAD_DAYS = 200;
 const MAX_RUN_MS = 4.5 * 60 * 1000; // Apps Script stops at 6 min; the next run continues
@@ -262,10 +268,19 @@ function decorate_(ev, e) {
   if (color) ev.setColor(CalendarApp.EventColor[color]);
   else if (e.uid.startsWith('prayer-')) ev.setColor(CalendarApp.EventColor.GRAY);
   ev.removeAllReminders();
-  if (e.allDay || e.title.startsWith('✓')) return;
-  const minutes = e.uid.startsWith('task-') ? REMINDER_DEADLINE_MIN : REMINDER_CLASS_MIN;
-  if (minutes) ev.addPopupReminder(shabbatSafe_(e.start, minutes));
   ev.setTag('rv', REMINDERS_VERSION);
+  if (e.title.startsWith('✓')) return; // done: no reminders
+  let list;
+  if (e.uid.startsWith('task-')) {
+    const kind = e.title.startsWith('📝') ? 'exam' : e.title.startsWith('📘') ? 'practice' : 'hw';
+    list = REMINDERS[kind][e.allDay ? 'allDay' : 'timed'];
+  } else {
+    list = e.allDay || !REMINDER_CLASS_MIN ? [] : [REMINDER_CLASS_MIN];
+  }
+  const now = Date.now();
+  const minutes = [...new Set(list.map((m) => shabbatSafe_(e.start, m)))]
+    .filter((m) => e.start.getTime() - m * 60000 > now); // skip reminders already in the past
+  minutes.slice(0, 5).forEach((m) => ev.addPopupReminder(m)); // Google allows 5
 }
 
 // No reminders on Shabbat: one that would ring between Friday 15:00 and Saturday 20:00 rings on
