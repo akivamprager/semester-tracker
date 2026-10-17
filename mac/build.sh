@@ -82,6 +82,10 @@ cat > "$APP/Contents/Info.plist" <<EOF
   <key>CFBundleDevelopmentRegion</key><string>he</string>
   <key>LSMinimumSystemVersion</key><string>$MIN_OS</string>
   <key>LSUIElement</key><true/>
+  <key>CFBundleURLTypes</key><array><dict>
+    <key>CFBundleURLName</key><string>$BUNDLE_ID</string>
+    <key>CFBundleURLSchemes</key><array><string>hasemestron</string></array>
+  </dict></array>
   <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 EOF

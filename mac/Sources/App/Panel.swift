@@ -232,10 +232,23 @@ struct SettingsView: View {
     let close: () -> Void
     @State private var token = ""
     @State private var atLogin = false
+    @AppStorage(MenuBarMode.key) private var mode = MenuBarMode.full.rawValue
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("הגדרות").font(.headline)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("בסרגל התפריטים").font(.callout.weight(.medium))
+                Picker("", selection: $mode) {
+                    ForEach(MenuBarMode.allCases, id: \.rawValue) { Text($0.label).tag($0.rawValue) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                if mode == MenuBarMode.hidden.rawValue {
+                    Text("הסמל ייעלם עם סגירת החלון. כדי להחזיר אותו: ⚙️ בווידג׳ט (בינוני או גדול), או לפתוח את האפליקציה שוב.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
             Toggle("הפעל בכניסה למחשב", isOn: $atLogin)
                 .onChange(of: atLogin) { _, on in model.setLaunchAtLogin(on) }
             VStack(alignment: .leading, spacing: 4) {

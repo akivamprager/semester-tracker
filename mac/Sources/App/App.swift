@@ -6,22 +6,57 @@ import ServiceManagement
 import SwiftUI
 import WidgetKit
 
+/// What the menu bar shows: "full" = icon + next class, "icon" = icon only,
+/// "hidden" = nothing (widget only; ⚙️ in the widget or opening the app brings it back).
+enum MenuBarMode: String, CaseIterable {
+    case full, icon, hidden
+    static let key = "menuBarMode"
+    var label: String {
+        switch self {
+        case .full: return "סמל וטקסט"
+        case .icon: return "סמל בלבד"
+        case .hidden: return "ללא (וידג׳ט בלבד)"
+        }
+    }
+}
+
 @main
 struct HasemestronApp: App {
+    @NSApplicationDelegateAdaptor private var delegate: AppDelegate
     @StateObject private var model = Model()
+    @AppStorage(MenuBarMode.key) private var mode = MenuBarMode.full.rawValue
 
     var body: some Scene {
-        MenuBarExtra {
+        MenuBarExtra(isInserted: Binding(
+            get: { mode != MenuBarMode.hidden.rawValue },
+            set: { if !$0 { mode = MenuBarMode.hidden.rawValue } } // ⌘-dragged out of the menu bar
+        )) {
             Panel()
                 .environmentObject(model)
                 .environment(\.layoutDirection, .rightToLeft)
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "graduationcap.fill")
-                Text(model.menuTitle)
+                if mode == MenuBarMode.full.rawValue, !model.menuTitle.isEmpty { Text(model.menuTitle) }
             }
         }
         .menuBarExtraStyle(.window)
+    }
+}
+
+/// hasemestron://show (the widget's ⚙️) or opening the app again → back in the menu bar.
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func application(_ application: NSApplication, open urls: [URL]) { showInMenuBar() }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showInMenuBar()
+        return false
+    }
+
+    private func showInMenuBar() {
+        if UserDefaults.standard.string(forKey: MenuBarMode.key) == MenuBarMode.hidden.rawValue {
+            UserDefaults.standard.set(MenuBarMode.full.rawValue, forKey: MenuBarMode.key)
+        }
     }
 }
 
@@ -43,7 +78,9 @@ final class Model: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 self.now = Date()
-                if (self.lastFetch.map { Date().timeIntervalSince($0) > 300 } ?? true) { await self.refresh() }
+                // widget-only mode: nothing here to keep fresh (the widget fetches by itself)
+                let hidden = UserDefaults.standard.string(forKey: MenuBarMode.key) == MenuBarMode.hidden.rawValue
+                if !hidden, (self.lastFetch.map { Date().timeIntervalSince($0) > 300 } ?? true) { await self.refresh() }
             }
         }
         // re-register after a reinstall, so login launches the current copy

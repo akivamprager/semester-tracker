@@ -96,7 +96,7 @@ struct EntryView: View {
     private func medium(_ s: Summary) -> some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                brand
+                HStack { brand; Spacer(); settingsLink }
                 Spacer(minLength: 0)
                 if let n = s.comingSessions(now).first {
                     sessionBlock(n)
@@ -124,7 +124,7 @@ struct EntryView: View {
 
     private func large(_ s: Summary) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack { brand; Spacer(); Text(s.semester).font(.caption2).foregroundStyle(.secondary) }
+            HStack { brand; Spacer(); Text(s.semester).font(.caption2).foregroundStyle(.secondary); settingsLink }
             group("שיעורים") {
                 let coming = Array(s.comingSessions(now).prefix(3))
                 if coming.isEmpty { muted("אין שיעורים בימים הקרובים") }
@@ -156,6 +156,13 @@ struct EntryView: View {
         HStack(spacing: 4) {
             Image(systemName: "graduationcap.fill").foregroundStyle(Color.brand)
             Text("הסמסטרון").font(.caption.weight(.semibold))
+        }
+    }
+
+    /// ⚙️ → the menu bar app (shows its icon again if it was hidden). Links work in medium/large only.
+    private var settingsLink: some View {
+        Link(destination: URL(string: "hasemestron://show")!) {
+            Image(systemName: "gearshape").font(.caption2).foregroundStyle(.secondary)
         }
     }
 
