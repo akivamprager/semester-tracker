@@ -51,6 +51,17 @@ export function sunsetFor(sem, date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate(), h, m);
 }
 
+// Shabbat, for staying quiet (no notifications): from candle lighting on Friday (Jerusalem
+// custom, 40 min before sunset) until it ends on Saturday night (sunset + 40 min, on the safe side).
+export const SHABBAT_CANDLES_MIN = 40;
+export const SHABBAT_END_MIN = 40;
+export function isShabbat(sem, date) {
+  const day = date.getDay();
+  if (day === 5) return date >= new Date(+sunsetFor(sem, date) - SHABBAT_CANDLES_MIN * 60e3);
+  if (day === 6) return date < new Date(+sunsetFor(sem, date) + SHABBAT_END_MIN * 60e3);
+  return false;
+}
+
 // Israel winter time (UTC+2) vs. summer time (UTC+3), from the device/runner time zone.
 const isWinterTime = (date) => -date.getTimezoneOffset() === 120;
 

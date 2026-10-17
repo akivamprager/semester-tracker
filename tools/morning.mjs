@@ -23,6 +23,7 @@ import { matchRecordings, recKey } from '../recordings.js';
 import { WIDGET_FILE, buildWidget, widgetFile, sameWidget } from '../widget.js';
 import { TOKEN_FILE, encrypt, decrypt, refreshToken, folderSessions } from './panopto-lib.mjs';
 import { merge } from '../sync.js';
+import { isShabbat } from '../prayer.js';
 
 const SEND_HOUR = 7;
 const SEND_UNTIL = 11; // a "good morning" summary arriving later than this is useless
@@ -69,6 +70,17 @@ const writeFiles = (gist, files) => gh(`/gists/${gist.id}`, {
   method: 'PATCH',
   body: JSON.stringify({ files: Object.fromEntries(Object.entries(files).map(([k, v]) => [k, { content: v }])) }),
 });
+
+// No notifications on Shabbat: Moodle/email pushes are counted instead, and one short
+// "waiting for you" push goes out on the first run after Shabbat (entries still reach 🔔).
+async function notify(push, payload) {
+  if (isShabbat(sem, now)) {
+    push.heldOnShabbat = (push.heldOnShabbat || 0) + 1;
+    console.log('Shabbat — push held');
+    return;
+  }
+  await sendPush(push, payload);
+}
 
 async function sendPush(push, payload) {
   if (!push.subs?.length) { console.log('No subscriptions — turn on the morning notification in the app.'); return; }
@@ -123,7 +135,7 @@ if (process.env.MOODLE_ICS_URL && !calendarOnly) {
       if (messages.length) {
         const lines = messages.slice(0, 4).map((m) => `${m.icon} ${m.text}`);
         if (messages.length > 4) lines.push(`ועוד ${messages.length - 4}`);
-        await sendPush(push, { title: '📥 עדכונים מהמודל', body: lines.join('\n'), tag: 'moodle', url: './?inbox=1' });
+        await notify(push, { title: '📥 עדכונים מהמודל', body: lines.join('\n'), tag: 'moodle', url: './?inbox=1' });
         pushChanged = true;
       }
     } else {
@@ -168,7 +180,7 @@ if (!calendarOnly && gist.files[MAIL_FILE]) {
       const shortName = (code) => sem.courses.find((c) => c.code === code)?.short;
       const lines = notify.slice(0, 4).map((m) => (m.course ? `${shortName(m.course)}: ${m.subject}` : m.subject));
       if (notify.length > 4) lines.push(`ועוד ${notify.length - 4}`);
-      await sendPush(push, { title: '📢 הודעות בקורסים', body: lines.join('\n'), tag: 'mail', url: './?inbox=1' });
+      await notify(push, { title: '📢 הודעות בקורסים', body: lines.join('\n'), tag: 'mail', url: './?inbox=1' });
       pushChanged = true;
     }
   } catch (e) {
@@ -236,7 +248,16 @@ try {
 }
 
 // ---- 3. morning summary ----
-const sendMorning = !calendarOnly
+// ---- after Shabbat: what came in meanwhile ----
+if (!calendarOnly && push.heldOnShabbat && !isShabbat(sem, now)) {
+  await sendPush(push, { title: '🔔 עדכונים משבת', body: 'הגיעו עדכונים מהמודל או מהמייל בזמן השבת — פתח את 🔔 לפרטים.', tag: 'shabbat', url: './?inbox=1' });
+  push.heldOnShabbat = 0;
+  pushChanged = true;
+}
+
+// no morning summary on Shabbat (Saturday) — Sunday's covers the week
+const shabbatMorning = isShabbat(sem, now);
+const sendMorning = !calendarOnly && !shabbatMorning
   && (force || (now.getHours() >= SEND_HOUR && now.getHours() < SEND_UNTIL && push.lastSent !== today));
 if (!sendMorning) {
   console.log(`Morning summary: skip (hour ${now.getHours()}, last sent ${push.lastSent})`);

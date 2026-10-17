@@ -33,6 +33,7 @@ const OLD_CAL_NAMES = ['מעקב שיעורים', 'סמסטרון']; // renamed 
 const TZ = 'Asia/Jerusalem';
 const REMINDER_CLASS_MIN = 15; // classes, prayers (0 = none)
 const REMINDER_DEADLINE_MIN = 24 * 60; // deadlines and exams: a day before (0 = none)
+const REMINDERS_VERSION = '2'; // bump when reminder rules change → existing events are redone
 const RANGE_BACK_DAYS = 30; // events older than this are left alone
 const RANGE_AHEAD_DAYS = 200;
 const MAX_RUN_MS = 4.5 * 60 * 1000; // Apps Script stops at 6 min; the next run continues
@@ -248,6 +249,7 @@ function getCalendar_() {
 }
 
 function differs_(ev, e) {
+  if (ev.getTag('rv') !== REMINDERS_VERSION) return true;
   if (ev.getTitle() !== e.title || (ev.getLocation() || '') !== e.location
     || (ev.getDescription() || '') !== e.description || ev.isAllDayEvent() !== e.allDay) return true;
   if (e.allDay) return ev.getAllDayStartDate().getTime() !== e.start.getTime();
@@ -262,7 +264,20 @@ function decorate_(ev, e) {
   ev.removeAllReminders();
   if (e.allDay || e.title.startsWith('✓')) return;
   const minutes = e.uid.startsWith('task-') ? REMINDER_DEADLINE_MIN : REMINDER_CLASS_MIN;
-  if (minutes) ev.addPopupReminder(minutes);
+  if (minutes) ev.addPopupReminder(shabbatSafe_(e.start, minutes));
+  ev.setTag('rv', REMINDERS_VERSION);
+}
+
+// No reminders on Shabbat: one that would ring between Friday 15:00 and Saturday 20:00 rings on
+// Friday at 12:00 instead (e.g. a deadline on Saturday night).
+function shabbatSafe_(start, minutes) {
+  const at = new Date(start.getTime() - minutes * 60000);
+  const dow = Number(Utilities.formatDate(at, TZ, 'u')); // 1 = Monday … 7 = Sunday
+  const hour = Number(Utilities.formatDate(at, TZ, 'H'));
+  if (!((dow === 5 && hour >= 15) || (dow === 6 && hour < 20))) return minutes;
+  const friday = new Date(at.getTime() - (dow === 6 ? 864e5 : 0));
+  const noon = Utilities.parseDate(Utilities.formatDate(friday, TZ, 'yyyy-MM-dd') + ' 12:00', TZ, 'yyyy-MM-dd HH:mm');
+  return Math.min(40320, Math.round((start.getTime() - noon.getTime()) / 60000));
 }
 
 // ---------- helpers ----------

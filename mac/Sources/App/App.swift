@@ -46,6 +46,8 @@ final class Model: ObservableObject {
                 if (self.lastFetch.map { Date().timeIntervalSince($0) > 300 } ?? true) { await self.refresh() }
             }
         }
+        // re-register after a reinstall, so login launches the current copy
+        if UserDefaults.standard.bool(forKey: "launchAtLogin") { try? SMAppService.mainApp.register() }
         Task { await refresh() }
     }
 
@@ -99,6 +101,7 @@ final class Model: ObservableObject {
     func setLaunchAtLogin(_ on: Bool) {
         do {
             if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+            UserDefaults.standard.set(on, forKey: "launchAtLogin")
         } catch {
             self.error = "הפעלה בכניסה: \(error.localizedDescription)"
         }

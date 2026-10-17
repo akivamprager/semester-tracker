@@ -94,8 +94,9 @@ and each course's folder id. Every job run lists the folders and matches recordi
 date + time) → progress `<sem>/rec/<course>` → "▶ צפה בהקלטה" in the app.
 
 ## Mac menu bar app + widget (mac/)
-`./mac/build.sh install` builds a small native app with Xcode's compiler (no Xcode project,
-no Apple account; signed locally) and puts it in /Applications. It only *displays*
+`./mac/build.sh install` builds a small native helper with Xcode's compiler (no Xcode project;
+signed with the free Apple Development certificate, which widgets need) and installs it in
+`~/Library/Application Support/Hasemestron`, out of the app list. It only *displays*
 `widget.json` — a summary written to the sync gist by `widget.js` (from the web app on every
 sync and from the morning job): the next days' own sessions, lessons to catch up on (with
 the time each becomes available and its Panopto link), open tasks and prayers. The menu bar

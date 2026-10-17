@@ -93,3 +93,13 @@ test('short minyan only when no regular one is workable', () => {
   // Sunday: regular 13:30 fits before the 14:00 lecture → never the short one
   assert.equal(planDay(sem, courses, new Date(2026, 10, 8), on)[0].minyan.id, 'mincha-1330');
 });
+
+test('isShabbat: Friday from candle lighting until Saturday night', async () => {
+  const { isShabbat } = await import('../prayer.js');
+  const sem = JSON.parse((await import('node:fs')).readFileSync(new URL('../semesters/2027A.json', import.meta.url)));
+  assert.equal(isShabbat(sem, new Date('2026-10-16T12:00:00+03:00')), false); // Friday noon
+  assert.equal(isShabbat(sem, new Date('2026-10-16T17:45:00+03:00')), true); // Friday evening
+  assert.equal(isShabbat(sem, new Date('2026-10-17T12:00:00+03:00')), true); // Saturday
+  assert.equal(isShabbat(sem, new Date('2026-10-17T19:30:00+03:00')), false); // Saturday night
+  assert.equal(isShabbat(sem, new Date('2026-10-18T09:00:00+03:00')), false); // Sunday
+});

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Builds the הסמסטרון menu bar app + widget, without an Xcode project (needs Xcode installed).
 #   ./mac/build.sh            build into mac/build/
-#   ./mac/build.sh install    build, copy to /Applications and start it
+#   ./mac/build.sh install    build, install (hidden from the app list) and start it
 # The first run asks for the calendar address from the web app (⚙️ → 📆 יומן → העתק); it
 # only tells the app where your sync gist is, and is kept in mac/gist.local (not committed).
 set -euo pipefail
@@ -135,20 +135,28 @@ codesign --force --sign "$IDENTITY" --timestamp=none "$APP"
 echo "✓ built $APP"
 
 if [ "${1:-}" = install ]; then
+  # A helper, not an app you open: it lives next to the clock and in the widget, so it is kept
+  # out of the app list (where the web app is the only הסמסטרון). Widgets register from here too.
+  DEST="$HOME/Library/Application Support/Hasemestron"
+  LSREG=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
   pkill -x $NAME 2>/dev/null || true
-  rm -rf "/Applications/$NAME.app"
-  cp -R "$APP" /Applications/
-  # register the widget with the system, then start the menu bar app
-  /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "/Applications/$NAME.app" || true
-  pluginkit -a "/Applications/$NAME.app/Contents/PlugIns/${NAME}Widget.appex" 2>/dev/null || true
-  open "/Applications/$NAME.app"
-  echo "✓ installed in /Applications and started — look for 🎓 next to the clock."
+  if [ -d "/Applications/$NAME.app" ]; then # earlier versions installed here
+    "$LSREG" -u "/Applications/$NAME.app" 2>/dev/null || true
+    rm -rf "/Applications/$NAME.app"
+  fi
+  mkdir -p "$DEST"
+  rm -rf "$DEST/$NAME.app"
+  cp -R "$APP" "$DEST/"
+  "$LSREG" -f "$DEST/$NAME.app" || true
+  pluginkit -a "$DEST/$NAME.app/Contents/PlugIns/${NAME}Widget.appex" 2>/dev/null || true
+  open "$DEST/$NAME.app"
+  echo "✓ installed and started — look for 🎓 next to the clock."
   sleep 2
   if pluginkit -m -i "$BUNDLE_ID.widget" 2>/dev/null | grep -q "$BUNDLE_ID.widget"; then
     echo "✓ widget registered — right-click the desktop → Edit Widgets → הסמסטרון"
   else
     echo "✗ macOS did not register the widget. Details:"
     pluginkit -mAvvv -i "$BUNDLE_ID.widget" 2>&1 | head -20 || true
-    codesign -dv "/Applications/$NAME.app/Contents/PlugIns/${NAME}Widget.appex" 2>&1 | grep -E "Authority|TeamIdentifier|Signature" || true
+    codesign -dv "$DEST/$NAME.app/Contents/PlugIns/${NAME}Widget.appex" 2>&1 | grep -E "Authority|TeamIdentifier|Signature" || true
   fi
 fi
