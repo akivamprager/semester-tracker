@@ -58,7 +58,7 @@ Note: GitHub pauses scheduled workflows in a repo with no commits for 60 days.
 
 ## Calendar subscription
 Settings → "📆 יומן": publishes `calendar.ics` (built by `calendar.js`: own group's sessions
-with rooms and moves, deadlines, exams; ✓ on done items) to the sync gist. Subscribe to its
+with rooms and moves, deadlines, exams; ✓ on done items) to the *published* gist. Subscribe to its
 raw URL in Google Calendar (→ Android widget/reminders) or Apple Calendar. The app updates
 it on every sync; the GitHub Action refreshes it daily and when `semesters/` changes.
 
@@ -97,7 +97,7 @@ date + time) → progress `<sem>/rec/<course>` → "▶ צפה בהקלטה" in 
 `./mac/build.sh install` builds a small native helper with Xcode's compiler (no Xcode project;
 signed with the free Apple Development certificate, which widgets need) and installs it in
 `~/Library/Application Support/Hasemestron`, out of the app list. It only *displays*
-`widget.json` — a summary written to the sync gist by `widget.js` (from the web app on every
+`widget.json` — a summary written to the published gist by `widget.js` (from the web app on every
 sync and from the morning job): the next days' own sessions, lessons to catch up on (with
 the time each becomes available and its Panopto link), open tasks and prayers. The menu bar
 shows the running/next class; the panel lists everything; ✓ writes the same progress entry as
@@ -105,3 +105,18 @@ the web app (needs the gist token, stored in the Keychain). The widget fetches t
 itself (sandboxed, network only). The first build asks for the calendar address (to locate
 the gist), kept in `mac/gist.local`. Icon: `node tools/make-icons.mjs` also writes
 `mac/AppIcon.icns`.
+
+## Security notes
+- **Two gists.** A secret gist (and its whole history) is readable by anyone with its address.
+  So the *private* gist (`semester-tracker-progress`: progress, push subscriptions, emails,
+  Moodle snapshot, encrypted Panopto token) is only ever found by its description, and its
+  address is never shown; the *published* gist (`semester-tracker-published`) holds only
+  `calendar.ics` and `widget.json` — the calendar link points there and may be shared. The app
+  splits an older combined gist by itself and asks (⚙️) to delete the old one.
+- **Secrets** live only in GitHub secrets (`GIST_TOKEN`, `VAPID_PRIVATE_KEY`, `MOODLE_ICS_URL`,
+  `PANOPTO_*`), Apps Script properties, the browser (gist token) and the macOS Keychain.
+- **Job supply chain:** actions pinned to commits, dependencies from `package-lock.json`
+  (`npm ci --ignore-scripts`), read-only `GITHUB_TOKEN`. Logs print counts only (public repo).
+- **Site:** a Content-Security-Policy allows only this site's scripts and GitHub/Google Fonts
+  connections; all outside text (Moodle, emails) is HTML-escaped; links from data are https only.
+

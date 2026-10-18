@@ -11,7 +11,7 @@ const p2 = (n) => String(n).padStart(2, '0');
 const hm = (d) => `${p2(d.getHours())}:${p2(d.getMinutes())}`;
 export const sessionKey = (group, occ) => `${group.code}|${ymd(occ.start)}|${hm(occ.start)}`;
 export const recKey = (sem, code) => `${sem.id}/rec/${code}`;
-export const viewerUrl = (sem, id) => `https://${sem.panopto.host}/Panopto/Pages/Viewer.aspx?id=${id}`;
+export const viewerUrl = (sem, id) => `https://${sem.panopto.host}/Panopto/Pages/Viewer.aspx?id=${encodeURIComponent(id)}`;
 
 // Hebrew numerals as used in group names: א=1 … י=10, יא=11 … טו=15, טז=16, כ=20.
 const GEMATRIA = { א: 1, ב: 2, ג: 3, ד: 4, ה: 5, ו: 6, ז: 7, ח: 8, ט: 9, י: 10, כ: 20, ל: 30 };

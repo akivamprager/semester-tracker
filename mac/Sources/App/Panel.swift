@@ -182,7 +182,8 @@ struct Panel: View {
     }
 
     private func open(_ url: String) {
-        if let u = URL(string: url) { NSWorkspace.shared.open(u) }
+        // links come from the synced data: open only web pages, never other app/file URLs
+        if let u = URL(string: url), u.scheme == "https" { NSWorkspace.shared.open(u) }
     }
 }
 

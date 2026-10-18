@@ -3,3 +3,4 @@
 *.local.json
 mac/build/
 mac/gist.local
+node_modules/

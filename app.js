@@ -542,6 +542,7 @@ function viewSettings() {
     <p class="help">"אוטומטי" עוקב אחרי הגדרות המכשיר. נשמר בכל מכשיר בנפרד.</p>
   </section>
   <h3 class="settings-group">חשבון וסנכרון</h3>
+  <div id="old-gist"></div>
   <section class="card">
     <h2>☁️ סנכרון בין מכשירים</h2>
     ${connected
@@ -711,7 +712,7 @@ function watchButton(c, u) {
     const ids = recIds(recs, group, occ[i]);
     if (ids) {
       const who = group === u.mine ? 'הקבוצה שלך' : group.lecturer || `קב׳ ${grp(group.code)}`;
-      return `<a class="watch" href="${viewerUrl(state.sem, ids[0][0])}" target="_blank" rel="noopener" title="${esc(who)}">▶ צפה בהקלטה</a>`;
+      return `<a class="watch" href="${esc(viewerUrl(state.sem, ids[0][0]))}" target="_blank" rel="noopener" title="${esc(who)}">▶ צפה בהקלטה</a>`;
     }
   }
   return '';
@@ -738,7 +739,7 @@ function sessionRows(courses, key) {
       mine ? '<span class="pill mine">הקבוצה שלך</span>' : '',
       live ? '<span class="pill live"><span class="live-dot" aria-hidden="true"></span>עכשיו</span>' : '',
       // with Panopto data: a link per recording; without it (e.g. a friend's copy): the old hint
-      ids ? ids.map(([id], k) => `<a class="pill rec" href="${viewerUrl(state.sem, id)}" target="_blank" rel="noopener">▶ הקלטה${ids.length > 1 ? ' ' + (k + 1) : ''}</a>`).join('')
+      ids ? ids.map(([id], k) => `<a class="pill rec" href="${esc(viewerUrl(state.sem, id))}" target="_blank" rel="noopener">▶ הקלטה${ids.length > 1 ? ' ' + (k + 1) : ''}</a>`).join('')
         : past ? `<span class="pill">${recs ? 'התקיים · אין הקלטה עדיין' : 'התקיים · יש הקלטה'}</span>` : '',
     ].join('');
     return `<div class="slot ${mine ? 'mine' : ''} ${live ? 'live' : ''} ${past ? 'past' : ''}" ${courseStyle(c)}>
@@ -844,7 +845,7 @@ function inboxHtml(entries) {
         <div class="inbox-text">${esc(m.text)}</div>
         <div class="meta">${c ? `<span class="course-tag colored" ${courseStyle(c)}>${c.emoji} <bdi>${esc(c.short)}</bdi></span> · ` : ''}${m.from ? `${esc(m.from)} · ` : ''}${agoLabel(m.at)}</div>
         ${m.body ? `<details class="inbox-mail"><summary>הצג הודעה</summary><div class="inbox-mail-body">${linkify(m.body)}</div></details>` : ''}
-        ${m.link ? `<a class="inbox-link" href="${esc(m.link)}" target="_blank" rel="noopener">פתח במודל ›</a>` : ''}
+        ${/^https:\/\//.test(m.link || '') ? `<a class="inbox-link" href="${esc(m.link)}" target="_blank" rel="noopener">פתח במודל ›</a>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -916,7 +917,7 @@ function render() {
   else if (state.tab === 'schedule') main.innerHTML = viewSchedule(courses);
   else if (state.tab === 'tasks') main.innerHTML = viewTasks(courses);
   else if (state.tab === 'courses') main.innerHTML = viewCourses(courses);
-  else if (!document.getElementById('sem-select')) { main.innerHTML = viewSettings(); renderPushCard(); }
+  else if (!document.getElementById('sem-select')) { main.innerHTML = viewSettings(); renderPushCard(); renderOldGist(); }
   applyTaskFilter();
   updateInboxBadge();
   if (state.panel === 'inbox' && document.getElementById('sheet')?.open) {
@@ -1477,6 +1478,22 @@ function b64urlToBytes(s) {
 async function pushRegistration() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return null;
   return navigator.serviceWorker.getRegistration();
+}
+
+// After the move to two gists: the old one (whose address was shared as the calendar link and
+// whose history still has the private files) must be deleted by hand.
+async function renderOldGist() {
+  const old = await store.oldGist();
+  const el = document.getElementById('old-gist');
+  if (!el) return;
+  el.innerHTML = old ? `<section class="card">
+      <h2>🔒 למחוק את הגיסט הישן</h2>
+      <div class="status-line warn">⚠️ הנתונים הפרטיים (התקדמות, מיילים, התראות) עברו לגיסט פרטי חדש.
+        הגיסט הישן עדיין קיים — כתובתו שותפה כקישור היומן, וההיסטוריה שלו כוללת את הנתונים. צריך למחוק אותו.</div>
+      <p class="help">ב-GitHub: פתח את הקישור → <b>Delete</b> (מימין למעלה) → אשר. הכרטיס הזה ייעלם לבד.
+        לפני כן: עדכן את קישור היומן החדש בסקריפט של Google ובאפליקציית המק (📆 יומן, למטה).</p>
+      <div class="row"><a class="btn" href="${esc(old.url || `https://gist.github.com/${old.id}`)}" target="_blank" rel="noopener">פתח את הגיסט הישן ↗</a></div>
+    </section>` : '';
 }
 
 async function renderPushCard() {

@@ -22,6 +22,10 @@ on:
     branches: [main]
     paths: ['semesters/**', 'calendar.js', 'schedule.js']
 
+# The job only needs to read the repo; everything else uses its own secrets.
+permissions:
+  contents: read
+
 # One run at a time: runs share the Panopto refresh token (which may be single-use).
 concurrency:
   group: morning-job
@@ -31,11 +35,15 @@ jobs:
   send:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # actions pinned to exact commits (a tag can be moved; a commit can't)
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
-      - run: npm install --no-save web-push@3
+      # exact versions from package-lock.json (checked against their hashes), no install scripts
+      - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: node tools/morning.mjs
         env:
           TZ: Asia/Jerusalem

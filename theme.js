@@ -33,3 +33,12 @@
   dark.addEventListener('change', apply);
   apply();
 })();
+
+// The web font loads as a "print" stylesheet so it never holds up the first paint, and is switched
+// on once loaded (an onload="" attribute would be an inline script, which the CSP forbids).
+document.addEventListener('DOMContentLoaded', () => {
+  for (const link of document.querySelectorAll('link[data-font]')) {
+    if (link.sheet) link.media = 'all';
+    else link.addEventListener('load', () => { link.media = 'all'; });
+  }
+});

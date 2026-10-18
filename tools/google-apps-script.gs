@@ -107,8 +107,8 @@ function triggerJob_(force) {
 
 // ---------- course emails ----------
 function checkMail() {
-  const gistId = gistId_();
-  const gist = gist_('get', gistId);
+  const gist = privateGist_();
+  const gistId = gist.id;
   const file = gist.files['mail.json'];
   const store = file
     ? JSON.parse(file.truncated ? UrlFetchApp.fetch(file.raw_url, gistAuth_()).getContentText() : file.content)
@@ -171,22 +171,42 @@ function cleanMail_(text) {
     .slice(0, MAIL_MAX_CHARS);
 }
 
-// The gist id is part of the calendar address (…/<user>/<id>/raw/calendar.ics).
-function gistId_() {
-  const m = prop_('CALENDAR_URL').match(/gist\.githubusercontent\.com\/[^/]+\/([0-9a-f]+)/);
-  if (!m) throw new Error('CALENDAR_URL is not a gist address');
-  return m[1];
+// The private sync gist (progress, emails…), found by its description — never through the
+// calendar link, which points at the separate published gist and may be shared.
+const PRIVATE_DESC = 'semester-tracker-progress';
+function privateGist_() {
+  const props = PropertiesService.getScriptProperties();
+  const cached = props.getProperty('PRIVATE_GIST_ID');
+  if (cached) {
+    const g = gist_('get', cached, null, true);
+    if (g && g.description === PRIVATE_DESC) return g;
+  }
+  for (let page = 1; page < 10; page++) {
+    const res = UrlFetchApp.fetch(`https://api.github.com/gists?per_page=100&page=${page}`, gistAuth_());
+    if (res.getResponseCode() !== 200) throw new Error(`Gist list ${res.getResponseCode()}`);
+    const list = JSON.parse(res.getContentText());
+    const found = list.find((g) => g.description === PRIVATE_DESC);
+    if (found) {
+      props.setProperty('PRIVATE_GIST_ID', found.id);
+      return gist_('get', found.id);
+    }
+    if (list.length < 100) break;
+  }
+  throw new Error('Private sync gist not found — open the app once.');
 }
 
 function gistAuth_() {
   return { headers: { Authorization: 'Bearer ' + prop_('GIST_TOKEN'), Accept: 'application/vnd.github+json' }, muteHttpExceptions: true };
 }
 
-function gist_(method, id, body) {
+function gist_(method, id, body, quiet) {
   const opts = { ...gistAuth_(), method };
   if (body) { opts.contentType = 'application/json'; opts.payload = JSON.stringify(body); }
   const res = UrlFetchApp.fetch('https://api.github.com/gists/' + id, opts);
-  if (res.getResponseCode() !== 200) throw new Error(`Gist ${res.getResponseCode()}: ${res.getContentText().slice(0, 200)}`);
+  if (res.getResponseCode() !== 200) {
+    if (quiet) return null;
+    throw new Error(`Gist ${res.getResponseCode()}: ${res.getContentText().slice(0, 200)}`);
+  }
   return JSON.parse(res.getContentText());
 }
 

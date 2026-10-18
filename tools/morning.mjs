@@ -27,7 +27,10 @@ import { isShabbat } from '../prayer.js';
 
 const SEND_HOUR = 7;
 const SEND_UNTIL = 11; // a "good morning" summary arriving later than this is useless
+// private gist (progress, subscriptions, emails, tokens) / published gist (calendar + widget
+// summary only — its address is the shared calendar link). See sync.js.
 const GIST_DESC = 'semester-tracker-progress';
+const PUBLISHED_DESC = 'semester-tracker-published';
 const FEED_FILE = 'moodle-feed.json';
 const SITE = 'https://akivamprager.github.io/semester-tracker/';
 const force = process.env.FORCE === 'true';
@@ -47,13 +50,14 @@ async function gh(path, opts = {}) {
   return res.json();
 }
 
-async function findGist() {
+async function findGist(description = GIST_DESC) {
   for (let page = 1; page < 10; page++) {
     const list = await gh(`/gists?per_page=100&page=${page}`);
-    const found = list.find((g) => g.description === GIST_DESC);
+    const found = list.find((g) => g.description === description);
     if (found) return gh(`/gists/${found.id}`);
     if (list.length < 100) break;
   }
+  if (description !== GIST_DESC) return null; // the app creates the published gist
   throw new Error('Sync gist not found — connect sync in the app first.');
 }
 
@@ -227,24 +231,27 @@ if (!calendarOnly && sem.panopto && process.env.PANOPTO_KEY && gist.files[TOKEN_
   }
 }
 
-// ---- 2. calendar ----
-if (progress['prefs/calendar']?.d?.enabled) {
-  const ics = buildCalendar(sem, progress);
-  if (gist.files[CALENDAR_FILE]?.content !== ics) {
-    await writeFiles(gist, { [CALENDAR_FILE]: ics });
-    console.log('Calendar updated');
+// ---- 2. calendar + Mac widget summary → the published gist ----
+const published = await findGist(PUBLISHED_DESC);
+if (!published) {
+  console.log('No published gist yet — open the app once (it creates it)');
+} else {
+  if (progress['prefs/calendar']?.d?.enabled) {
+    const ics = buildCalendar(sem, progress);
+    if (published.files[CALENDAR_FILE]?.content !== ics) {
+      await writeFiles(published, { [CALENDAR_FILE]: ics });
+      console.log('Calendar updated');
+    }
   }
-}
-
-// ---- 2b. Mac menu bar / widget summary ----
-try {
-  const widget = buildWidget(sem, progress, now);
-  if (!sameWidget(gist.files[WIDGET_FILE]?.content, widget)) {
-    await writeFiles(gist, { [WIDGET_FILE]: widgetFile(widget, now) });
-    console.log('Widget summary updated');
+  try {
+    const widget = buildWidget(sem, progress, now);
+    if (!sameWidget(published.files[WIDGET_FILE]?.content, widget)) {
+      await writeFiles(published, { [WIDGET_FILE]: widgetFile(widget, now) });
+      console.log('Widget summary updated');
+    }
+  } catch (e) {
+    console.error('Widget summary failed:', e.message);
   }
-} catch (e) {
-  console.error('Widget summary failed:', e.message);
 }
 
 // ---- 3. morning summary ----
