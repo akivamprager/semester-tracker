@@ -917,7 +917,7 @@ function render() {
   else if (state.tab === 'schedule') main.innerHTML = viewSchedule(courses);
   else if (state.tab === 'tasks') main.innerHTML = viewTasks(courses);
   else if (state.tab === 'courses') main.innerHTML = viewCourses(courses);
-  else if (!document.getElementById('sem-select')) { main.innerHTML = viewSettings(); renderPushCard(); renderOldGist(); }
+  else if (!document.getElementById('sem-select')) { main.innerHTML = viewSettings(); fillSettingsCards(); }
   applyTaskFilter();
   updateInboxBadge();
   if (state.panel === 'inbox' && document.getElementById('sheet')?.open) {
@@ -1298,7 +1298,13 @@ document.addEventListener('keydown', (e) => {
 function rerenderSettings() {
   document.getElementById('main').innerHTML = viewSettings();
   render();
+  fillSettingsCards();
+}
+
+// Settings cards whose content is fetched after the page is drawn — every redraw fills them.
+function fillSettingsCards() {
   renderPushCard();
+  renderOldGist();
 }
 
 // ---------- calendar subscription ----------

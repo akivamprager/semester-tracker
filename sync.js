@@ -15,7 +15,6 @@ const LS_PROGRESS = 'tracker.progress';
 const LS_TOKEN = 'tracker.token';
 const LS_GIST = 'tracker.gistId';
 const LS_PUBLISHED = 'tracker.publishedGistId';
-const LS_OLD = 'tracker.oldGist'; // [{ id, url }] retired gists, until the user deletes them
 export const GIST_DESC = 'semester-tracker-progress';
 export const PUBLISHED_DESC = 'semester-tracker-published';
 export const OLD_DESC = 'semester-tracker-progress (old — delete me)';
@@ -87,19 +86,9 @@ const createGist = (description, files) => gh('/gists', {
 const fileText = async (f) => (f.truncated ? (await fetch(f.raw_url)).text() : f.content);
 const isCombined = (g) => Object.keys(g.files || {}).some((f) => PUBLISHED_FILES.includes(f));
 
-// Renamed so nothing picks it up again; listed in ⚙️ until the user deletes it.
+// Renamed so nothing picks it up again; ⚙️ lists it (from GitHub) until the user deletes it.
 async function retire(g, description = OLD_DESC) {
   await gh(`/gists/${g.id}`, { method: 'PATCH', body: JSON.stringify({ description }) });
-  const list = oldGistList().filter((x) => x.id !== g.id);
-  list.push({ id: g.id, url: g.html_url || `https://gist.github.com/${g.id}` });
-  localStorage.setItem(LS_OLD, JSON.stringify(list));
-}
-
-function oldGistList() {
-  try {
-    const v = JSON.parse(localStorage.getItem(LS_OLD) || '[]');
-    return Array.isArray(v) ? v : [v];
-  } catch { return []; }
 }
 
 // Folds a duplicate private gist into the chosen one (progress per key, push subscriptions and
@@ -197,20 +186,14 @@ async function publishedGist() {
   return gist;
 }
 
-// Retired gists that still exist (⚙️ asks to delete them); forgets the deleted ones.
+// Retired gists that still exist (⚙️ asks to delete them) — read from GitHub, so every device
+// shows the same list.
 export async function oldGists() {
   if (!getToken()) return [];
-  const still = [];
-  for (const g of oldGistList()) {
-    try {
-      await gh(`/gists/${g.id}`);
-      still.push(g);
-    } catch (e) {
-      if (!/GitHub 404/.test(e.message)) still.push(g); // offline etc.: keep asking
-    }
-  }
-  localStorage.setItem(LS_OLD, JSON.stringify(still));
-  return still;
+  try {
+    const all = [...await listGists(OLD_DESC), ...await listGists(PUBLISHED_DUP_DESC)];
+    return all.map((g) => ({ id: g.id, url: g.html_url || `https://gist.github.com/${g.id}` }));
+  } catch { return []; } // offline: ask next time
 }
 
 async function pull(id) {
