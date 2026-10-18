@@ -50,13 +50,16 @@ async function gh(path, opts = {}) {
   return res.json();
 }
 
+// The oldest gist with this description (the app folds in any duplicates from a race).
 async function findGist(description = GIST_DESC) {
+  const all = [];
   for (let page = 1; page < 10; page++) {
     const list = await gh(`/gists?per_page=100&page=${page}`);
-    const found = list.find((g) => g.description === description);
-    if (found) return gh(`/gists/${found.id}`);
+    all.push(...list.filter((g) => g.description === description));
     if (list.length < 100) break;
   }
+  all.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+  if (all.length) return gh(`/gists/${all[0].id}`);
   if (description !== GIST_DESC) return null; // the app creates the published gist
   throw new Error('Sync gist not found — connect sync in the app first.');
 }

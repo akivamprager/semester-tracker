@@ -15,12 +15,14 @@ const LS_PROGRESS = 'tracker.progress';
 const LS_TOKEN = 'tracker.token';
 const LS_GIST = 'tracker.gistId';
 const LS_PUBLISHED = 'tracker.publishedGistId';
-const LS_OLD = 'tracker.oldGist'; // { id, url } of the retired combined gist, until deleted
+const LS_OLD = 'tracker.oldGist'; // [{ id, url }] retired gists, until the user deletes them
 export const GIST_DESC = 'semester-tracker-progress';
 export const PUBLISHED_DESC = 'semester-tracker-published';
 export const OLD_DESC = 'semester-tracker-progress (old — delete me)';
+export const PUBLISHED_DUP_DESC = 'semester-tracker-published (duplicate — delete me)';
 export const PUBLISHED_FILES = ['calendar.ics', 'widget.json'];
 const GIST_FILE = 'progress.json';
+const PUSH_FILE = 'push.json';
 const API = 'https://api.github.com';
 
 export function loadLocal() {
@@ -65,14 +67,16 @@ async function gh(path, opts = {}) {
   return res.json();
 }
 
-async function findGist(description) {
+// All gists with this description, oldest first — when a race between two devices left two,
+// everyone (app, job, script, Mac app) agrees on the oldest.
+async function listGists(description) {
+  const out = [];
   for (let page = 1; page < 10; page++) {
     const list = await gh(`/gists?per_page=100&page=${page}`);
-    const found = list.find((g) => g.description === description);
-    if (found) return found;
+    out.push(...list.filter((g) => g.description === description));
     if (list.length < 100) break;
   }
-  return null;
+  return out.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
 }
 
 const createGist = (description, files) => gh('/gists', {
@@ -81,24 +85,90 @@ const createGist = (description, files) => gh('/gists', {
 });
 
 const fileText = async (f) => (f.truncated ? (await fetch(f.raw_url)).text() : f.content);
+const isCombined = (g) => Object.keys(g.files || {}).some((f) => PUBLISHED_FILES.includes(f));
 
-// Finds the private gist (by description) or creates it; moves an old combined gist apart.
+// Renamed so nothing picks it up again; listed in ⚙️ until the user deletes it.
+async function retire(g, description = OLD_DESC) {
+  await gh(`/gists/${g.id}`, { method: 'PATCH', body: JSON.stringify({ description }) });
+  const list = oldGistList().filter((x) => x.id !== g.id);
+  list.push({ id: g.id, url: g.html_url || `https://gist.github.com/${g.id}` });
+  localStorage.setItem(LS_OLD, JSON.stringify(list));
+}
+
+function oldGistList() {
+  try {
+    const v = JSON.parse(localStorage.getItem(LS_OLD) || '[]');
+    return Array.isArray(v) ? v : [v];
+  } catch { return []; }
+}
+
+// Folds a duplicate private gist into the chosen one (progress per key, push subscriptions and
+// emails by id); other files keep the chosen gist's copy.
+function mergeFile(name, ours, theirs) {
+  if (ours == null) return theirs;
+  try {
+    const a = JSON.parse(ours);
+    const b = JSON.parse(theirs);
+    if (name === GIST_FILE) return JSON.stringify(merge(a, b));
+    if (name === PUSH_FILE) {
+      const subs = [...(a.subs || [])];
+      for (const sub of b.subs || []) if (!subs.some((x) => x.endpoint === sub.endpoint)) subs.push(sub);
+      return JSON.stringify({ ...b, ...a, subs }, null, 1);
+    }
+    if (name === 'mail.json') {
+      const messages = [...(a.messages || [])];
+      for (const m of b.messages || []) if (!messages.some((x) => x.id === m.id)) messages.push(m);
+      return JSON.stringify({ ...a, messages: messages.sort((x, y) => x.date.localeCompare(y.date)) }, null, 1);
+    }
+  } catch { /* not JSON: keep ours */ }
+  return ours;
+}
+
+async function absorb(targetId, dup) {
+  const target = await gh(`/gists/${targetId}`);
+  const files = {};
+  for (const [name, f] of Object.entries(dup.files)) {
+    if (PUBLISHED_FILES.includes(name)) continue;
+    const ours = target.files[name] ? await fileText(target.files[name]) : null;
+    const merged = mergeFile(name, ours, await fileText(f));
+    if (merged !== ours) files[name] = { content: merged };
+  }
+  if (Object.keys(files).length) await gh(`/gists/${targetId}`, { method: 'PATCH', body: JSON.stringify({ files }) });
+}
+
+// The private gist: checked once per app start (a remembered id may belong to an old combined
+// gist, or to a duplicate from a race); then the remembered id is used.
+let privateChecked = false;
 async function gistId() {
-  let id = localStorage.getItem(LS_GIST);
-  if (id) return id;
-  const found = await findGist(GIST_DESC);
-  if (found && Object.keys(found.files).some((f) => PUBLISHED_FILES.includes(f))) {
-    id = await splitOldGist(await gh(`/gists/${found.id}`));
+  const cached = localStorage.getItem(LS_GIST);
+  if (cached && privateChecked) return cached;
+  const all = await listGists(GIST_DESC);
+  const split = all.filter((g) => !isCombined(g));
+  const combined = all.filter(isCombined);
+  let id;
+  let leftovers;
+  if (split.length) {
+    id = split[0].id;
+    leftovers = [...split.slice(1), ...combined];
+  } else if (combined.length) {
+    id = await splitOldGist(await gh(`/gists/${combined[0].id}`));
+    leftovers = combined.slice(1);
   } else {
-    id = found?.id || (await createGist(GIST_DESC, { [GIST_FILE]: { content: '{}' } })).id;
+    id = (await createGist(GIST_DESC, { [GIST_FILE]: { content: '{}' } })).id;
+    leftovers = [];
+  }
+  for (const g of leftovers) {
+    await absorb(id, await gh(`/gists/${g.id}`));
+    await retire(g);
   }
   localStorage.setItem(LS_GIST, id);
+  privateChecked = true;
   return id;
 }
 
-// Old layout → a new private gist with the private files; the old gist is renamed so that no
-// device, job or script picks it up again, and kept until the user deletes it (its address
-// was shared as the calendar link, and its history still holds the private files).
+// Old layout → a new private gist with the private files; the old gist is retired and kept
+// until the user deletes it (its address was shared as the calendar link, and its history
+// still holds the private files).
 async function splitOldGist(old) {
   const files = {};
   for (const [name, f] of Object.entries(old.files)) {
@@ -106,35 +176,41 @@ async function splitOldGist(old) {
   }
   if (!files[GIST_FILE]) files[GIST_FILE] = { content: '{}' };
   const created = await createGist(GIST_DESC, files);
-  await gh(`/gists/${old.id}`, { method: 'PATCH', body: JSON.stringify({ description: OLD_DESC }) });
-  localStorage.setItem(LS_OLD, JSON.stringify({ id: old.id, url: old.html_url }));
+  await retire(old);
   localStorage.removeItem(LS_CAL); // the calendar moves to the published gist (new address)
   localStorage.removeItem(LS_WIDGET);
   return created.id;
 }
 
-// The gist for calendar.ics / widget.json (found by description, created when first needed).
+// The gist for calendar.ics / widget.json: the oldest with its description (created when first
+// needed); extras from a race are renamed (they hold only published data).
+let publishedChecked = false;
 async function publishedGist() {
   const cached = localStorage.getItem(LS_PUBLISHED);
-  if (cached) return gh(`/gists/${cached}`);
-  let gist = await findGist(PUBLISHED_DESC);
-  gist = gist ? await gh(`/gists/${gist.id}`)
+  if (cached && publishedChecked) return gh(`/gists/${cached}`);
+  const all = await listGists(PUBLISHED_DESC);
+  const gist = all.length ? await gh(`/gists/${all[0].id}`)
     : await createGist(PUBLISHED_DESC, { 'calendar.ics': { content: 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n' } });
+  for (const g of all.slice(1)) await retire(g, PUBLISHED_DUP_DESC);
   localStorage.setItem(LS_PUBLISHED, gist.id);
+  publishedChecked = true;
   return gist;
 }
 
-// The retired combined gist, while it still exists (Settings asks to delete it).
-export async function oldGist() {
-  const old = JSON.parse(localStorage.getItem(LS_OLD) || 'null');
-  if (!old || !getToken()) return null;
-  try {
-    await gh(`/gists/${old.id}`);
-    return old;
-  } catch (e) {
-    if (/GitHub 404/.test(e.message)) localStorage.removeItem(LS_OLD); // deleted ✓
-    return /GitHub 404/.test(e.message) ? null : old;
+// Retired gists that still exist (⚙️ asks to delete them); forgets the deleted ones.
+export async function oldGists() {
+  if (!getToken()) return [];
+  const still = [];
+  for (const g of oldGistList()) {
+    try {
+      await gh(`/gists/${g.id}`);
+      still.push(g);
+    } catch (e) {
+      if (!/GitHub 404/.test(e.message)) still.push(g); // offline etc.: keep asking
+    }
   }
+  localStorage.setItem(LS_OLD, JSON.stringify(still));
+  return still;
 }
 
 async function pull(id) {
@@ -185,7 +261,6 @@ export async function sync() {
 
 // Push subscriptions (one per device) live in their own gist file so the morning
 // GitHub Action can find them: { subs: [PushSubscriptionJSON], lastSent: 'YYYY-MM-DD' }.
-const PUSH_FILE = 'push.json';
 
 async function readPush(id) {
   const gist = await gh(`/gists/${id}`);

@@ -181,18 +181,18 @@ function privateGist_() {
     const g = gist_('get', cached, null, true);
     if (g && g.description === PRIVATE_DESC) return g;
   }
+  const all = [];
   for (let page = 1; page < 10; page++) {
     const res = UrlFetchApp.fetch(`https://api.github.com/gists?per_page=100&page=${page}`, gistAuth_());
     if (res.getResponseCode() !== 200) throw new Error(`Gist list ${res.getResponseCode()}`);
     const list = JSON.parse(res.getContentText());
-    const found = list.find((g) => g.description === PRIVATE_DESC);
-    if (found) {
-      props.setProperty('PRIVATE_GIST_ID', found.id);
-      return gist_('get', found.id);
-    }
+    all.push(...list.filter((g) => g.description === PRIVATE_DESC));
     if (list.length < 100) break;
   }
-  throw new Error('Private sync gist not found — open the app once.');
+  if (!all.length) throw new Error('Private sync gist not found — open the app once.');
+  all.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || '')); // the app keeps the oldest
+  props.setProperty('PRIVATE_GIST_ID', all[0].id);
+  return gist_('get', all[0].id);
 }
 
 function gistAuth_() {

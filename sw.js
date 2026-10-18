@@ -5,7 +5,7 @@
 // A whole version is cached at once, so a fresh index.html never meets a stale app.js.
 // Data (semesters/*.json, push-config.json): the saved copy right away, refreshed from the
 // network in the background; requests with ?fresh go to the network first (refreshData).
-const CACHE = 'tracker-4d8f1385';
+const CACHE = 'tracker-65e0d0d4';
 const SHELL = ['./', 'index.html', 'guide.html', 'guide.js', 'theme.js', 'style.css', 'app.js', 'schedule.js', 'sync.js', 'summary.js', 'ics.js', 'badge.js', 'calendar.js', 'prayer.js', 'moodle.js', 'recordings.js', 'widget.js',
   'manifest.webmanifest', 'icon-192.png', 'semesters/index.json'];
 

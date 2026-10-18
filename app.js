@@ -1483,16 +1483,16 @@ async function pushRegistration() {
 // After the move to two gists: the old one (whose address was shared as the calendar link and
 // whose history still has the private files) must be deleted by hand.
 async function renderOldGist() {
-  const old = await store.oldGist();
+  const old = await store.oldGists();
   const el = document.getElementById('old-gist');
   if (!el) return;
-  el.innerHTML = old ? `<section class="card">
-      <h2>🔒 למחוק את הגיסט הישן</h2>
+  el.innerHTML = old.length ? `<section class="card">
+      <h2>🔒 למחוק ${old.length === 1 ? 'את הגיסט הישן' : `${old.length} גיסטים ישנים`}</h2>
       <div class="status-line warn">⚠️ הנתונים הפרטיים (התקדמות, מיילים, התראות) עברו לגיסט פרטי חדש.
         הגיסט הישן עדיין קיים — כתובתו שותפה כקישור היומן, וההיסטוריה שלו כוללת את הנתונים. צריך למחוק אותו.</div>
       <p class="help">ב-GitHub: פתח את הקישור → <b>Delete</b> (מימין למעלה) → אשר. הכרטיס הזה ייעלם לבד.
         לפני כן: עדכן את קישור היומן החדש בסקריפט של Google ובאפליקציית המק (📆 יומן, למטה).</p>
-      <div class="row"><a class="btn" href="${esc(old.url || `https://gist.github.com/${old.id}`)}" target="_blank" rel="noopener">פתח את הגיסט הישן ↗</a></div>
+      <div class="row">${old.map((g, i) => `<a class="btn" href="${esc(g.url)}" target="_blank" rel="noopener">פתח ${old.length > 1 ? `גיסט ${i + 1}` : 'את הגיסט הישן'} ↗</a>`).join('')}</div>
     </section>` : '';
 }
 

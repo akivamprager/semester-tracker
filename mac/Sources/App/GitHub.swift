@@ -62,16 +62,19 @@ enum GitHub {
            g["description"] as? String == privateDescription {
             return cached
         }
+        var all: [[String: Any]] = []
         for page in 1...9 {
             let list = try await request("GET", "/gists?per_page=100&page=\(page)", token: token) as? [[String: Any]] ?? []
-            if let found = list.first(where: { $0["description"] as? String == privateDescription }),
-               let id = found["id"] as? String {
-                UserDefaults.standard.set(id, forKey: "privateGistID")
-                return id
-            }
+            all += list.filter { $0["description"] as? String == privateDescription }
             if list.count < 100 { break }
         }
-        throw Failure(message: "הגיסט הפרטי לא נמצא — פתח את האפליקציה פעם אחת")
+        // the oldest one, like the web app (which folds in duplicates from a race)
+        let oldest = all.min { ($0["created_at"] as? String ?? "") < ($1["created_at"] as? String ?? "") }
+        guard let id = oldest?["id"] as? String else {
+            throw Failure(message: "הגיסט הפרטי לא נמצא — פתח את האפליקציה פעם אחת")
+        }
+        UserDefaults.standard.set(id, forKey: "privateGistID")
+        return id
     }
 
     private static func json(_ obj: Any) throws -> String {
