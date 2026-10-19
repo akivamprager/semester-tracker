@@ -359,6 +359,17 @@
    "ignore": true
   }
  ],
+ "personal": [
+  {
+   "id": "chavruta-ohad",
+   "title": "חברותא עם אהד",
+   "emoji": "📖",
+   "day": 0,
+   "start": "13:00",
+   "end": "14:00",
+   "place": "בית הכנסת, הספריה הלאומית"
+  }
+ ],
  "minyanim": [
   {
    "id": "mincha-1330",

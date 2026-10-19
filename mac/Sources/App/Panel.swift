@@ -91,7 +91,7 @@ struct Panel: View {
                 let live = c.start <= model.now
                 Row(color: c.color) {
                     HStack(spacing: 6) {
-                        Text("\(c.emoji) \(c.short) · \(c.label)").font(.callout.weight(.medium))
+                        Text(c.title).font(.callout.weight(.medium))
                         if live { Pill("עכשיו", color: .red) }
                         if c.done { Pill("✓", color: .green) }
                     }

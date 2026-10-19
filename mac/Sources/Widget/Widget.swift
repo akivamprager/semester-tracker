@@ -130,7 +130,7 @@ struct EntryView: View {
                 if coming.isEmpty { muted("אין שיעורים בימים הקרובים") }
                 ForEach(coming) { c in
                     bar(c.color) {
-                        Text("\(c.emoji) \(c.short) · \(c.label)").font(.caption.weight(.medium))
+                        Text(c.title).font(.caption.weight(.medium))
                         Text("\(Fmt.day(c.start))\(c.room.isEmpty ? "" : " · 📍 \(c.room)")").font(.caption2).foregroundStyle(.secondary)
                     }
                 }
@@ -178,7 +178,7 @@ struct EntryView: View {
             Text(live ? "עכשיו · עד \(Fmt.time(n.end))" : Fmt.day(n.start))
                 .font(.caption.weight(.semibold)).foregroundStyle(live ? .red : Color.brand)
             Text("\(n.emoji) \(n.short)").font(.headline).lineLimit(1)
-            Text(n.label).font(.caption).foregroundStyle(.secondary)
+            if !n.label.isEmpty { Text(n.label).font(.caption).foregroundStyle(.secondary) }
             if !n.room.isEmpty { Text("📍 \(n.room)").font(.caption).lineLimit(1) }
         }
     }

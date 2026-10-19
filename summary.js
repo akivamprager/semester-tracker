@@ -1,7 +1,7 @@
 // Builds the morning notification text: today's sessions, lessons waiting to be caught up,
 // and homework/exams coming up. Pure, so both the app (test button) and the GitHub Action
 // (tools/morning.mjs) use it.
-import { computeUnits, mergeTasks, gapsOn, atHome, DAY_LABELS } from './schedule.js';
+import { computeUnits, mergeTasks, gapsOn, atHome, personalOn, DAY_LABELS } from './schedule.js';
 import { badgeCount } from './badge.js';
 import { planDay, prayerPrefs, PRAYER_LABELS } from './prayer.js';
 
@@ -38,6 +38,10 @@ export function dailySummary(sem, progress, now) {
       }
     }
   }
+  const personal = personalOn(sem, now);
+  for (const x of personal) {
+    today.push({ start: x.start, text: `${x.item.emoji || '📌'} ${x.item.title} ${hm(x.start)}${x.item.place ? ` (${x.item.place})` : ''}` });
+  }
   for (const p of planDay(sem, courses, now, prayerPrefs(progress))) {
     const place = p.minyan.place.replace(/.*\((B\d+)\).*/, '$1');
     today.push({ start: p.start, text: `🙏 ${PRAYER_LABELS[p.prayer]} ${p.minyan.sunsetOffset != null ? '≈' : ''}${hm(p.start)} (${place})` });
@@ -45,7 +49,7 @@ export function dailySummary(sem, progress, now) {
   if (today.length) {
     lines.push('📅 היום: ' + today.sort((a, b) => a.start - b.start).map((x) => x.text).join(' · '));
   }
-  const gaps = atHome(progress, now) ? [] : gapsOn(courses, now);
+  const gaps = atHome(progress, now) ? [] : gapsOn(courses, now, 30, personal);
   if (gaps.length) lines.push('☕ חלון: ' + gaps.map((g) => `${hm(g.start)}–${hm(g.end)}`).join(' · '));
 
   const owed = courses

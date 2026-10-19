@@ -248,8 +248,35 @@ export const HOME_PREFS_KEY = 'prefs/home';
 export const homeDays = (progress) => progress?.[HOME_PREFS_KEY]?.d?.days || [];
 export const atHome = (progress, date) => homeDays(progress).includes(new Date(date).getDay());
 
-export function gapsOn(courses, date, minMinutes = 30) {
-  const own = ownSessionsOn(courses, date);
+// Weekly commitments outside the courses (a chavruta…), from the semester file:
+//   "personal": [{ "id", "title", "emoji", "day", "start", "end", "place" }]
+export const personalItems = (sem) => sem.personal || [];
+// Occurrences that overlap [from, to), within the semester: [{ item, start, end, key }].
+export function personalBetween(sem, from, to) {
+  const items = personalItems(sem);
+  if (!items.length) return [];
+  const out = [];
+  const first = new Date(Math.max(+parseDate(sem.start), +from));
+  first.setHours(0, 0, 0, 0);
+  const last = new Date(Math.min(+parseDate(sem.end) + 864e5, +to));
+  for (const d = first; d < last; d.setDate(d.getDate() + 1)) {
+    for (const item of items) {
+      if (item.day !== d.getDay()) continue;
+      const start = at(d, item.start);
+      const end = at(d, item.end);
+      if (end > from && start < to) out.push({ item, start, end, key: `${sem.id}/personal/${item.id}/${ymd(d)}` });
+    }
+  }
+  return out.sort((a, b) => a.start - b.start);
+}
+export const personalOn = (sem, date) => {
+  const d = new Date(date); d.setHours(0, 0, 0, 0);
+  return personalBetween(sem, d, new Date(+d + 864e5));
+};
+
+// `extra`: other busy stretches that day ({ start, end }, e.g. personalOn) — not gaps either.
+export function gapsOn(courses, date, minMinutes = 30, extra = []) {
+  const own = [...ownSessionsOn(courses, date), ...extra].sort((a, b) => a.start - b.start);
   const gaps = [];
   let lastEnd = null;
   for (const s of own) {

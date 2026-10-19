@@ -2,7 +2,7 @@
 // `minyanim` list) that clashes least with the user's own sessions. On home days (see
 // schedule.js homeDays) only the minyanim marked `home` count — fixed times, not fitted to
 // classes. Pure — used by the app (timetable, Settings), summary.js (morning push) and calendar.js.
-import { ymd, homeDays } from './schedule.js';
+import { ymd, homeDays, personalItems } from './schedule.js';
 
 export const PRAYER_PREFS_KEY = 'prefs/prayer';
 export const PRAYER_DEFAULTS = {
@@ -12,8 +12,12 @@ export const PRAYER_DEFAULTS = {
   maarivMaxWait: 30, // suggest Maariv only if it starts ≤ this long after the last session
 };
 export const prayerPrefs = (progress) => ({
-  ...PRAYER_DEFAULTS, ...(progress[PRAYER_PREFS_KEY]?.d || {}), homeDays: homeDays(progress),
+  ...PRAYER_DEFAULTS, ...(progress[PRAYER_PREFS_KEY]?.d || {}),
+  homeDays: homeDays(progress),
 });
+
+// A personal commitment at the minyan's own place (e.g. a chavruta in that shul) is no clash.
+const samePlace = (a, b) => !!a && !!b && (a.includes(b) || b.includes(a));
 
 // A minyan for this kind of day: `home` ones only on home days (and only on their `days`),
 // the campus ones only on campus days.
@@ -136,8 +140,11 @@ export function planDay(sem, courses, date, prefs) {
     return plan;
   }
   const busy = sessions.flatMap(busyParts);
-  const first = sessions[0].start;
-  const last = sessions[sessions.length - 1].end;
+  // personal commitments that day count as busy too (and as time on campus)
+  const mine = personalItems(sem).filter((i) => i.day === date.getDay())
+    .map((i) => ({ start: atTime(date, i.start), end: atTime(date, i.end), place: i.place || '' }));
+  const first = new Date(Math.min(+sessions[0].start, ...mine.map((x) => +x.start)));
+  const last = new Date(Math.max(+sessions[sessions.length - 1].end, ...mine.map((x) => +x.end)));
   const options = (prayer) =>
     (sem.minyanim || [])
       .filter((m) => m.prayer === prayer && forDay(m, date, false))
@@ -147,7 +154,8 @@ export function planDay(sem, courses, date, prefs) {
         const end = addMin(start, m.minutes || 15);
         const from = addMin(start, -prefs.walk);
         const to = addMin(end, prefs.walk);
-        const overlap = busy.reduce((n, [b0, b1]) => n + overlapMin(from, to, b0, b1), 0);
+        const overlap = busy.reduce((n, [b0, b1]) => n + overlapMin(from, to, b0, b1), 0)
+          + mine.filter((x) => !samePlace(x.place, m.place)).reduce((n, x) => n + overlapMin(from, to, x.start, x.end), 0);
         return { prayer, minyan: m, start, end, overlap };
       })
       .filter(Boolean);

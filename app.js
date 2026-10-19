@@ -1,4 +1,4 @@
-import { computeUnits, mergeTasks, sessionsBetween, gapsOn, atHome, homeDays, HOME_PREFS_KEY, DAY_LABELS } from './schedule.js';
+import { computeUnits, mergeTasks, sessionsBetween, gapsOn, atHome, homeDays, HOME_PREFS_KEY, personalBetween, personalOn, DAY_LABELS } from './schedule.js';
 import { dailySummary } from './summary.js';
 import { badgeCount, badgePrefs, PREFS_KEY } from './badge.js';
 import { buildCalendar } from './calendar.js';
@@ -344,7 +344,22 @@ function openSessions(courses, to) {
         .filter((x) => !statusOf(x.key) && (x.prayer.end > t0 || dayDiff(x.start) === 0)));
     }
   }
-  return [...sessions, ...exams, ...prayers].sort((a, b) => a.start - b.start);
+  const personal = personalBetween(state.sem, startOfDay(t0), to)
+    .filter((x) => x.end > t0)
+    .map((x) => ({ personal: x, start: x.start }));
+  return [...sessions, ...exams, ...prayers, ...personal].sort((a, b) => a.start - b.start);
+}
+
+function personalRow({ personal: x }) {
+  const t0 = now();
+  const live = x.start <= t0 && t0 < x.end;
+  return `<div class="slot personal ${live ? 'live' : ''}" style="--c:#64748b">
+    <div class="slot-time">${hm(x.start)}<small>–${hm(x.end)}</small></div>
+    <div class="slot-body">
+      <div class="name">${esc(x.item.emoji || '📌')} ${esc(x.item.title)}${live ? ' <span class="pill live"><span class="live-dot" aria-hidden="true"></span>עכשיו</span>' : ''}</div>
+      ${x.item.place ? `<div class="meta">📍 ${esc(x.item.place)}</div>` : ''}
+    </div>
+  </div>`;
 }
 
 function horizonEnd() {
@@ -377,6 +392,7 @@ function prayerRow({ prayer: p, key }) {
 function slotRow(x) {
   if (x.gap) return gapRow(x);
   if (x.prayer) return prayerRow(x);
+  if (x.personal) return personalRow(x);
   const c = x.course;
   if (x.exam) {
     return `<div class="slot exam" ${courseStyle(c)}>
@@ -427,7 +443,7 @@ function gapItems(courses, from, to) {
   const items = [];
   for (let d = startOfDay(from); d < to; d.setDate(d.getDate() + 1)) {
     if (atHome(state.progress, d)) continue; // nothing to bridge on a day at home
-    for (const g of gapsOn(courses, new Date(d))) {
+    for (const g of gapsOn(courses, new Date(d), 30, personalOn(state.sem, d))) {
       if (g.end <= t0) continue;
       const min = (g.end - g.start) / 60e3;
       const fit = owed.find((x) => x.len <= min);

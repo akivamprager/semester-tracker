@@ -6,7 +6,7 @@
 // Items carry their progress `key`; the Mac app marks one done by writing
 // progress[key] = { s: 'done', t } (the same entry the web app writes).
 
-import { computeUnits, mergeTasks, atHome } from './schedule.js';
+import { computeUnits, mergeTasks, atHome, personalBetween } from './schedule.js';
 import { planDay, prayerPrefs, prayerKey, PRAYER_LABELS } from './prayer.js';
 import { recKey, sessionKey, viewerUrl } from './recordings.js';
 
@@ -49,6 +49,14 @@ export function buildWidget(sem, progress, now) {
         }
       }
     }
+  }
+
+  // personal commitments show like sessions (no course; label empty)
+  for (const x of personalBetween(sem, dayStart, until)) {
+    sessions.push({
+      course: '', short: x.item.title, emoji: x.item.emoji || '📌', color: '#64748b', key: x.key, label: '', topic: '',
+      start: iso(x.start), end: iso(x.end), room: x.item.place || '', lecturer: '', done: false,
+    });
   }
 
   const taskUntil = new Date(+now + TASK_DAYS * 864e5);

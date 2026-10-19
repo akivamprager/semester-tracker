@@ -20,6 +20,8 @@ struct Session: Codable, Identifiable {
     var room, lecturer: String
     var done: Bool
     var id: String { key }
+    /// "🌊 גלים · הרצאה 3", or just "📖 חברותא עם אוהד" for a personal commitment (no label)
+    var title: String { label.isEmpty ? "\(emoji) \(short)" : "\(emoji) \(short) · \(label)" }
 }
 
 struct CatchUp: Codable, Identifiable {

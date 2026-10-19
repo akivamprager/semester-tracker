@@ -121,3 +121,21 @@ test('home day: the fixed home minyan (Monday 15:15 at the yeshiva), not a campu
   const onCampus = planDay(s, courses, monday, prayerPrefs(on));
   assert.ok(onCampus.every((p) => !p.minyan.home)); // the yeshiva minyan is for home days only
 });
+
+test('personal commitment: in the calendar and summary; a minyan at the same place is no clash', async () => {
+  const { planDay, prayerPrefs } = await import('../prayer.js');
+  const { computeUnits } = await import('../schedule.js');
+  const { buildCalendar } = await import('../calendar.js');
+  const { dailySummary } = await import('../summary.js');
+  const s = JSON.parse(readFileSync(new URL('../semesters/2027A.json', import.meta.url)));
+  const sunday = new Date('2026-10-25T07:00:00+02:00');
+  const on = { 'prefs/prayer': { s: 'set', t: 1, d: { enabled: true, skipDays: [] } } };
+  const plan = planDay(s, computeUnits(s, sunday), sunday, prayerPrefs(on));
+  assert.equal(plan[0].minyan.id, 'mincha-1330'); // during the chavruta — same shul
+  assert.equal(plan[0].overlap, 0);
+  assert.match(buildCalendar(s, {}), /SUMMARY:📖 חברותא עם אהד/);
+  assert.match(dailySummary(s, {}, sunday)?.body || '', /📖 חברותא עם אהד 13:00/);
+  // elsewhere, the same hour would clash
+  const elsewhere = { ...s, personal: [{ ...s.personal[0], place: 'מקום אחר' }] };
+  assert.ok(planDay(elsewhere, computeUnits(elsewhere, sunday), sunday, prayerPrefs(on))[0].minyan.id !== 'mincha-1330');
+});
