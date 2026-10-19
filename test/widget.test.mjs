@@ -25,3 +25,17 @@ test('sameWidget ignores generatedAt', () => {
   assert.ok(!sameWidget(widgetFile({ ...w, inbox: 99 }, now), w));
   assert.ok(!sameWidget(undefined, w));
 });
+
+test('home days: no "next class" in the widget, 🏠 in the calendar and the morning summary', async () => {
+  const { buildCalendar } = await import('../calendar.js');
+  const { dailySummary } = await import('../summary.js');
+  const home = { 'prefs/home': { s: 'set', t: 1, d: { days: [1] } } }; // Monday
+  const monday = new Date('2026-10-19T08:00:00+03:00');
+  const w = buildWidget(sem, home, monday);
+  assert.ok(!w.sessions.some((s) => new Date(s.start).getDay() === 1));
+  assert.ok(buildWidget(sem, {}, monday).sessions.some((s) => new Date(s.start).getDay() === 1));
+  const ics = buildCalendar(sem, home);
+  assert.match(ics, /SUMMARY:🏠 🌊 גלים · הרצאה/);
+  assert.match(ics, /LOCATION:בבית \(הקלטה\)/);
+  assert.match(dailySummary(sem, home, monday)?.body || '', /🏠 בבית/);
+});

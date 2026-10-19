@@ -2,7 +2,7 @@
 // Written to the sync gist as calendar.ics (by the app on sync and by tools/morning.mjs),
 // so Google Calendar / Apple Calendar can subscribe to its raw URL.
 // Output is deterministic (no "now" inside) so it's only re-uploaded when it changes.
-import { computeUnits, mergeTasks, ymd } from './schedule.js';
+import { computeUnits, mergeTasks, ymd, atHome } from './schedule.js';
 import { planSemester, prayerPrefs, prayerKey, PRAYER_LABELS } from './prayer.js';
 
 export const CALENDAR_FILE = 'calendar.ics';
@@ -44,12 +44,13 @@ export function buildCalendar(sem, progress) {
         const o = u.own;
         if (!o) continue;
         const done = !!progress[u.key]?.s;
+        const home = atHome(progress, o.start); // 🏠 = watched at home: no reminder (Apps Script)
         add([
           `UID:${u.key.replace(/\//g, '-')}@semester-tracker`,
           `DTSTART:${utc(o.start)}`,
           `DTEND:${utc(o.end)}`,
-          `SUMMARY:${text(`${done ? '✓ ' : ''}${c.emoji} ${c.short} · ${t.label} ${u.n}`)}`,
-          o.room ? `LOCATION:${text(o.room)}` : null,
+          `SUMMARY:${text(`${done ? '✓ ' : ''}${home ? '🏠 ' : ''}${c.emoji} ${c.short} · ${t.label} ${u.n}`)}`,
+          home ? `LOCATION:${text('בבית (הקלטה)')}` : o.room ? `LOCATION:${text(o.room)}` : null,
           `DESCRIPTION:${text([u.topic, t.mine.lecturer, `קבוצה ${t.mine.code}`, c.name].filter(Boolean).join('\n'))}`,
           `CATEGORIES:${text(c.short)}`,
         ].filter(Boolean));

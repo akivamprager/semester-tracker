@@ -289,7 +289,7 @@ function decorate_(ev, e) {
   else if (e.uid.startsWith('prayer-')) ev.setColor(CalendarApp.EventColor.GRAY);
   ev.removeAllReminders();
   ev.setTag('rv', REMINDERS_VERSION);
-  if (e.title.startsWith('✓')) return; // done: no reminders
+  if (e.title.startsWith('✓') || e.title.includes('🏠')) return; // done / watched at home: no reminders
   let list;
   if (e.uid.startsWith('task-')) {
     const kind = e.title.startsWith('📝') ? 'exam' : e.title.startsWith('📘') ? 'practice' : 'hw';

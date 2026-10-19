@@ -1,4 +1,4 @@
-import { computeUnits, mergeTasks, sessionsBetween, gapsOn, DAY_LABELS } from './schedule.js';
+import { computeUnits, mergeTasks, sessionsBetween, gapsOn, atHome, homeDays, HOME_PREFS_KEY, DAY_LABELS } from './schedule.js';
 import { dailySummary } from './summary.js';
 import { badgeCount, badgePrefs, PREFS_KEY } from './badge.js';
 import { buildCalendar } from './calendar.js';
@@ -268,7 +268,7 @@ function viewTodo(courses, { withSoon = true } = {}) {
       : [1, Math.min(...upcoming.map(({ u }) => u.first.start))];
     const liveRows = live.map((x) => `<div class="unit live">
         <div class="name">${x.type.label} ${x.unit.n}${durTag(x.occ)} <span class="pill live"><span class="live-dot" aria-hidden="true"></span>מתקיים עכשיו</span>${x.unit.topic ? ` · <span class="topic">${esc(x.unit.topic)}</span>` : ''}</div>
-        <div class="meta">${hm(x.occ.start)}–${hm(x.occ.end)} · ${x.group.lecturer ? esc(x.group.lecturer) + ' · ' : ''}קב׳ ${grp(x.group.code)}${roomText(x.occ)}${x.mine ? ' · הקבוצה שלך' : ''}</div>
+        <div class="meta">${hm(x.occ.start)}–${hm(x.occ.end)} · ${x.group.lecturer ? esc(x.group.lecturer) + ' · ' : ''}קב׳ ${grp(x.group.code)}${roomText(x.occ)}${x.mine ? ` · הקבוצה שלך${atHome(state.progress, x.occ.start) ? ' · 🏠 בבית' : ''}` : ''}</div>
         <div class="actions">
           <button class="attend" data-action="mark" data-key="${x.unit.key}" data-s="done" data-label="${esc(`${c.short} · ${x.type.label} ${x.unit.n}`)}">✓ סיימתי</button>
         </div>
@@ -389,6 +389,7 @@ function slotRow(x) {
   const own = x.unit.own;
   const tags = [
     x.mine ? '<span class="pill mine">הקבוצה שלך</span>' : '',
+    x.mine && atHome(state.progress, x.occ.start) ? '<span class="pill">🏠 בבית — הקלטה</span>' : '',
     live ? '<span class="pill live"><span class="live-dot" aria-hidden="true"></span>עכשיו</span>' : '',
     !x.mine && own && own.start > x.occ.start ? `<span class="pill">בקבוצה שלך: ${fmt(own.start)}</span>` : '',
   ].join('');
@@ -425,6 +426,7 @@ function gapItems(courses, from, to) {
     .sort((a, b) => a.u.first.end - b.u.first.end);
   const items = [];
   for (let d = startOfDay(from); d < to; d.setDate(d.getDate() + 1)) {
+    if (atHome(state.progress, d)) continue; // nothing to bridge on a day at home
     for (const g of gapsOn(courses, new Date(d))) {
       if (g.end <= t0) continue;
       const min = (g.end - g.start) / 60e3;
@@ -566,6 +568,7 @@ function viewSettings() {
   ${calendarCard()}
   ${badgeCard()}
   <h3 class="settings-group">תכנון</h3>
+  ${homeCard()}
   ${prayerCard()}
   <h3 class="settings-group">מתקדם</h3>
   <section class="card">
@@ -616,6 +619,18 @@ function badgePreview(courses) {
   const { total, parts } = badgeCount(state.sem, courses, state.progress, now());
   const detail = Object.entries(parts).map(([k, n]) => `${BADGE_LABELS[k]} ${n}`).join(' + ');
   return `כרגע: <b>${total}</b>${detail ? ` (${detail})` : ' — התג כבוי'}`;
+}
+
+function homeCard() {
+  const days = homeDays(state.progress);
+  return `<section class="card" id="home-card">
+    <h2>🏠 ימים בבית</h2>
+    <p class="help">בימים האלה צופים בהקלטות מהבית: השיעורים נשארים במערכת וב"להשלים" (עם ▶), אבל בלי תזכורת
+      "שיעור בעוד 15 דק׳" ביומן, בלי "השיעור הבא" במק ובלי חלונות.</p>
+    <div class="check-row"><span>בבית בימים:</span>
+      ${['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳'].map((n, i) => `<label class="day-chip"><input type="checkbox" class="home-pref" data-day="${i}" ${days.includes(i) ? 'checked' : ''}> ${n}</label>`).join('')}
+    </div>
+  </section>`;
 }
 
 function prayerCard() {
@@ -1088,6 +1103,15 @@ document.body.addEventListener('input', (e) => {
 });
 
 document.body.addEventListener('change', async (e) => {
+  if (e.target.classList.contains('home-pref')) {
+    const day = Number(e.target.dataset.day);
+    const days = homeDays(state.progress).filter((x) => x !== day);
+    if (e.target.checked) days.push(day);
+    state.progress[HOME_PREFS_KEY] = { s: 'set', d: { days: days.sort() }, t: Date.now() };
+    store.saveLocal(state.progress);
+    scheduleSync();
+    return;
+  }
   if (e.target.classList.contains('prayer-pref')) {
     const prefs = { ...prayerPrefs(state.progress) };
     if (e.target.dataset.pref === 'enabled') prefs.enabled = e.target.checked;

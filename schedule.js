@@ -242,6 +242,12 @@ export function ownSessionsOn(courses, date) {
 
 // Free stretches of at least `minMinutes` between the user's own sessions that day.
 // The usual 15-minute break between back-to-back classes is not a gap.
+// Days the user stays home and watches the recordings instead (synced preference, 0 = Sunday).
+// Their classes stay in the schedule and in "to catch up", but get no "go to class" treatment.
+export const HOME_PREFS_KEY = 'prefs/home';
+export const homeDays = (progress) => progress?.[HOME_PREFS_KEY]?.d?.days || [];
+export const atHome = (progress, date) => homeDays(progress).includes(new Date(date).getDay());
+
 export function gapsOn(courses, date, minMinutes = 30) {
   const own = ownSessionsOn(courses, date);
   const gaps = [];
