@@ -9,6 +9,8 @@ import { buildCalendar } from '../calendar.js';
 import { parseIcs } from '../ics.js';
 
 const sem = JSON.parse(readFileSync(new URL('../semesters/2027A.json', import.meta.url)));
+// fixed to the Sunday Waves recitation (2-01, until 17:45; moved on 1–2.11) that these cases were written for
+sem.courses.find((c) => c.code === '83325').myGroups.recitation = '2-01';
 const courses = computeUnits(sem, new Date(2027, 1, 1));
 const on = { ...PRAYER_DEFAULTS, enabled: true };
 const hm = (d) => d.toTimeString().slice(0, 5);
