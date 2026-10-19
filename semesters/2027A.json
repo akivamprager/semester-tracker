@@ -411,6 +411,19 @@
    "place": "מול האקווריום",
    "minutes": 10,
    "note": "לפי רישום"
+  },
+  {
+   "id": "mincha-yeshiva-mon",
+   "prayer": "mincha",
+   "time": "15:15",
+   "place": "בישיבה",
+   "kind": "רגיל",
+   "minutes": 15,
+   "home": true,
+   "days": [
+    1
+   ],
+   "note": "ביום שני (יום בבית)"
   }
  ],
  "sunsetSource": "Hebcal zmanim, Jerusalem (geonameid 281184), with elevation 786 m — https://www.hebcal.com/zmanim?cfg=json&geonameid=281184&ue=on",

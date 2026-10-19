@@ -36,8 +36,9 @@ test('weekday plans', () => {
   assert.deepEqual(plan(2026, 11, 5), ['mincha 13:50 mincha-1350']);
   // Sun 8.11: first class 14:00 → 13:30 at the new shul; recitation until 17:45 → 18:00
   assert.deepEqual(plan(2026, 11, 8), ['mincha 13:30 mincha-1330', 'maariv 18:00 maariv-1800']);
-  // Monday at home; Friday no classes
-  assert.deepEqual(plan(2026, 11, 2), []);
+  // Monday as a home day → the yeshiva at 15:15; skipped day → nothing; Friday no classes
+  assert.deepEqual(plan(2026, 11, 2, { ...on, homeDays: [1] }), ['mincha 15:15 mincha-yeshiva-mon']);
+  assert.deepEqual(plan(2026, 11, 2, { ...on, skipDays: [1] }), []);
   assert.deepEqual(plan(2026, 11, 6), []);
   // Before winter time there is no 18:00 Maariv, and 19:00 is too long a wait
   assert.ok(!plan(2026, 10, 18).some((x) => x.startsWith('maariv')));
@@ -104,4 +105,19 @@ test('isShabbat: Friday from candle lighting until Saturday night', async () => 
   assert.equal(isShabbat(sem, new Date('2026-10-17T12:00:00+03:00')), true); // Saturday
   assert.equal(isShabbat(sem, new Date('2026-10-17T19:30:00+03:00')), false); // Saturday night
   assert.equal(isShabbat(sem, new Date('2026-10-18T09:00:00+03:00')), false); // Sunday
+});
+
+test('home day: the fixed home minyan (Monday 15:15 at the yeshiva), not a campus one', async () => {
+  const { planDay, prayerPrefs } = await import('../prayer.js');
+  const { computeUnits } = await import('../schedule.js');
+  const s = JSON.parse(readFileSync(new URL('../semesters/2027A.json', import.meta.url)));
+  const monday = new Date('2026-10-26T08:00:00+02:00');
+  const courses = computeUnits(s, monday);
+  const on = { 'prefs/prayer': { s: 'set', t: 1, d: { enabled: true, skipDays: [] } } };
+  const home = { ...on, 'prefs/home': { s: 'set', t: 1, d: { days: [1] } } };
+  const atHome = planDay(s, courses, monday, prayerPrefs(home));
+  assert.deepEqual(atHome.map((p) => `${p.prayer} ${p.minyan.id}`), ['mincha mincha-yeshiva-mon']);
+  assert.equal(atHome[0].start.getHours() * 60 + atHome[0].start.getMinutes(), 15 * 60 + 15);
+  const onCampus = planDay(s, courses, monday, prayerPrefs(on));
+  assert.ok(onCampus.every((p) => !p.minyan.home)); // the yeshiva minyan is for home days only
 });

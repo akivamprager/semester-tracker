@@ -1,16 +1,23 @@
 // Mincha / Maariv planner: for each campus day, picks the minyan (from the semester's
-// `minyanim` list) that clashes least with the user's own sessions. Pure — used by the app
-// (timetable, Settings), summary.js (morning push) and calendar.js.
-import { ymd } from './schedule.js';
+// `minyanim` list) that clashes least with the user's own sessions. On home days (see
+// schedule.js homeDays) only the minyanim marked `home` count — fixed times, not fitted to
+// classes. Pure — used by the app (timetable, Settings), summary.js (morning push) and calendar.js.
+import { ymd, homeDays } from './schedule.js';
 
 export const PRAYER_PREFS_KEY = 'prefs/prayer';
 export const PRAYER_DEFAULTS = {
   enabled: false,
-  skipDays: [1], // 0 = Sunday … 6; Monday at home
+  skipDays: [], // 0 = Sunday … 6: no prayers planned at all on these days
   walk: 5, // minutes of walking before/after a minyan
   maarivMaxWait: 30, // suggest Maariv only if it starts ≤ this long after the last session
 };
-export const prayerPrefs = (progress) => ({ ...PRAYER_DEFAULTS, ...(progress[PRAYER_PREFS_KEY]?.d || {}) });
+export const prayerPrefs = (progress) => ({
+  ...PRAYER_DEFAULTS, ...(progress[PRAYER_PREFS_KEY]?.d || {}), homeDays: homeDays(progress),
+});
+
+// A minyan for this kind of day: `home` ones only on home days (and only on their `days`),
+// the campus ones only on campus days.
+const forDay = (m, date, home) => !!m.home === home && (!m.days || m.days.includes(date.getDay()));
 
 export const PRAYER_LABELS = { mincha: 'מנחה', maariv: 'ערבית' };
 
@@ -112,13 +119,28 @@ export const prayerKey = (sem, p) => `${sem.id}/prayer/${ymd(p.start)}/${p.praye
 export function planDay(sem, courses, date, prefs) {
   if (!prefs.enabled || prefs.skipDays.includes(date.getDay())) return [];
   const sessions = ownSessions(courses, date);
-  if (!sessions.length) return [];
+  if (!sessions.length) return []; // not a teaching day
+  const home = (prefs.homeDays || []).includes(date.getDay());
+  if (home) {
+    // at home: the fixed minyan of the day, one per prayer
+    const plan = [];
+    for (const prayer of ['mincha', 'maariv']) {
+      const list = (sem.minyanim || []).filter((m) => m.prayer === prayer && forDay(m, date, true))
+        .map((m) => ({ m, start: minyanTime(sem, m, date) })).filter((x) => x.start)
+        .sort((a, b) => a.start - b.start);
+      if (list.length) {
+        const { m, start } = list[0];
+        plan.push({ prayer, minyan: m, start, end: addMin(start, m.minutes || 15), overlap: 0, alternatives: [] });
+      }
+    }
+    return plan;
+  }
   const busy = sessions.flatMap(busyParts);
   const first = sessions[0].start;
   const last = sessions[sessions.length - 1].end;
   const options = (prayer) =>
     (sem.minyanim || [])
-      .filter((m) => m.prayer === prayer)
+      .filter((m) => m.prayer === prayer && forDay(m, date, false))
       .map((m) => {
         const start = minyanTime(sem, m, date);
         if (!start) return null;

@@ -1109,6 +1109,7 @@ document.body.addEventListener('change', async (e) => {
     if (e.target.checked) days.push(day);
     state.progress[HOME_PREFS_KEY] = { s: 'set', d: { days: days.sort() }, t: Date.now() };
     store.saveLocal(state.progress);
+    document.getElementById('prayer-card').outerHTML = prayerCard(); // home days change the minyan
     scheduleSync();
     return;
   }
@@ -1119,6 +1120,7 @@ document.body.addEventListener('change', async (e) => {
       const day = Number(e.target.dataset.day);
       prefs.skipDays = e.target.checked ? [...new Set([...prefs.skipDays, day])] : prefs.skipDays.filter((x) => x !== day);
     }
+    delete prefs.homeDays; // derived from the home-days setting, not stored here
     state.progress[PRAYER_PREFS_KEY] = { s: 'set', d: prefs, t: Date.now() };
     store.saveLocal(state.progress);
     document.getElementById('prayer-card').outerHTML = prayerCard();
