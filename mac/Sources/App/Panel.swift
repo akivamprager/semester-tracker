@@ -64,7 +64,7 @@ struct Panel: View {
                     .rotationEffect(.degrees(model.loading ? 180 : 0))
                     .animation(.easeInOut(duration: 0.4), value: model.loading)
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(PanelButtonStyle())
             .help("רענן")
         }
         .padding(.horizontal, 14)
@@ -73,7 +73,7 @@ struct Panel: View {
 
     private var footer: some View {
         HStack {
-            Button("פתח את הסמסטרון") { WebApp.open() }
+            Button("פתח את הסמסטרון") { WebApp.open() }.buttonStyle(PanelButtonStyle(tint: .brand))
             Spacer()
             if let n = model.summary?.inbox, n > 0 {
                 Button("🔔 \(n)") { WebApp.open(query: "?inbox=1") }.help("עדכונים שלא נקראו")
@@ -81,7 +81,7 @@ struct Panel: View {
             Button { showSettings.toggle() } label: { Image(systemName: "gearshape") }.help("הגדרות")
             Button { NSApp.terminate(nil) } label: { Image(systemName: "power") }.help("יציאה")
         }
-        .buttonStyle(.borderless)
+        .buttonStyle(PanelButtonStyle())
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
     }
@@ -131,7 +131,7 @@ struct Panel: View {
                         }
                         Spacer()
                         if let r = u.recording {
-                            Button("▶") { open(r) }.help("צפה בהקלטה")
+                            Button("▶") { open(r) }.buttonStyle(PanelButtonStyle(tint: .brand)).help("צפה בהקלטה")
                         }
                         doneButton(u.key)
                     }
@@ -184,7 +184,7 @@ struct Panel: View {
     @ViewBuilder private func doneButton(_ key: String) -> some View {
         if model.hasToken {
             Button("✓") { Task { await model.markDone(key) } }
-                .foregroundStyle(.green)
+                .buttonStyle(PanelButtonStyle(tint: .green))
                 .help("סיימתי")
         }
     }
@@ -196,6 +196,42 @@ struct Panel: View {
 }
 
 // ---------- small building blocks ----------
+/// Panel buttons: a tinted highlight on hover, darker while pressed, a slight press-in and a
+/// hand cursor — the plain borderless style gives no feedback at all.
+struct PanelButtonStyle: ButtonStyle {
+    var tint: Color = .primary
+
+    func makeBody(configuration: Configuration) -> some View {
+        PanelButton(configuration: configuration, tint: tint)
+    }
+
+    private struct PanelButton: View {
+        let configuration: Configuration
+        let tint: Color
+        @State private var hover = false
+        @Environment(\.isEnabled) private var enabled
+
+        var body: some View {
+            configuration.label
+                .foregroundStyle(tint)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(RoundedRectangle(cornerRadius: 6)
+                    .fill(tint.opacity(configuration.isPressed ? 0.24 : hover && enabled ? 0.12 : 0)))
+                .scaleEffect(configuration.isPressed ? 0.94 : 1)
+                .opacity(enabled ? 1 : 0.4)
+                .contentShape(RoundedRectangle(cornerRadius: 6))
+                .animation(.easeOut(duration: 0.12), value: hover)
+                .animation(.easeOut(duration: 0.08), value: configuration.isPressed)
+                .onHover { inside in
+                    hover = inside
+                    if inside && enabled { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+                }
+                .onDisappear { if hover { NSCursor.pop() } }
+        }
+    }
+}
+
 private struct ListHeightKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
