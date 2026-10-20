@@ -5,6 +5,10 @@ import SwiftUI
 struct Panel: View {
     @EnvironmentObject var model: Model
     @State private var showSettings = false
+    // The menu bar window takes its size from the content, but a ScrollView has no height of its
+    // own — so the list is measured and the ScrollView gets exactly that (up to a maximum).
+    @State private var listHeight: CGFloat = 0
+    private let maxListHeight: CGFloat = 520
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -21,8 +25,12 @@ struct Panel: View {
                         prayers(s)
                     }
                     .padding(14)
+                    .background(GeometryReader { g in
+                        Color.clear.preference(key: ListHeightKey.self, value: g.size.height)
+                    })
                 }
-                .frame(maxHeight: 520)
+                .frame(height: min(max(listHeight, 80), maxListHeight))
+                .onPreferenceChange(ListHeightKey.self) { listHeight = $0 }
             } else {
                 Text(model.loading ? "טוען…" : (model.error ?? "אין נתונים"))
                     .foregroundStyle(.secondary)
@@ -188,6 +196,11 @@ struct Panel: View {
 }
 
 // ---------- small building blocks ----------
+private struct ListHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
 private struct Section<Content: View>: View {
     let title: String
     @ViewBuilder let content: Content
