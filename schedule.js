@@ -153,6 +153,24 @@ export function builtinTasks(sem, units) {
       });
     });
   }
+  // a quiz in an in-person session = an exam task at the user's own session
+  for (const rule of sem.inPerson || []) {
+    if (!rule.examTitle) continue;
+    const type = units.find((c) => c.code === rule.course)?.types.find((t) => t.type === rule.type);
+    rule.units.forEach((n, i) => {
+      const u = type?.units[n - 1];
+      if (!u?.own) return;
+      const at = u.own.start;
+      tasks.push({
+        id: `${rule.id}-${i + 1}`,
+        course: rule.course,
+        kind: 'exam',
+        title: rule.examTitle.replace('{n}', i + 1),
+        due: `${ymd(at)}T${p(at.getHours())}:${p(at.getMinutes())}`,
+        note: [rule.note, rule.notes?.[i]].filter(Boolean).join(' · '),
+      });
+    });
+  }
   return tasks;
 }
 
@@ -247,6 +265,15 @@ export function ownSessionsOn(courses, date) {
 export const HOME_PREFS_KEY = 'prefs/home';
 export const homeDays = (progress) => progress?.[HOME_PREFS_KEY]?.d?.days || [];
 export const atHome = (progress, date) => homeDays(progress).includes(new Date(date).getDay());
+
+// Sessions that must be attended in person (a quiz in the recitation, attendance taken):
+//   "inPerson": [{ "id", "course", "type", "units": [3, 6, …], "label", "examTitle", "note", "notes" }]
+// by unit number (= the n-th lesson of the user's group), so it follows a change of group.
+export const inPersonRule = (sem, code, type, n) =>
+  (sem.inPerson || []).find((r) => r.course === code && r.type === type && r.units.includes(n)) || null;
+// At home that day, unless this very session has to be attended.
+export const homeSession = (sem, progress, code, type, u) =>
+  !!u.own && atHome(progress, u.own.start) && !inPersonRule(sem, code, type, u.n);
 
 // Weekly commitments outside the courses (a chavruta…), from the semester file:
 //   "personal": [{ "id", "title", "emoji", "day", "start", "end", "place" }]

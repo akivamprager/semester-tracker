@@ -6,7 +6,7 @@
 // Items carry their progress `key`; the Mac app marks one done by writing
 // progress[key] = { s: 'done', t } (the same entry the web app writes).
 
-import { computeUnits, mergeTasks, atHome, personalBetween } from './schedule.js';
+import { computeUnits, mergeTasks, homeSession, inPersonRule, personalBetween } from './schedule.js';
 import { planDay, prayerPrefs, prayerKey, PRAYER_LABELS } from './prayer.js';
 import { recKey, sessionKey, viewerUrl } from './recordings.js';
 
@@ -30,9 +30,10 @@ export function buildWidget(sem, progress, now) {
     for (const t of c.types) {
       for (const u of t.units) {
         // home days: not a class to go to (it shows up in catchUp once held)
-        if (u.own && u.own.end > dayStart && u.own.start < until && !atHome(progress, u.own.start)) {
+        if (u.own && u.own.end > dayStart && u.own.start < until && !homeSession(sem, progress, c.code, t.type, u)) {
+          const must = inPersonRule(sem, c.code, t.type, u.n);
           sessions.push({
-            ...courseInfo(c), key: u.key, label: `${t.label} ${u.n}`, topic: u.topic || '',
+            ...courseInfo(c), key: u.key, label: `${t.label} ${u.n}${must ? ` · ❗ ${must.label}` : ''}`, topic: u.topic || '',
             start: iso(u.own.start), end: iso(u.own.end), room: u.own.room || '',
             lecturer: t.mine.lecturer || '', done: done(u.key),
           });

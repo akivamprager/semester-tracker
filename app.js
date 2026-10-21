@@ -1,4 +1,4 @@
-import { computeUnits, mergeTasks, sessionsBetween, gapsOn, atHome, homeDays, HOME_PREFS_KEY, personalBetween, personalOn, DAY_LABELS } from './schedule.js';
+import { computeUnits, mergeTasks, sessionsBetween, gapsOn, atHome, homeSession, inPersonRule, homeDays, HOME_PREFS_KEY, personalBetween, personalOn, DAY_LABELS } from './schedule.js';
 import { dailySummary } from './summary.js';
 import { badgeCount, badgePrefs, PREFS_KEY } from './badge.js';
 import { buildCalendar } from './calendar.js';
@@ -268,7 +268,7 @@ function viewTodo(courses, { withSoon = true } = {}) {
       : [1, Math.min(...upcoming.map(({ u }) => u.first.start))];
     const liveRows = live.map((x) => `<div class="unit live">
         <div class="name">${x.type.label} ${x.unit.n}${durTag(x.occ)} <span class="pill live"><span class="live-dot" aria-hidden="true"></span>מתקיים עכשיו</span>${x.unit.topic ? ` · <span class="topic">${esc(x.unit.topic)}</span>` : ''}</div>
-        <div class="meta">${hm(x.occ.start)}–${hm(x.occ.end)} · ${x.group.lecturer ? esc(x.group.lecturer) + ' · ' : ''}קב׳ ${grp(x.group.code)}${roomText(x.occ)}${x.mine ? ` · הקבוצה שלך${atHome(state.progress, x.occ.start) ? ' · 🏠 בבית' : ''}` : ''}</div>
+        <div class="meta">${hm(x.occ.start)}–${hm(x.occ.end)} · ${x.group.lecturer ? esc(x.group.lecturer) + ' · ' : ''}קב׳ ${grp(x.group.code)}${roomText(x.occ)}${x.mine ? ` · הקבוצה שלך${homeSession(state.sem, state.progress, x.course.code, x.type.type, x.unit) ? ' · 🏠 בבית' : ''}` : ''}</div>
         <div class="actions">
           <button class="attend" data-action="mark" data-key="${x.unit.key}" data-s="done" data-label="${esc(`${c.short} · ${x.type.label} ${x.unit.n}`)}">✓ סיימתי</button>
         </div>
@@ -405,7 +405,9 @@ function slotRow(x) {
   const own = x.unit.own;
   const tags = [
     x.mine ? '<span class="pill mine">הקבוצה שלך</span>' : '',
-    x.mine && atHome(state.progress, x.occ.start) ? '<span class="pill">🏠 בבית — הקלטה</span>' : '',
+    x.mine && homeSession(state.sem, state.progress, c.code, x.type.type, x.unit) ? '<span class="pill">🏠 בבית — הקלטה</span>' : '',
+    x.mine && inPersonRule(state.sem, c.code, x.type.type, x.unit.n)
+      ? `<span class="pill must">❗ ${esc(inPersonRule(state.sem, c.code, x.type.type, x.unit.n).label)} — חובת נוכחות</span>` : '',
     live ? '<span class="pill live"><span class="live-dot" aria-hidden="true"></span>עכשיו</span>' : '',
     !x.mine && own && own.start > x.occ.start ? `<span class="pill">בקבוצה שלך: ${fmt(own.start)}</span>` : '',
   ].join('');

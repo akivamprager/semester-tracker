@@ -255,6 +255,7 @@ body.dragging::after {
 .pill { font-size: 11px; padding: 1px 7px; border-radius: 8px; background: var(--bg); color: var(--muted); }
 .pill.mine { background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c); font-weight: 600; }
 .pill.live { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); font-weight: 600; }
+.pill.must { background: color-mix(in srgb, #dc2626 14%, transparent); color: color-mix(in srgb, #dc2626 78%, var(--text)); font-weight: 600; }
 @media (hover: hover) {
   .strip:hover { background: color-mix(in srgb, var(--accent) 20%, var(--card)); }
   .icon-btn:hover:not(.active) { background: color-mix(in srgb, var(--accent) 12%, var(--card)); }

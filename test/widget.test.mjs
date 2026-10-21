@@ -39,3 +39,16 @@ test('home days: no "next class" in the widget, 🏠 in the calendar and the mor
   assert.match(ics, /LOCATION:בבית \(הקלטה\)/);
   assert.match(dailySummary(sem, home, monday)?.body || '', /🏠 בבית/);
 });
+
+test('in-person sessions (Waves quizzes) override a home day: shown, ❗ in the calendar, exam task', async () => {
+  const { buildCalendar } = await import('../calendar.js');
+  const { mergeTasks, computeUnits } = await import('../schedule.js');
+  const home = { 'prefs/home': { s: 'set', t: 1, d: { days: [1] } } };
+  const quizDay = new Date('2026-10-26T07:00:00+02:00'); // Monday, recitation 3
+  const w = buildWidget(sem, home, quizDay);
+  assert.ok(w.sessions.some((s) => s.course === '83325' && /בוחן/.test(s.label)));
+  assert.ok(!w.sessions.some((s) => s.course === '83325' && /הרצאה/.test(s.label) && s.start.startsWith('2026-10-26'))); // lecture: still at home
+  assert.match(buildCalendar(sem, home), /SUMMARY:❗ 🌊 גלים · תרגול 3 · בוחן/);
+  const quizzes = mergeTasks(sem, computeUnits(sem, quizDay), {}, quizDay).filter((t) => t.id.startsWith('83325-quiz'));
+  assert.deepEqual(quizzes.map((t) => t.due), ['2026-10-26T10:00', '2026-11-16T10:00', '2026-12-14T10:00', '2027-01-04T10:00']);
+});
