@@ -5,37 +5,36 @@ import SwiftUI
 struct Panel: View {
     @EnvironmentObject var model: Model
     @State private var showSettings = false
-    // The menu bar window takes its size from the content, but a ScrollView has no height of its
-    // own — so the list is measured and the ScrollView gets exactly that (up to a maximum).
-    @State private var listHeight: CGFloat = 0
-    private let maxListHeight: CGFloat = 520
+    /// One fixed height for the middle of the panel in every state (list, settings, loading).
+    /// macOS resizes a window from its bottom corner, so any height change while the panel is
+    /// open (e.g. a list that measures itself a moment later) pulls it away from the menu bar.
+    static let contentHeight: CGFloat = 480
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
             Divider()
-            if showSettings {
-                SettingsView(close: { showSettings = false })
-            } else if let s = model.summary {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
-                        classes(s)
-                        catchUp(s)
-                        tasks(s)
-                        prayers(s)
+            Group {
+                if showSettings {
+                    ScrollView { SettingsView(close: { showSettings = false }) }
+                } else if let s = model.summary {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 14) {
+                            classes(s)
+                            catchUp(s)
+                            tasks(s)
+                            prayers(s)
+                        }
+                        .padding(14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .padding(14)
-                    .background(GeometryReader { g in
-                        Color.clear.preference(key: ListHeightKey.self, value: g.size.height)
-                    })
+                } else {
+                    Text(model.loading ? "טוען…" : (model.error ?? "אין נתונים"))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .frame(height: min(max(listHeight, 80), maxListHeight))
-                .onPreferenceChange(ListHeightKey.self) { listHeight = $0 }
-            } else {
-                Text(model.loading ? "טוען…" : (model.error ?? "אין נתונים"))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, minHeight: 120)
             }
+            .frame(height: Panel.contentHeight)
             Divider()
             footer
         }
@@ -68,6 +67,7 @@ struct Panel: View {
             .help("רענן")
         }
         .padding(.horizontal, 14)
+        .frame(height: 30) // fixed, like the content (see contentHeight)
         .padding(.vertical, 10)
     }
 
@@ -83,6 +83,7 @@ struct Panel: View {
         }
         .buttonStyle(.borderless)
         .padding(.horizontal, 14)
+        .frame(height: 24)
         .padding(.vertical, 8)
     }
 
@@ -196,11 +197,6 @@ struct Panel: View {
 }
 
 // ---------- small building blocks ----------
-private struct ListHeightKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
-}
-
 private struct Section<Content: View>: View {
     let title: String
     @ViewBuilder let content: Content
