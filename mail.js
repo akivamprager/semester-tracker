@@ -6,6 +6,8 @@
 // mail.json = { checkedAt, messages: [{ id, from, fromName, subject, date, text }] }
 // Inbox entry: <sem>/inbox/mail-<id> = { s: 'set', d: { kind: 'mail', v, icon, text, body, link, from, course, at, read } }
 
+import { parseSubmission, matchSubmission } from './insights.js';
+
 export const MAIL_FILE = 'mail.json';
 const MOODLE_SENDER = 'noreply@moodle.huji.ac.il';
 const PUSH_WITHIN_MS = 24 * 3600e3; // older messages (first run, late job) arrive silently
@@ -73,7 +75,8 @@ export function mailBody(m) {
 // New (or outdated) inbox entries. Emails about one of the courses are "loud" (unread +
 // push if recent); everything else (general university mail, last year's courses) is
 // listed already read, without a push. Noise is hidden.
-export function mailInboxUpdates(sem, mail, progress, now) {
+// tasks (optional, merged tasks): a Moodle "assignment submitted" email marks its task done.
+export function mailInboxUpdates(sem, mail, progress, now, tasks = []) {
   const updates = {};
   const notify = [];
   for (const m of mail.messages || []) {
@@ -85,24 +88,30 @@ export function mailInboxUpdates(sem, mail, progress, now) {
     const noise = isNoise(m);
     const loud = !!course && !noise;
     const { body, link } = mailBody(m);
+    // a submission confirmation: tick the task (only when the email is new, so a later
+    // un-tick by the user is never overridden)
+    const submitted = !prev && parseSubmission(m);
+    const task = submitted && matchSubmission(submitted, tasks.filter((t) => !updates[`${sem.id}/task/${t.id}`]), m.date);
+    if (task) updates[`${sem.id}/task/${task.id}`] = { s: 'done', t: +now };
     updates[key] = {
       s: 'set',
       t: +now,
       d: {
         kind: 'mail',
         v: MAIL_FORMAT,
-        icon: moodle ? '📢' : '🏛️',
-        text: (m.subject || '(ללא נושא)').replace(/^\d{5}(_\d+)?-[^:]*:\s*/, ''), // course prefix → tag
+        icon: task ? '✅' : moodle ? '📢' : '🏛️',
+        text: task ? `הוגש: ${task.title} — סומן כבוצע`
+          : (m.subject || '(ללא נושא)').replace(/^\d{5}(_\d+)?-[^:]*:\s*/, ''), // course prefix → tag
         body,
         link,
         from: SENDER_LABELS[m.from] || m.fromName || m.from,
         course,
         at: m.date,
-        read: !!prev?.read || !loud,
+        read: !!prev?.read || !loud || !!task, // a confirmation is news only to the task list
         ...(noise || prev?.hidden ? { hidden: true } : {}),
       },
     };
-    if (!prev && loud && +now - new Date(m.date) < PUSH_WITHIN_MS) notify.push({ subject: updates[key].d.text, course });
+    if (!prev && loud && !task && +now - new Date(m.date) < PUSH_WITHIN_MS) notify.push({ subject: updates[key].d.text, course });
   }
   return { updates, notify };
 }

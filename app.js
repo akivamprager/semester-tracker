@@ -5,17 +5,18 @@ import { buildCalendar } from './calendar.js';
 import { planDay, prayerPrefs, prayerKey, PRAYER_PREFS_KEY, PRAYER_LABELS } from './prayer.js';
 import { parseIcs, icsTaskChanges } from './ics.js';
 import { recKey, sessionKey, viewerUrl } from './recordings.js';
+import { backlog, hoursLabel, courseProgress, readiness, readinessOn, READINESS_KEY } from './insights.js';
 import { buildWidget, widgetFile } from './widget.js';
 import * as store from './sync.js';
 
 const LS_SEMESTER = 'tracker.semester';
 
 // ?tab=tasks etc. — used by the app-icon shortcuts (manifest.webmanifest).
-const TABS = ['todo', 'schedule', 'tasks', 'courses', 'settings'];
+const TABS = ['today', 'todo', 'schedule', 'tasks', 'courses', 'settings'];
 const startTab = new URLSearchParams(location.search).get('tab');
 
 const state = {
-  tab: TABS.includes(startTab) ? startTab : 'todo',
+  tab: TABS.includes(startTab) ? startTab : 'today',
   index: null,
   sem: null,
   progress: store.loadLocal(),
@@ -148,7 +149,8 @@ function taskRow(t, courses) {
     ? `${fmt(t.dueDate, t.due.includes('T'))} · ${relDays(t.dueDate)}`
     : 'אין מועד עדיין';
   const search = `${t.title} ${course?.short || ''} ${course?.code || ''} ${t.note || ''}`.toLowerCase();
-  return `<div class="task ${t.done ? 'is-done' : ''} ${overdue ? 'overdue' : ''}" data-search="${esc(search)}">
+  const swipe = !isExam && !t.done ? ` data-swipe-key="${esc(taskDoneKey(t.id))}" data-swipe-label="${esc(t.title)}"` : '';
+  return `<div class="task ${t.done ? 'is-done' : ''} ${overdue ? 'overdue' : ''}" data-search="${esc(search)}"${swipe}>
     ${isExam
       ? '<span class="task-icon">📝</span>'
       : `<input type="checkbox" class="task-check" data-action="toggle-task" data-id="${esc(t.id)}" ${t.done ? 'checked' : ''}>`}
@@ -156,9 +158,24 @@ function taskRow(t, courses) {
       <div class="name">${esc(t.title)} ${course ? `<span class="course-tag colored" ${courseStyle(course)}>${course.emoji} <bdi>${esc(course.short)}</bdi></span>` : ''}${t.kind === 'practice' ? ' <span class="course-tag">לא נבדק</span>' : ''}</div>
       <div class="meta when">${t.kind === 'practice' && t.dueDate ? 'יעד: ' : ''}${when}${t.estimated && t.kind !== 'practice' ? ' · <span class="est">משוער</span>' : ''}</div>
       ${t.note ? `<div class="meta">${esc(t.note)}</div>` : ''}
+      ${isExam && !t.done ? readinessLine(t, courses) : ''}
     </div>
     <button class="link" data-action="edit-task" data-id="${esc(t.id)}">✎</button>
   </div>`;
+}
+
+// ---------- readiness: before a quiz/exam, how much of its material has been watched ----------
+let examCache = null; // exam tasks of this render
+function readinessLine(t, courses) {
+  if (!readinessOn(state.progress) || !t.dueDate || t.dueDate < now()) return '';
+  examCache ||= allTasks(courses).filter((x) => x.kind === 'exam');
+  const r = readiness(courses, state.progress, t, examCache);
+  if (!r) return '';
+  const missing = r.owed.map(({ u, label }) => `${label} ${u.n}`).join(', ');
+  const ready = !r.owed.length && !r.upcoming;
+  return `<div class="meta readiness ${ready ? 'ready' : r.owed.length ? 'behind' : ''}">📚 ${ready
+    ? `כל החומר נצפה (${r.total} שיעורים) ✓`
+    : `חומר: ${r.done}/${r.total} שיעורים נצפו${r.owed.length ? ` · להשלים: ${esc(missing)}` : ''}${r.upcoming ? ` · עוד ${r.upcoming} יתקיימו לפני` : ''}`}</div>`;
 }
 
 function taskForm(t, courses) {
@@ -247,6 +264,7 @@ function viewTodo(courses, { withSoon = true } = {}) {
     liveByCourse.set(x.course.code, list);
   }
 
+  const bl = backlog(state.sem, courses, state.progress);
   const cards = courses.map((c) => {
     const live = liveByCourse.get(c.code) || [];
     const liveKeys = new Set(live.map((x) => x.unit.key));
@@ -284,7 +302,7 @@ function viewTodo(courses, { withSoon = true } = {}) {
           ? `בקבוצה שלך: ${fmt(u.own.start)}${u.own.end > t0 ? ` (עוד לא)${roomText(u.own)}` : ''}`
           : 'אין מפגש מקביל בקבוצה שלך (בגלל חג/ביטול)';
       }
-      return `<div class="unit">
+      return `<div class="unit" data-swipe-key="${u.key}" data-swipe-label="${esc(`${c.short} · ${u.label} ${u.n}`)}">
         <div class="name">${u.label} ${u.n}${durTag(u.own || u.first)}${runningKeys.has(u.key) ? ' <span class="pill live"><span class="live-dot" aria-hidden="true"></span>מתקיים עכשיו</span>' : ''}${u.topic ? ` · <span class="topic">${esc(u.topic)}</span>` : ''}</div>
         <div class="meta">${where}</div>
         <div class="actions">
@@ -294,8 +312,11 @@ function viewTodo(courses, { withSoon = true } = {}) {
         ${sessionsDropdown(courses, u.key)}
       </div>`;
     }).join('');
+    const pr = courseProgress(c, state.progress);
+    const mins = bl.byCourse[c.code]?.minutes || 0;
     return { sortKey, html: `<section class="card course" ${courseStyle(c)}>
-      <h2>${courseTitle(c)} <small>${owed.length ? owed.length + ' להשלים' : live.length ? '<span class="live-dot" aria-hidden="true"></span>עכשיו' : 'מעודכן ✓'}</small></h2>
+      <h2>${courseTitle(c)} <small>${owed.length ? `${owed.length} להשלים · ${hoursLabel(mins)}` : live.length ? '<span class="live-dot" aria-hidden="true"></span>עכשיו' : 'מעודכן ✓'}</small></h2>
+      ${progressBar(pr)}
       ${liveRows}${rows}
       ${next.length ? `<div class="upcoming">הבא: ${next.join('<br>הבא: ')}</div>` : ''}
       ${owed.length > 1 ? `<button class="link" data-action="mark-all" data-course="${c.code}">סמן הכל כבוצע</button>` : ''}
@@ -307,7 +328,9 @@ function viewTodo(courses, { withSoon = true } = {}) {
     .join('');
   document.getElementById('todo-count').textContent = total || '';
   state.owedCount = total;
-  const banner = total ? '' : '<div class="empty">אין שיעורים שמחכים לך 🎉</div>';
+  const banner = total
+    ? `<div class="backlog-total">⏳ סה״כ ${total} שיעורים · ${hoursLabel(bl.total.minutes)} <small>(≈${hoursLabel(bl.total.minutes / 1.5)} במהירות 1.5×)</small></div>`
+    : '<div class="empty">אין שיעורים שמחכים לך 🎉</div>';
   const isNew = !localStorage.getItem('tracker.welcomed')
     && !Object.keys(state.progress).some((k) => k.startsWith(state.sem.id + '/'));
   const welcome = isNew ? `<section class="card welcome">
@@ -319,6 +342,95 @@ function viewTodo(courses, { withSoon = true } = {}) {
       </div>
     </section>` : '';
   return welcome + scheduleStrip(courses) + soonCard + banner + cards;
+}
+
+function progressBar({ held, done, pct }) {
+  if (!held) return '';
+  return `<div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="${held}" aria-valuenow="${done}"
+      aria-label="${done} מתוך ${held} שיעורים שהתקיימו" title="${done}/${held} שיעורים שהתקיימו"><span style="width:${Math.round(pct * 100)}%"></span></div>`;
+}
+
+// ---------- today: one screen for the day ----------
+function owedRow(c, t, u) {
+  const v = { ...u, label: t.label, mine: t.mine, options: t.options };
+  const label = `${c.short} · ${t.label} ${u.n}`;
+  return `<div class="unit" data-swipe-key="${u.key}" data-swipe-label="${esc(label)}">
+    <div class="name"><span class="course-tag colored" ${courseStyle(c)}>${c.emoji} <bdi>${esc(c.short)}</bdi></span> ${t.label} ${u.n}${durTag(u.own || u.first)}${u.topic ? ` · <span class="topic">${esc(u.topic)}</span>` : ''}</div>
+    <div class="meta">התקיים: ${fmt(u.first.start)}</div>
+    <div class="actions">
+      <button class="attend" data-action="mark" data-key="${u.key}" data-s="done" data-label="${esc(label)}">✓ סיימתי</button>
+      ${watchButton(c, v)}
+    </div>
+  </div>`;
+}
+
+function viewToday(courses) {
+  const t0 = now();
+  const tomorrow = startOfDay(t0); tomorrow.setDate(tomorrow.getDate() + 1);
+  const dayAfter = new Date(tomorrow); dayAfter.setDate(dayAfter.getDate() + 1);
+  const week = new Date(t0); week.setDate(week.getDate() + 7);
+  const d = startOfDay(t0);
+  const title = `היום · יום ${DAY_LABELS[d.getDay()]} ${d.getDate()}.${d.getMonth() + 1}`;
+
+  // my day: own classes, prayers, commitments, exams and gaps from now on
+  const day = [...openSessions(courses, tomorrow), ...gapItems(courses, t0, tomorrow)]
+    .filter((x) => x.gap || x.prayer || x.personal || x.exam || x.mine)
+    .sort((a, b) => a.start - b.start || (b.gap ? 1 : 0) - (a.gap ? 1 : 0));
+  const next = day.length ? '' : (() => {
+    const n = openSessions(courses, week).filter((x) => x.mine && x.start >= tomorrow)[0];
+    return n ? `<div class="meta">הבא: ${n.course.emoji} <bdi>${esc(n.course.short)}</bdi> ${n.type.label} · ${fmt(n.start)}${roomText(n.occ)}</div>` : '';
+  })();
+
+  // to hand in: overdue, today and tomorrow; exams within a week (with readiness)
+  const tasks = allTasks(courses).filter((t) => !t.done && t.dueDate
+    && ((t.kind !== 'exam' && t.dueDate < dayAfter) || (t.kind === 'exam' && t.dueDate >= t0 && t.dueDate < week)))
+    .sort(byDue);
+
+  // to catch up: the oldest few
+  const bl = backlog(state.sem, courses, state.progress);
+  const owed = courses.flatMap((c) => c.types.flatMap((t) => t.units
+    .filter((u) => u.available && !statusOf(u.key)).map((u) => ({ c, t, u }))))
+    .sort((a, b) => a.u.first.end - b.u.first.end);
+
+  return `<section class="card today-head">
+      <h2>${title}</h2>
+      ${day.length ? `<div class="slots">${day.map(slotRow).join('')}</div>` : `<div class="empty small">אין יותר שיעורים היום</div>${next}`}
+    </section>
+    ${tasks.length ? `<section class="card">
+      <h2>להגשה ולבחינה <button class="link" data-tab-link="tasks">לכל המשימות</button></h2>
+      ${tasks.map((t) => taskRow(t, courses)).join('')}
+    </section>` : ''}
+    <section class="card">
+      <h2>להשלים ${owed.length ? `<small>${owed.length} שיעורים · ${hoursLabel(bl.total.minutes)}</small>` : ''}</h2>
+      ${owed.length ? owed.slice(0, 3).map(({ c, t, u }) => owedRow(c, t, u)).join('')
+        + (owed.length > 3 ? `<button class="link" data-tab-link="todo">לכל ${owed.length} השיעורים ›</button>` : '')
+        : '<div class="empty small">הכל מעודכן 🎉</div>'}
+    </section>`;
+}
+
+// ---------- header icon: the ring shows how much of what was taught you've done ----------
+let ringPct = null;
+function renderBrandRing(courses) {
+  let held = 0;
+  let done = 0;
+  for (const c of courses) { const p = courseProgress(c, state.progress); held += p.held; done += p.done; }
+  const pct = held ? done / held : 0;
+  if (pct === ringPct) return;
+  ringPct = pct;
+  const el = document.querySelector('.brand-icon');
+  if (!el) return;
+  const C = 2 * Math.PI * 33;
+  el.outerHTML = `<svg class="brand-icon" viewBox="0 0 100 100" role="img" aria-label="התקדמות: ${Math.round(pct * 100)}% מהשיעורים שהתקיימו">
+    <title>${done}/${held} שיעורים שהתקיימו (${Math.round(pct * 100)}%)</title>
+    <rect width="100" height="100" rx="22" fill="#1f5fd1"/>
+    <circle cx="50" cy="50" r="33" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width="6"/>
+    ${pct > 0 ? `<circle cx="50" cy="50" r="33" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"
+      stroke-dasharray="${(pct * C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 50 50)"/>` : ''}
+    <path d="M38 52 L38 60 Q50 67 62 60 L62 52 Z" fill="#b5d4f4"/>
+    <path d="M50 36 L72 46 L50 56 L28 46 Z" fill="#fff"/>
+    <path d="M50 46 L66 50 L66 60" fill="none" stroke="#fac775" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="66" cy="62" r="3.5" fill="#fac775"/>
+  </svg>`;
 }
 
 // ---------- timetable: which sessions can I go to ----------
@@ -580,6 +692,7 @@ function viewSettings() {
   </section>
   ${moodleCard()}
   ${mailCard()}
+  ${shnatonCard()}
   ${panoptoCard()}
   <h3 class="settings-group">התראות ויומן</h3>
   <section class="card" id="push-card"><h2>🔔 התראות</h2><p class="help">טוען…</p></section>
@@ -587,6 +700,7 @@ function viewSettings() {
   ${badgeCard()}
   <h3 class="settings-group">תכנון</h3>
   ${homeCard()}
+  ${readinessCard()}
   ${prayerCard()}
   <h3 class="settings-group">מתקדם</h3>
   <section class="card">
@@ -929,6 +1043,8 @@ function updateInboxBadge() {
 function render() {
   if (!state.sem) return;
   const courses = computeUnits(state.sem, now());
+  examCache = null;
+  renderBrandRing(courses);
   const wide = isWide();
   document.body.classList.toggle('wide', wide);
   document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === shownTab()));
@@ -946,7 +1062,8 @@ function render() {
       <div class="col"><h2 class="col-title">שיעורים להשלים</h2>${todo}</div>
       <div class="col"><h2 class="col-title">משימות ${urgent ? `<span class="badge">${urgent}</span>` : ''}</h2>${viewTasks(courses)}</div>
     </div>`;
-  } else if (state.tab === 'todo') main.innerHTML = todo;
+  } else if (state.tab === 'today') main.innerHTML = viewToday(courses);
+  else if (state.tab === 'todo') main.innerHTML = todo;
   else if (state.tab === 'schedule') main.innerHTML = viewSchedule(courses);
   else if (state.tab === 'tasks') main.innerHTML = viewTasks(courses);
   else if (state.tab === 'courses') main.innerHTML = viewCourses(courses);
@@ -1121,6 +1238,13 @@ document.body.addEventListener('input', (e) => {
 });
 
 document.body.addEventListener('change', async (e) => {
+  if (e.target.dataset.actionChange === 'readiness') {
+    state.progress[READINESS_KEY] = { s: 'set', d: { enabled: e.target.checked }, t: Date.now() };
+    store.saveLocal(state.progress);
+    document.getElementById('readiness-card').outerHTML = readinessCard();
+    scheduleSync();
+    return;
+  }
   if (e.target.classList.contains('home-pref')) {
     const day = Number(e.target.dataset.day);
     const days = homeDays(state.progress).filter((x) => x !== day);
@@ -1213,11 +1337,21 @@ function toast(msg, { action, ms = 4000 } = {}) {
 // Mark lesson units done, with a few seconds to undo (restores the previous entries).
 function markDone(keys, label) {
   const before = keys.map((k) => [k, state.progress[k]]);
+  const owedBefore = backlog(state.sem, computeUnits(state.sem, now()), state.progress);
   const t = Date.now();
   for (const k of keys) state.progress[k] = { s: 'done', t };
   store.saveLocal(state.progress);
   render();
   scheduleSync();
+  const courses = computeUnits(state.sem, now());
+  const owedAfter = backlog(state.sem, courses, state.progress);
+  const cleared = courses.filter((c) => owedBefore.byCourse[c.code]?.count && !owedAfter.byCourse[c.code]?.count);
+  if (cleared.length) {
+    const msg = owedAfter.total.count ? `🎉 ${cleared.map((c) => `${c.emoji} ${c.short}`).join(', ')} מעודכן!` : '🎉 הכל מעודכן!';
+    label = `${label} · ${msg}`;
+    celebrate(!owedAfter.total.count);
+  }
+  navigator.vibrate?.(12);
   toast(`✓ ${label}`, {
     ms: 6000,
     action: {
@@ -1233,6 +1367,69 @@ function markDone(keys, label) {
     },
   });
 }
+
+// A short burst of confetti (skipped for "reduce motion").
+function celebrate(big) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const box = document.createElement('div');
+  box.className = 'confetti';
+  box.setAttribute('aria-hidden', 'true');
+  const colors = ['#1f5fd1', '#fac775', '#16a34a', '#e11d48', '#8b5cf6', '#0d9488'];
+  for (let i = 0; i < (big ? 70 : 36); i++) {
+    const p = document.createElement('i');
+    p.style.setProperty('--x', `${(Math.random() - 0.5) * 2}`);
+    p.style.setProperty('--r', `${Math.random() * 720 - 360}deg`);
+    p.style.setProperty('--d', `${0.9 + Math.random() * 0.8}s`);
+    p.style.background = colors[i % colors.length];
+    p.style.left = `${40 + Math.random() * 20}%`;
+    box.appendChild(p);
+  }
+  document.body.appendChild(box);
+  setTimeout(() => box.remove(), 1900);
+}
+
+// ---------- swipe a row sideways to mark it done (touch screens) ----------
+const SWIPE_DONE = 90; // px
+let swipe = null;
+document.addEventListener('pointerdown', (e) => {
+  if (e.pointerType !== 'touch') return;
+  const el = e.target.closest('[data-swipe-key]');
+  if (!el || e.target.closest('button, a, input, select, summary, textarea')) return;
+  swipe = { el, x: e.clientX, y: e.clientY, dx: 0, active: false };
+}, { passive: true });
+document.addEventListener('pointermove', (e) => {
+  if (!swipe || e.pointerType !== 'touch') return;
+  const dx = e.clientX - swipe.x;
+  const dy = e.clientY - swipe.y;
+  if (!swipe.active) {
+    if (Math.abs(dy) > 12) { swipe = null; return; } // scrolling
+    if (Math.abs(dx) < 12) return;
+    swipe.active = true;
+    swipe.el.classList.add('swiping');
+  }
+  swipe.dx = dx;
+  swipe.el.style.setProperty('--dx', `${dx}px`);
+  const ready = Math.abs(dx) > SWIPE_DONE;
+  if (ready && !swipe.ready) navigator.vibrate?.(8);
+  swipe.ready = ready;
+  swipe.el.classList.toggle('swipe-ready', ready);
+}, { passive: true });
+function endSwipe() {
+  if (!swipe) return;
+  const { el, dx, active } = swipe;
+  swipe = null;
+  if (!active) return;
+  el.classList.remove('swiping', 'swipe-ready');
+  if (Math.abs(dx) > SWIPE_DONE) {
+    el.style.setProperty('--dx', `${Math.sign(dx) * 110}%`);
+    el.classList.add('swiped');
+    setTimeout(() => markDone([el.dataset.swipeKey], el.dataset.swipeLabel || ''), 180);
+  } else {
+    el.style.removeProperty('--dx');
+  }
+}
+document.addEventListener('pointerup', endSwipe);
+document.addEventListener('pointercancel', endSwipe);
 
 async function importIcsFile(file) {
   try {
@@ -1303,7 +1500,7 @@ async function handleSharedFile() {
 }
 
 // ---------- keyboard shortcuts ----------
-const SHORTCUTS_HELP = '1–5 מעבר בין לשוניות · N מטלה חדשה · / חיפוש מטלות · S סנכרון · Esc ביטול';
+const SHORTCUTS_HELP = '1–6 מעבר בין לשוניות · N מטלה חדשה · / חיפוש מטלות · S סנכרון · Esc ביטול';
 document.addEventListener('keydown', (e) => {
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.slot.tappable')) {
     e.preventDefault();
@@ -1319,7 +1516,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (typing) return;
   const key = e.key.toLowerCase();
-  const tabByKey = { 1: 'todo', 2: 'schedule', 3: 'tasks', 4: 'courses', 5: 'settings' };
+  const tabByKey = { 1: 'today', 2: 'todo', 3: 'schedule', 4: 'tasks', 5: 'courses', 6: 'settings' };
   if (tabByKey[key]) { e.preventDefault(); switchTab(tabByKey[key]); return; }
   if (key === 'n' || key === 'מ') {
     e.preventDefault();
@@ -1424,6 +1621,28 @@ function panoptoCard() {
          ${st.error === 'expired' ? 'צריך להתחבר מחדש מהמק: <bdi>node tools/panopto-login.mjs</bdi>.' : 'ננסה שוב בבדיקה הבאה.'}`
       : `${stale ? '⚠️' : '✓'} <b>מחובר</b> — נבדק לאחרונה ${agoLabel(st.at)} (${st.sessions} מפגשים מוקלטים).
          ליד כל שיעור להשלמה יש ▶ צפה בהקלטה, וב"מועדים בכל הקבוצות" — הקלטה לכל קבוצה.`}</div>
+  </section>`;
+}
+
+function readinessCard() {
+  const on = readinessOn(state.progress);
+  return `<section class="card" id="readiness-card">
+    <label class="switch-row">
+      <span><b>📚 מוכנות לבחנים ולמבחנים</b><br>
+        <small>${on ? 'ליד כל בוחן/מבחן קרוב: כמה מהשיעורים שבחומר כבר צפית, ומה חסר' : 'כבוי'}</small></span>
+      <input type="checkbox" role="switch" class="switch" data-action-change="readiness" ${on ? 'checked' : ''} aria-label="מוכנות לבחנים">
+    </label>
+  </section>`;
+}
+
+function shnatonCard() {
+  const st = state.progress['status/shnaton']?.d;
+  if (!st) return '';
+  const stale = now() - new Date(st.at) > 8 * 3600e3;
+  return `<section class="card">
+    <h2>🏫 מעקב שנתון</h2>
+    <div class="status-line ${stale ? 'warn' : 'ok'}">${stale ? '⚠️' : '✓'} נבדק לאחרונה ${agoLabel(st.at)} (${st.courses} קורסים).
+      שינוי בשעות, בכיתות, במרצים או במפגשים מגיע ל-🔔.</div>
   </section>`;
 }
 

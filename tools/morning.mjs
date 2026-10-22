@@ -24,6 +24,7 @@ import { WIDGET_FILE, buildWidget, widgetFile, sameWidget } from '../widget.js';
 import { TOKEN_FILE, encrypt, decrypt, refreshToken, folderSessions } from './panopto-lib.mjs';
 import { merge } from '../sync.js';
 import { isShabbat } from '../prayer.js';
+import { SHNATON_FILE, SHNATON_API, courseSnapshot, diffShnaton } from '../shnaton.js';
 
 const SEND_HOUR = 7;
 const SEND_UNTIL = 11; // a "good morning" summary arriving later than this is useless
@@ -172,8 +173,10 @@ if (process.env.MOODLE_ICS_URL && !calendarOnly) {
 if (!calendarOnly && gist.files[MAIL_FILE]) {
   try {
     const mail = await fullJson(gist, MAIL_FILE);
-    const { updates, notify } = mailInboxUpdates(sem, mail, progress, now);
-    console.log(`Mail: ${Object.keys(updates).length} new message(s), ${notify.length} to notify`);
+    // open tasks, so that a Moodle "submitted" confirmation can tick its task
+    const tasks = mergeTasks(sem, computeUnits(sem, now), progress, now, { includeHidden: true });
+    const { updates, notify: toNotify } = mailInboxUpdates(sem, mail, progress, now, tasks);
+    console.log(`Mail: ${Object.keys(updates).length} new message(s), ${toNotify.length} to notify`);
     // shown in the app's Settings ("last checked …")
     if (mail.checkedAt && progress['status/mail']?.d?.at !== mail.checkedAt) {
       updates['status/mail'] = { s: 'set', t: now.getTime(), d: { at: mail.checkedAt, messages: mail.messages?.length || 0 } };
@@ -183,15 +186,55 @@ if (!calendarOnly && gist.files[MAIL_FILE]) {
       progress = merge(fileJson(gist, 'progress.json'), updates);
       await writeFiles(gist, { 'progress.json': JSON.stringify(progress) });
     }
-    if (notify.length) {
+    if (toNotify.length) {
       const shortName = (code) => sem.courses.find((c) => c.code === code)?.short;
-      const lines = notify.slice(0, 4).map((m) => (m.course ? `${shortName(m.course)}: ${m.subject}` : m.subject));
-      if (notify.length > 4) lines.push(`ועוד ${notify.length - 4}`);
+      const lines = toNotify.slice(0, 4).map((m) => (m.course ? `${shortName(m.course)}: ${m.subject}` : m.subject));
+      if (toNotify.length > 4) lines.push(`ועוד ${toNotify.length - 4}`);
       await notify(push, { title: '📢 הודעות בקורסים', body: lines.join('\n'), tag: 'mail', url: './?inbox=1' });
       pushChanged = true;
     }
   } catch (e) {
     console.error('Mail import failed:', e.message);
+  }
+}
+
+// ---- 1b'. Shnaton watch: changes in times, rooms, lecturers, sessions → 🔔 (data is updated by hand) ----
+if (!calendarOnly && sem.shnatonYear) {
+  try {
+    const year = sem.shnatonYear;
+    const ids = [];
+    for (const c of sem.courses) {
+      const r = await fetch(`${SHNATON_API}/courses/code/${c.code}?year=${year}`);
+      const found = r.ok ? (await r.json())[0] : null;
+      if (found?.id) ids.push([c.code, found.id]);
+    }
+    const res = await fetch(`${SHNATON_API}/courses/groups-with-sessions?year=${year}&courseIds=${ids.map((x) => x[1]).join(',')}`);
+    if (!res.ok) throw new Error(`Shnaton ${res.status}`);
+    const all = await res.json();
+    const snap = Object.fromEntries(ids.map(([code, id]) => [code, courseSnapshot(all[id])]));
+    const prev = gist.files[SHNATON_FILE] ? await fullJson(gist, SHNATON_FILE) : null;
+    const names = Object.fromEntries(sem.courses.map((c) => [c.code, c.short]));
+    const changes = prev ? diffShnaton(prev, snap, ymd(now), names) : [];
+    console.log(`Shnaton: ${changes.length} change(s)${prev ? '' : ' (first fetch — saved as the baseline)'}`);
+    const updates = { 'status/shnaton': { s: 'set', t: now.getTime(), d: { at: now.toISOString(), courses: ids.length } } };
+    changes.forEach((m, i) => {
+      updates[`${INBOX_PREFIX(sem)}shn-${now.getTime()}-${i}`] = {
+        s: 'set', t: now.getTime(), d: { kind: 'shnaton', icon: '🏫', text: m.text, course: m.course, at: now.toISOString(), read: false },
+      };
+    });
+    if (changes.length) {
+      const lines = changes.slice(0, 4).map((m) => m.text);
+      if (changes.length > 4) lines.push(`ועוד ${changes.length - 4}`);
+      await notify(push, { title: '🏫 שינויים בשנתון', body: lines.join('\n'), tag: 'shnaton', url: './?inbox=1' });
+      pushChanged = true;
+    }
+    gist = await gh(`/gists/${gist.id}`);
+    progress = merge(fileJson(gist, 'progress.json'), updates);
+    const files = { 'progress.json': JSON.stringify(progress) };
+    if (JSON.stringify(snap) !== JSON.stringify(prev)) files[SHNATON_FILE] = JSON.stringify(snap);
+    await writeFiles(gist, files);
+  } catch (e) {
+    console.error('Shnaton check failed:', e.message); // never block the rest of the run
   }
 }
 

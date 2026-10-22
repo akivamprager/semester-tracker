@@ -542,3 +542,36 @@ ol.help li { margin: 3px 0; }
 .inbox-link { display: inline-block; margin-top: 4px; font-size: 13px; color: var(--accent); }
 .inbox-mail summary { cursor: pointer; font-size: 13px; color: var(--accent); }
 .inbox-mail-body { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.55; margin-top: 6px; padding: 8px 10px; border-radius: 8px; background: var(--bg); }
+
+/* ---------- progress, backlog, readiness ---------- */
+.progress { height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--c, var(--accent)) 16%, transparent); margin: 2px 0 8px; overflow: hidden; }
+.progress span { display: block; height: 100%; border-radius: 2px; background: var(--c, var(--accent)); transition: width .4s ease; }
+.backlog-total { margin: 4px 4px 10px; font-size: 14px; color: var(--muted); }
+.backlog-total small { font-size: 12px; }
+.meta.readiness { margin-top: 3px; }
+.meta.readiness.behind { color: color-mix(in srgb, #d97706 80%, var(--text)); }
+.meta.readiness.ready { color: var(--ok); }
+.empty.small { padding: 10px 4px; font-size: 14px; }
+.today-head .slots { display: flex; flex-direction: column; gap: 8px; }
+
+/* ---------- swipe to mark done ---------- */
+[data-swipe-key] { touch-action: pan-y; transform: translateX(var(--dx, 0)); transition: transform .18s ease, opacity .18s ease, box-shadow .15s; }
+[data-swipe-key].swiping { transition: none; }
+[data-swipe-key].swipe-ready { box-shadow: inset 0 0 0 2px var(--ok); background: color-mix(in srgb, var(--ok) 10%, transparent); border-radius: 10px; }
+[data-swipe-key].swiped { opacity: 0; }
+
+/* ---------- celebration ---------- */
+.confetti { position: fixed; inset: 0; pointer-events: none; z-index: 100; overflow: hidden; }
+.confetti i { position: absolute; top: -12px; width: 8px; height: 12px; border-radius: 2px;
+  animation: confetti-fall var(--d, 1.2s) cubic-bezier(.2, .6, .4, 1) forwards; }
+@keyframes confetti-fall {
+  0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+  100% { transform: translate(calc(var(--x) * 40vw), 85vh) rotate(var(--r)); opacity: 0; }
+}
+
+/* six tabs: tighter on narrow phones */
+@media (max-width: 430px) {
+  nav { gap: 4px; padding: 0 8px 8px; }
+  nav button { font-size: 13px; padding: 9px 0; }
+}
+
