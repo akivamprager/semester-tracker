@@ -45,7 +45,8 @@ export function buildWidget(sem, progress, now) {
           const hit = recs && order.map(({ group, occ }) => recs[occ[u.n - 1] ? sessionKey(group, occ[u.n - 1]) : '']).find(Boolean);
           catchUp.push({
             ...courseInfo(c), key: u.key, label: `${t.label} ${u.n}`, topic: u.topic || '',
-            availableAt: iso(u.first.end), recording: hit ? viewerUrl(sem, hit[0][0]) : null,
+            availableAt: iso(u.first.end),
+            recording: hit ? viewerUrl(sem, hit[0][0]) : (u.ownMissed?.url || (u.first.missed && u.first.url) || null),
           });
         }
       }

@@ -1,7 +1,7 @@
 // Builds the morning notification text: today's sessions, lessons waiting to be caught up,
 // and homework/exams coming up. Pure, so both the app (test button) and the GitHub Action
 // (tools/morning.mjs) use it.
-import { computeUnits, mergeTasks, gapsOn, atHome, homeSession, inPersonRule, personalOn, DAY_LABELS } from './schedule.js';
+import { computeUnits, mergeTasks, gapsOn, atHome, homeSession, inPersonRule, personalOn, dayNote, DAY_LABELS } from './schedule.js';
 import { badgeCount } from './badge.js';
 import { planDay, prayerPrefs, PRAYER_LABELS } from './prayer.js';
 
@@ -26,6 +26,8 @@ function when(t, now) {
 export function dailySummary(sem, progress, now) {
   const courses = computeUnits(sem, now);
   const lines = [];
+  const note = dayNote(sem, now);
+  if (note) lines.push([note.title, ...note.lines].join('\n'));
 
   const today = [];
   for (const c of courses) {

@@ -1,4 +1,4 @@
-import { computeUnits, mergeTasks, sessionsBetween, gapsOn, atHome, homeSession, inPersonRule, homeDays, HOME_PREFS_KEY, personalBetween, personalOn, DAY_LABELS } from './schedule.js';
+import { computeUnits, mergeTasks, sessionsBetween, gapsOn, atHome, homeSession, inPersonRule, dayNote, homeDays, HOME_PREFS_KEY, personalBetween, personalOn, DAY_LABELS } from './schedule.js';
 import { dailySummary } from './summary.js';
 import { badgeCount, badgePrefs, PREFS_KEY } from './badge.js';
 import { buildCalendar } from './calendar.js';
@@ -295,12 +295,15 @@ function viewTodo(courses, { withSoon = true } = {}) {
     const rows = owed.map((u) => {
       const firstIsMine = u.first.group === u.mine;
       let where;
-      if (firstIsMine) where = `התקיים בקבוצה שלך: ${fmt(u.first.start)}`;
+      if (u.first.missed) where = `במקום ${fmt(u.first.start)} (בוטל)${u.first.note ? `: ${esc(u.first.note)}` : ''}`;
+      else if (firstIsMine) where = `התקיים בקבוצה שלך: ${fmt(u.first.start)}`;
       else {
         where = `התקיים לראשונה: ${fmt(u.first.start)} · ${esc(u.first.group.lecturer)} (קב׳ ${grp(u.first.group.code)})<br>`;
         where += u.own
           ? `בקבוצה שלך: ${fmt(u.own.start)}${u.own.end > t0 ? ` (עוד לא)${roomText(u.own)}` : ''}`
-          : 'אין מפגש מקביל בקבוצה שלך (בגלל חג/ביטול)';
+          : u.ownMissed
+            ? `בקבוצה שלך: בוטל (${fmt(u.ownMissed.start, false)})${u.ownMissed.note ? ` — ${esc(u.ownMissed.note)}` : ''}`
+            : 'אין מפגש מקביל בקבוצה שלך (בגלל חג/ביטול)';
       }
       return `<div class="unit" data-swipe-key="${u.key}" data-swipe-label="${esc(`${c.short} · ${u.label} ${u.n}`)}">
         <div class="name">${u.label} ${u.n}${durTag(u.own || u.first)}${runningKeys.has(u.key) ? ' <span class="pill live"><span class="live-dot" aria-hidden="true"></span>מתקיים עכשיו</span>' : ''}${u.topic ? ` · <span class="topic">${esc(u.topic)}</span>` : ''}</div>
@@ -392,7 +395,15 @@ function viewToday(courses) {
     .filter((u) => u.available && !statusOf(u.key)).map((u) => ({ c, t, u }))))
     .sort((a, b) => a.u.first.end - b.u.first.end);
 
-  return `<section class="card today-head">
+  // a note for today, or tomorrow's in advance (election day, quiz day…)
+  const notes = [[dayNote(state.sem, t0), ''], [dayNote(state.sem, tomorrow), 'מחר: ']]
+    .filter(([n]) => n)
+    .map(([n, when]) => `<section class="card day-note">
+      <h2>${esc(when + n.title)}</h2>
+      <ul>${n.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>
+    </section>`).join('');
+
+  return `${notes}<section class="card today-head">
       <h2>${title}</h2>
       ${day.length ? `<div class="slots">${day.map(slotRow).join('')}</div>` : `<div class="empty small">אין יותר שיעורים היום</div>${next}`}
     </section>
@@ -850,6 +861,11 @@ const recIds = (recs, group, o) => (recs && o ? recs[sessionKey(group, o)] || nu
 
 // The recording to watch for a unit: own group's, else the group that taught it first, else any.
 function watchButton(c, u) {
+  // a recording named for a cancelled session (e.g. last semester's lecture instead)
+  const given = u.ownMissed?.url || (u.first?.missed && u.first.url);
+  if (given && /^https:\/\//.test(given)) {
+    return `<a class="watch" href="${esc(given)}" target="_blank" rel="noopener">▶ צפה בהקלטה</a>`;
+  }
   const recs = recordingsOf(c.code);
   if (!recs || !state.sem.panopto) return '';
   const i = u.n - 1;
@@ -875,7 +891,7 @@ function sessionRows(courses, key) {
   const recs = state.sem.panopto ? recordingsOf(c.code) : null;
   const sessions = type.options
     .map(({ group, occ }) => ({ group, o: occ[i] }))
-    .filter((x) => x.o)
+    .filter((x) => x.o && !x.o.missed)
     .sort((a, b) => a.o.start - b.o.start || (b.group === type.mine) - (a.group === type.mine));
   const html = sessions.map(({ group, o }) => {
     const mine = group === type.mine;

@@ -39,7 +39,7 @@ const wallClock = (startTime) => {
 // 2. Otherwise (renamed recordings, cancelled group whose room was reused): the session of
 //    the same type on that date whose start is closest, within 45 minutes.
 export function matchRecordings(sem, course, sessions) {
-  const occs = course.groups.flatMap((group) => expandGroup(sem, course, group).map((o) => ({ group, o })));
+  const occs = course.groups.flatMap((group) => expandGroup(sem, course, group).filter((o) => !o.missed).map((o) => ({ group, o })));
   const out = {};
   for (const s of sessions) {
     const wall = wallClock(s.StartTime);

@@ -85,6 +85,10 @@ export function icsTaskChanges(sem, events, existingTasks, { now } = {}) {
     const existing = byId.get(id);
     if (!existing) {
       changes.push({ id, d: { course, title: cleanTitle(ev.summary), kind: 'hw', due: stamp, note: 'מהמודל' } });
+    } else if (existing.deleted) {
+      // Deleted in Moodle earlier and published again: only with a new, upcoming date (an
+      // outdated export still holding the deleted copy must not bring it back).
+      if (existing.due !== stamp && (!now || ev.start > now)) changes.push({ id, d: { due: stamp, deleted: false } });
     } else if (existing.due !== stamp) {
       changes.push({ id, d: { due: stamp } });
     }

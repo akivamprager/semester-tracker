@@ -50,6 +50,16 @@ export function expandGroup(sem, course, group) {
       occ.push({ start: at(d, slot.start), end: at(d, slot.end), room: roomOn(ds, slot) });
     }
   }
+  // A session lost to a closure that does NOT shift the group's numbering: the course moves on and
+  // the group catches up from another group's recording (e.g. election day: "watch Sunday's").
+  //   "missed": [{ "course", "group"?, "type"?, "date", "note" }]
+  for (const m of sem.missed || []) {
+    if (m.course !== course.code || (m.group && m.group !== group.code) || (m.type && m.type !== group.type)) continue;
+    const d = parseDate(m.date);
+    for (const slot of group.slots) {
+      if (slot.day === d.getDay()) occ.push({ start: at(d, slot.start), end: at(d, slot.end), room: '', missed: true, note: m.note || '', url: m.url || '' });
+    }
+  }
   for (const x of sem.extras || []) {
     if (x.course === course.code && x.group === group.code) {
       const d = parseDate(x.date);
@@ -80,17 +90,24 @@ export function computeUnits(sem, now) {
         let last = null;
         for (const e of expanded) {
           const o = e.occ[i];
-          if (!o) continue;
+          if (!o || o.missed) continue;
           if (!first || o.end < first.end) first = { ...o, group: e.group };
           if (!last || o.end > last.end) last = { ...o, group: e.group };
+        }
+        // no group held it (the only group was cancelled, e.g. a recorded lecture instead):
+        // the material counts from the cancelled slot on
+        if (!first) {
+          const e = expanded.find((x) => x.occ[i]?.missed);
+          if (e) first = last = { ...e.occ[i], group: e.group };
         }
         return {
           n: i + 1,
           key: `${sem.id}/${course.code}/${type}/${i + 1}`,
-          available: first.end <= now,
+          available: !!first && first.end <= now,
           first,
           last,
-          own: expanded[0].occ[i] || null,
+          own: expanded[0].occ[i]?.missed ? null : expanded[0].occ[i] || null,
+          ownMissed: expanded[0].occ[i]?.missed ? expanded[0].occ[i] : null, // cancelled for the user's group
           topic: topics[i] || '',
         };
       });
@@ -239,7 +256,7 @@ export function sessionsBetween(courses, from, to) {
     for (const type of course.types) {
       for (const { group, occ } of type.options) {
         occ.forEach((o, i) => {
-          if (o.end > from && o.start < to) {
+          if (!o.missed && o.end > from && o.start < to) {
             out.push({ course, type, unit: type.units[i], group, occ: o, mine: group === type.mine });
           }
         });
@@ -260,6 +277,10 @@ export function ownSessionsOn(courses, date) {
 
 // Free stretches of at least `minMinutes` between the user's own sessions that day.
 // The usual 15-minute break between back-to-back classes is not a gap.
+// Notes for a specific day (an election day, a quiz day…), shown in the app, the morning
+// summary and the calendar:  "dayNotes": [{ "date", "title", "lines": [...] }]
+export const dayNote = (sem, date) => (sem.dayNotes || []).find((n) => n.date === ymd(date)) || null;
+
 // Days the user stays home and watches the recordings instead (synced preference, 0 = Sunday).
 // Their classes stay in the schedule and in "to catch up", but get no "go to class" treatment.
 export const HOME_PREFS_KEY = 'prefs/home';

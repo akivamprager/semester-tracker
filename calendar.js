@@ -100,6 +100,17 @@ export function buildCalendar(sem, progress) {
     ].filter(Boolean));
   }
 
+  // notes for a day (all-day event with the plan in the description)
+  for (const n of sem.dayNotes || []) {
+    const d = new Date(`${n.date}T00:00:00`);
+    add([
+      `UID:note-${n.date}@semester-tracker`,
+      `DTSTART;VALUE=DATE:${dateOnly(d)}`,
+      `SUMMARY:${text(n.title)}`,
+      `DESCRIPTION:${text(n.lines.join('\n'))}`,
+    ]);
+  }
+
   return [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',

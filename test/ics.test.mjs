@@ -60,7 +60,8 @@ test('an outdated export (12.10) cannot bring back assignments Moodle has delete
   const tasks = mergeTasks(sem, computeUnits(sem, now), {}, now, { includeHidden: true });
   const progress = applyChanges({}, icsTaskChanges(sem, old, tasks, { now }));
   const visible = mergeTasks(sem, computeUnits(sem, now), progress, now).map((x) => x.id);
-  for (const id of ['ics-54053', 'ics-54054', 'ics-54055', 'ics-54056', 'ics-54058']) assert.ok(!visible.includes(id), id);
+  // (54053, "תרגיל 02", was published again by the course on 25.10 with a new date — it's real now)
+  for (const id of ['ics-54054', 'ics-54055', 'ics-54056', 'ics-54058']) assert.ok(!visible.includes(id), id);
 });
 
 test('live export (Hebrew titles, C++ labs, deletions)', () => {
@@ -107,4 +108,15 @@ test('import also updates tasks that are still hidden', () => {
   const all = mergeTasks(sem, computeUnits(sem, now), {}, now, { includeHidden: true });
   const events = parseIcs(ics([{ uid: 2, summary: 'C Lab week 7 closes', start: '20261204T215900Z', cat: '67315_1-C' }]));
   assert.deepEqual(icsTaskChanges(sem, events, all), [{ id: '67315-lab-7', d: { due: '2026-12-04T23:59' } }]);
+});
+
+test('a deleted assignment that Moodle publishes again with a new date comes back', async () => {
+  const { icsTaskChanges } = await import('../ics.js');
+  const sem = { courses: [{ code: '83335' }], icsRules: [] };
+  const deleted = [{ id: 'ics-54053', course: '83335', title: 'תרגיל 02', kind: 'hw', due: '2026-10-19T11:58', deleted: true }];
+  const ev = (start) => ({ uid: '54053@moodle.huji.ac.il', summary: 'תרגיל 02 2025-26 is due', category: '83335-מבוא להנדסת חשמל', start: new Date(start) });
+  const now = new Date('2026-10-25T12:00:00+02:00');
+  assert.deepEqual(icsTaskChanges(sem, [ev('2026-11-01T23:59:00+02:00')], deleted, { now }),
+    [{ id: 'ics-54053', d: { due: '2026-11-01T23:59', deleted: false } }]);
+  assert.deepEqual(icsTaskChanges(sem, [ev('2026-10-19T11:58:00+03:00')], deleted, { now }), []); // the old copy: stays deleted
 });

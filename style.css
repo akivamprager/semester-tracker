@@ -575,3 +575,6 @@ ol.help li { margin: 3px 0; }
   nav button { font-size: 13px; padding: 9px 0; }
 }
 
+.day-note { border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); background: color-mix(in srgb, var(--accent) 7%, var(--card)); }
+.day-note ul { margin: 6px 0 2px; padding-inline-start: 18px; line-height: 1.6; font-size: 14px; }
+
