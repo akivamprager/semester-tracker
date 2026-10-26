@@ -123,6 +123,7 @@ export function computeUnits(sem, now) {
       color: course.color || DEFAULT_COLORS[ci % DEFAULT_COLORS.length],
       url: course.url,
       info: course.info || [],
+      quizMaterial: course.quizMaterial || 'all', // 'recitation': quizzes cover only what was practiced
       types,
     };
   });

@@ -83,7 +83,9 @@ export function readiness(courses, progress, exam, exams) {
       .sort((a, b) => b.dueDate - a.dueDate)[0];
     if (prev) from = +weekStart(prev.dueDate);
   }
-  const units = c.types.flatMap((t) => t.units.map((u) => ({ u, label: t.label })))
+  const units = c.types
+    .filter((t) => isFinal(exam) || c.quizMaterial !== 'recitation' || t.type === 'recitation')
+    .flatMap((t) => t.units.map((u) => ({ u, label: t.label })))
     .filter(({ u }) => +u.first.end >= from && +u.first.end < until);
   if (!units.length) return null;
   const done = units.filter(({ u }) => isDone(progress, u.key));
