@@ -288,10 +288,12 @@ export const homeDays = (progress) => progress?.[HOME_PREFS_KEY]?.d?.days || [];
 export const atHome = (progress, date) => homeDays(progress).includes(new Date(date).getDay());
 
 // Sessions that must be attended in person (a quiz in the recitation, attendance taken):
-//   "inPerson": [{ "id", "course", "type", "units": [3, 6, …], "label", "examTitle", "note", "notes" }]
+//   "inPerson": [{ "id", "course", "type", "units": [3, 6, …], "takenElsewhere"?, "label", "examTitle", "note", "notes" }]
 // by unit number (= the n-th lesson of the user's group), so it follows a change of group.
+// "takenElsewhere": units whose quiz was already done in another group (no duty in yours).
 export const inPersonRule = (sem, code, type, n) =>
-  (sem.inPerson || []).find((r) => r.course === code && r.type === type && r.units.includes(n)) || null;
+  (sem.inPerson || []).find((r) => r.course === code && r.type === type && r.units.includes(n)
+    && !(r.takenElsewhere || []).includes(n)) || null;
 // At home that day, unless this very session has to be attended.
 export const homeSession = (sem, progress, code, type, u) =>
   !!u.own && atHome(progress, u.own.start) && !inPersonRule(sem, code, type, u.n);
