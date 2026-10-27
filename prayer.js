@@ -2,7 +2,7 @@
 // `minyanim` list) that clashes least with the user's own sessions. On home days (see
 // schedule.js homeDays) only the minyanim marked `home` count — fixed times, not fitted to
 // classes. Pure — used by the app (timetable, Settings), summary.js (morning push) and calendar.js.
-import { ymd, homeDays, personalItems } from './schedule.js';
+import { ymd, homeDays, personalItems, personalOnDate } from './schedule.js';
 
 export const PRAYER_PREFS_KEY = 'prefs/prayer';
 export const PRAYER_DEFAULTS = {
@@ -141,7 +141,7 @@ export function planDay(sem, courses, date, prefs) {
   }
   const busy = sessions.flatMap(busyParts);
   // personal commitments that day count as busy too (and as time on campus)
-  const mine = personalItems(sem).filter((i) => i.day === date.getDay())
+  const mine = personalItems(sem).filter((i) => personalOnDate(i, date))
     .map((i) => ({ start: atTime(date, i.start), end: atTime(date, i.end), place: i.place || '' }));
   const first = new Date(Math.min(+sessions[0].start, ...mine.map((x) => +x.start)));
   const last = new Date(Math.max(+sessions[sessions.length - 1].end, ...mine.map((x) => +x.end)));

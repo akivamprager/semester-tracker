@@ -299,9 +299,11 @@ export const inPersonRule = (sem, code, type, n) =>
 export const homeSession = (sem, progress, code, type, u) =>
   !!u.own && atHome(progress, u.own.start) && !inPersonRule(sem, code, type, u.n);
 
-// Weekly commitments outside the courses (a chavruta…), from the semester file:
-//   "personal": [{ "id", "title", "emoji", "day", "start", "end", "place" }]
+// Commitments outside the courses, from the semester file — weekly ("day", e.g. a chavruta) or
+// one-time ("date", e.g. a homework interview):
+//   "personal": [{ "id", "title", "emoji", "day" | "date", "start", "end", "place" }]
 export const personalItems = (sem) => sem.personal || [];
+export const personalOnDate = (item, d) => (item.date ? item.date === ymd(d) : item.day === d.getDay());
 // Occurrences that overlap [from, to), within the semester: [{ item, start, end, key }].
 export function personalBetween(sem, from, to) {
   const items = personalItems(sem);
@@ -312,7 +314,7 @@ export function personalBetween(sem, from, to) {
   const last = new Date(Math.min(+parseDate(sem.end) + 864e5, +to));
   for (const d = first; d < last; d.setDate(d.getDate() + 1)) {
     for (const item of items) {
-      if (item.day !== d.getDay()) continue;
+      if (!personalOnDate(item, d)) continue;
       const start = at(d, item.start);
       const end = at(d, item.end);
       if (end > from && start < to) out.push({ item, start, end, key: `${sem.id}/personal/${item.id}/${ymd(d)}` });
