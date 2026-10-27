@@ -6,6 +6,8 @@ import { parseIcs, icsTaskChanges, cleanTitle } from '../ics.js';
 import { computeUnits, mergeTasks } from '../schedule.js';
 
 const sem = JSON.parse(readFileSync(new URL('../semesters/2027A.json', import.meta.url)));
+// the time conversion / deletion cases below are about Moodle's own times, not a course's deadline rule
+const semRaw = { ...sem, dueRules: [] };
 const ics = (events) => ['BEGIN:VCALENDAR', ...events.flatMap((e) => [
   'BEGIN:VEVENT', `UID:${e.uid}@moodle.huji.ac.il/2026-27`, `SUMMARY:${e.summary}`,
   `DTSTART:${e.start}`, `CATEGORIES:${e.cat}`, 'END:VEVENT']), 'END:VCALENDAR'].join('\r\n');
@@ -37,7 +39,7 @@ test('Moodle export: UTC → Israel time, rules, no duplicates', () => {
     { uid: 99, summary: 'Ex 09 2025-26 is due', start: '20261215T085839Z', cat: '83335-EE' },
     { uid: 98, summary: 'Something opens', start: '20261215T085839Z', cat: '83335-EE' },
   ]));
-  const changes = icsTaskChanges(sem, events, tasksAt(new Date(2027, 1, 1)));
+  const changes = icsTaskChanges(semRaw, events, tasksAt(new Date(2027, 1, 1)));
   assert.deepEqual(changes, [
     { id: '67315-lab-7', d: { due: '2026-12-04T12:00' } }, // differs from the rule → update
     { id: 'ics-99', d: { course: '83335', title: 'Ex 09', kind: 'hw', due: '2026-12-15T10:58', note: 'מהמודל' } },
@@ -60,8 +62,8 @@ test('an outdated export (12.10) cannot bring back assignments Moodle has delete
   const tasks = mergeTasks(sem, computeUnits(sem, now), {}, now, { includeHidden: true });
   const progress = applyChanges({}, icsTaskChanges(sem, old, tasks, { now }));
   const visible = mergeTasks(sem, computeUnits(sem, now), progress, now).map((x) => x.id);
-  // (54053, "תרגיל 02", was published again by the course on 25.10 with a new date — it's real now)
-  for (const id of ['ics-54054', 'ics-54055', 'ics-54056', 'ics-54058']) assert.ok(!visible.includes(id), id);
+  // (54053 and 54054, "תרגיל 02/03", were published again by the course with new dates — real now)
+  for (const id of ['ics-54055', 'ics-54056', 'ics-54058']) assert.ok(!visible.includes(id), id);
 });
 
 test('live export (Hebrew titles, C++ labs, deletions)', () => {
@@ -114,9 +116,21 @@ test('a deleted assignment that Moodle publishes again with a new date comes bac
   const { icsTaskChanges } = await import('../ics.js');
   const sem = { courses: [{ code: '83335' }], icsRules: [] };
   const deleted = [{ id: 'ics-54053', course: '83335', title: 'תרגיל 02', kind: 'hw', due: '2026-10-19T11:58', deleted: true }];
+  const semWith = { ...sem, tasks: deleted }; // as in the semester file: merged task lists leave deleted ones out
   const ev = (start) => ({ uid: '54053@moodle.huji.ac.il', summary: 'תרגיל 02 2025-26 is due', category: '83335-מבוא להנדסת חשמל', start: new Date(start) });
   const now = new Date('2026-10-25T12:00:00+02:00');
-  assert.deepEqual(icsTaskChanges(sem, [ev('2026-11-01T23:59:00+02:00')], deleted, { now }),
-    [{ id: 'ics-54053', d: { due: '2026-11-01T23:59', deleted: false } }]);
-  assert.deepEqual(icsTaskChanges(sem, [ev('2026-10-19T11:58:00+03:00')], deleted, { now }), []); // the old copy: stays deleted
+  const back = icsTaskChanges(semWith, [ev('2026-11-01T23:59:00+02:00')], [], { now });
+  assert.equal(back.length, 1);
+  assert.equal(back[0].d.due, '2026-11-01T23:59');
+  assert.equal(back[0].d.deleted, false);
+  assert.deepEqual(icsTaskChanges(semWith, [ev('2026-10-19T11:58:00+03:00')], [], { now }), []); // the old copy: stays deleted
+});
+
+test('dueRules: the course rule (Sunday 23:59) closest to Moodle’s time', async () => {
+  const { ruleDue } = await import('../ics.js');
+  const rule = { weekday: 0, time: '23:59' };
+  const at = (s) => ruleDue(new Date(s), rule).toLocaleString('sv-SE', { timeZone: 'Asia/Jerusalem' }).slice(0, 16);
+  assert.equal(at('2026-11-02T23:59:00+02:00'), '2026-11-01 23:59'); // Moodle: Monday 23:59
+  assert.equal(at('2026-11-09T12:59:00+02:00'), '2026-11-08 23:59'); // Moodle: Monday 12:59
+  assert.equal(at('2026-11-01T23:59:00+02:00'), '2026-11-01 23:59'); // already right
 });

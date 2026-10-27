@@ -60,15 +60,32 @@ export const cleanTitle = (summary) =>
 
 // Returns [{ id, d }] — task data to merge into `<sem>/taskdata/<id>`:
 // for new tasks the full task, for existing tasks only the changed date field.
+// A course's own deadline rule over Moodle's time, e.g. Intro to EE "Sunday 23:59" while Moodle
+// shows Monday 23:59 or Monday 12:59: the given weekday/time closest to Moodle's time.
+//   "dueRules": [{ "course", "weekday" (0 = Sunday), "time": "HH:MM", "from": "YYYY-MM-DD", "note" }]
+// (only for deadlines from `from` on — earlier ones followed the old rule)
+export function ruleDue(start, rule) {
+  const [h, m] = rule.time.split(':').map(Number);
+  let best = null;
+  for (let k = -7; k <= 7; k++) {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + k, h, m);
+    if (d.getDay() !== rule.weekday) continue;
+    if (!best || Math.abs(d - start) < Math.abs(best - start)) best = d;
+  }
+  return best;
+}
+
 export function icsTaskChanges(sem, events, existingTasks, { now } = {}) {
   const courseCodes = new Set(sem.courses.map((c) => c.code));
   const byId = new Map(existingTasks.map((t) => [t.id, t]));
+  // deleted tasks never reach existingTasks (merged task lists leave them out)
+  const deleted = new Map((sem.tasks || []).filter((t) => t.deleted).map((t) => [t.id, t]));
   const changes = [];
   for (const ev of events) {
     const rule = (sem.icsRules || []).find((r) => new RegExp(r.match).test(ev.summary));
     if (rule?.ignore) continue;
-    const stamp = localStamp(ev.start);
     if (rule?.task) {
+      const stamp = localStamp(ev.start);
       const groups = ev.summary.match(new RegExp(rule.match));
       const id = rule.task.replace(/\{(\d)\}/g, (_, n) => groups[n]);
       const current = byId.get(id)?.[rule.field];
@@ -82,13 +99,20 @@ export function icsTaskChanges(sem, events, existingTasks, { now } = {}) {
     const course = ev.category?.match(/^(\d{5})/)?.[1];
     if (!courseCodes.has(course)) continue;
     const id = 'ics-' + ev.uid.split('@')[0];
+    const dueRule = (sem.dueRules || []).find((r) => r.course === course
+      && (!r.from || ev.start >= new Date(`${r.from}T00:00:00`)));
+    const stamp = dueRule ? localStamp(ruleDue(ev.start, dueRule)) : localStamp(ev.start);
     const existing = byId.get(id);
-    if (!existing) {
-      changes.push({ id, d: { course, title: cleanTitle(ev.summary), kind: 'hw', due: stamp, note: 'מהמודל' } });
-    } else if (existing.deleted) {
+    const gone = deleted.get(id) || (existing?.deleted ? existing : null);
+    if (gone) {
       // Deleted in Moodle earlier and published again: only with a new, upcoming date (an
       // outdated export still holding the deleted copy must not bring it back).
-      if (existing.due !== stamp && (!now || ev.start > now)) changes.push({ id, d: { due: stamp, deleted: false } });
+      // judged by Moodle's own date (before any course rule): a re-publish changes it, an old copy doesn't
+      if (gone.due !== localStamp(ev.start) && (!now || ev.start > now)) {
+        changes.push({ id, d: { course, title: cleanTitle(ev.summary), kind: 'hw', due: stamp, note: 'פורסם מחדש במודל', deleted: false } });
+      }
+    } else if (!existing) {
+      changes.push({ id, d: { course, title: cleanTitle(ev.summary), kind: 'hw', due: stamp, note: 'מהמודל' } });
     } else if (existing.due !== stamp) {
       changes.push({ id, d: { due: stamp } });
     }
