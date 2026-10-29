@@ -186,9 +186,15 @@ function readinessLine(t, courses) {
 function taskLink(t, course) {
   const url = taskUrl(t, course);
   if (!url) return '';
-  const label = url === t.url && !url.includes('/calendar/view.php') ? 'מטלה ↗' : 'מודל ↗';
-  return `<a class="link task-link" href="${esc(url)}" target="_blank" rel="noopener">${label}</a>`;
+  const label = url === t.url && !url.includes('/calendar/view.php') ? 'פתח את המטלה' : 'פתח במודל';
+  return `<a class="task-link" href="${esc(url)}" target="_blank" rel="noopener" title="${label}" aria-label="${label}">${MOODLE_ICON}</a>`;
 }
+// Moodle's logo (cap over an "m"), traced; muted like the rest of the meta text (style.css)
+const MOODLE_ICON = `<svg viewBox="158 160 584 424" width="19" height="14" aria-hidden="true"><g fill="currentColor">`
+  + '<path d="M163 287L305 190L497 168L430 228L258 287Z"/><path d="M258 287L263 335L375 363L448 298L430 228Z"/>'
+  + '<rect x="186" y="287" width="24" height="240"/><path d="M282 370L355 392V577H282Z"/>'
+  + '<path d="M430 340L470 292L492 290C510 275 560 263 605 263C680 263 738 320 738 395V577H666V395C666 362 640 334 605 334C572 334 545 362 545 395V577H473V385Z"/>'
+  + '</g></svg>';
 
 function taskForm(t, courses) {
   const [date, time] = (t.due || '').split('T');
