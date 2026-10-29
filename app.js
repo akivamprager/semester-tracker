@@ -159,6 +159,7 @@ function taskRow(t, courses) {
       <div class="meta when">${t.kind === 'practice' && t.dueDate ? 'יעד: ' : ''}${when}${t.estimated && t.kind !== 'practice' ? ' · <span class="est">משוער</span>' : ''}</div>
       ${t.note ? `<div class="meta">${esc(t.note)}</div>` : ''}
       ${isExam && !t.done ? readinessLine(t, courses) : ''}
+      ${taskLink(t)}
     </div>
     <button class="link" data-action="edit-task" data-id="${esc(t.id)}">✎</button>
   </div>`;
@@ -176,6 +177,13 @@ function readinessLine(t, courses) {
   return `<div class="meta readiness ${ready ? 'ready' : r.owed.length ? 'behind' : ''}">📚 ${ready
     ? `כל החומר נצפה (${r.total} שיעורים) ✓`
     : `חומר: ${r.done}/${r.total} שיעורים נצפו${r.owed.length ? ` · להשלים: ${esc(missing)}` : ''}${r.upcoming ? ` · עוד ${r.upcoming} יתקיימו לפני` : ''}`}</div>`;
+}
+
+// Moodle: the event in Moodle's calendar (→ "עבור לפעילות"), or a link pasted in the task form.
+function taskLink(t) {
+  if (!/^https:\/\//.test(t.url || '')) return '';
+  const label = t.url.includes('/calendar/view.php') ? 'במודל ↗' : 'פתח מטלה ↗';
+  return `<a class="link task-link" href="${esc(t.url)}" target="_blank" rel="noopener">${label}</a>`;
 }
 
 function taskForm(t, courses) {
@@ -197,6 +205,7 @@ function taskForm(t, courses) {
       <option value="exam" ${t.kind === 'exam' ? 'selected' : ''}>בחינה / בוחן</option>
     </select>
     <label>הערה</label><input type="text" name="note" value="${esc(t.note || '')}">
+    <label>קישור (למשל דף המטלה במודל)</label><input type="url" name="url" value="${esc(t.url || '')}" placeholder="https://moodle.huji.ac.il/…" dir="ltr" pattern="https://.*">
     <div class="row">
       <button class="btn primary" type="submit">שמור</button>
       <button class="btn" type="button" data-action="cancel-edit">ביטול</button>
@@ -1240,6 +1249,7 @@ document.body.addEventListener('submit', (e) => {
     kind: f.get('kind'),
     note: f.get('note').trim(),
     due: date ? (time ? `${date}T${time}` : date) : '',
+    url: /^https:\/\//.test(f.get('url').trim()) ? f.get('url').trim() : '',
   };
   const id = form.dataset.id === 'new' ? 'u' + Date.now().toString(36) : form.dataset.id;
   state.editing = null;

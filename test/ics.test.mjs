@@ -2,7 +2,7 @@ process.env.TZ = 'Asia/Jerusalem';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { parseIcs, icsTaskChanges, cleanTitle } from '../ics.js';
+import { parseIcs, icsTaskChanges, cleanTitle, moodleUrl } from '../ics.js';
 import { computeUnits, mergeTasks } from '../schedule.js';
 
 const sem = JSON.parse(readFileSync(new URL('../semesters/2027A.json', import.meta.url)));
@@ -11,6 +11,10 @@ const semRaw = { ...sem, dueRules: [] };
 const ics = (events) => ['BEGIN:VCALENDAR', ...events.flatMap((e) => [
   'BEGIN:VEVENT', `UID:${e.uid}@moodle.huji.ac.il/2026-27`, `SUMMARY:${e.summary}`,
   `DTSTART:${e.start}`, `CATEGORIES:${e.cat}`, 'END:VEVENT']), 'END:VCALENDAR'].join('\r\n');
+// date logic only: leave out the Moodle links (tested on their own below)
+const noUrl = (changes) => changes
+  .map(({ id, d: { url, ...d } }) => ({ id, d }))
+  .filter(({ d }) => Object.keys(d).length);
 const tasksAt = (now) => mergeTasks(sem, computeUnits(sem, now), {}, now);
 
 test('weekly lab rule matches Moodle: opens Sun 08:00, due next Thu 23:59, skips Hanukkah', () => {
@@ -39,7 +43,7 @@ test('Moodle export: UTC → Israel time, rules, no duplicates', () => {
     { uid: 99, summary: 'Ex 09 2025-26 is due', start: '20261215T085839Z', cat: '83335-EE' },
     { uid: 98, summary: 'Something opens', start: '20261215T085839Z', cat: '83335-EE' },
   ]));
-  const changes = icsTaskChanges(semRaw, events, tasksAt(new Date(2027, 1, 1)));
+  const changes = noUrl(icsTaskChanges(semRaw, events, tasksAt(new Date(2027, 1, 1))));
   assert.deepEqual(changes, [
     { id: '67315-lab-7', d: { due: '2026-12-04T12:00' } }, // differs from the rule → update
     { id: 'ics-99', d: { course: '83335', title: 'Ex 09', kind: 'hw', due: '2026-12-15T10:58', note: 'מהמודל' } },
@@ -76,7 +80,7 @@ test('live export (Hebrew titles, C++ labs, deletions)', () => {
     { uid: 1, summary: "תחילת סמסטר א'", start: '20261010T210000Z', cat: 'אירועי מערכת' },
   ]));
   const tasks = mergeTasks(sem, computeUnits(sem, now), {}, now, { includeHidden: true });
-  const changes = icsTaskChanges(sem, events, tasks, { now });
+  const changes = noUrl(icsTaskChanges(sem, events, tasks, { now }));
   const byId = Object.fromEntries(changes.map((c) => [c.id, c.d]));
   assert.equal(byId['ics-60001'].title, 'תרגיל 2'); // Hebrew "submit 'X'" → new task X
   assert.equal(byId['ics-60001'].due, '2026-11-02T23:59'); // 21:59Z after the clock change = 23:59
@@ -109,7 +113,7 @@ test('import also updates tasks that are still hidden', () => {
   const now = new Date(2026, 9, 12);
   const all = mergeTasks(sem, computeUnits(sem, now), {}, now, { includeHidden: true });
   const events = parseIcs(ics([{ uid: 2, summary: 'C Lab week 7 closes', start: '20261204T215900Z', cat: '67315_1-C' }]));
-  assert.deepEqual(icsTaskChanges(sem, events, all), [{ id: '67315-lab-7', d: { due: '2026-12-04T23:59' } }]);
+  assert.deepEqual(noUrl(icsTaskChanges(sem, events, all)), [{ id: '67315-lab-7', d: { due: '2026-12-04T23:59' } }]);
 });
 
 test('a deleted assignment that Moodle publishes again with a new date comes back', async () => {
@@ -133,4 +137,18 @@ test('dueRules: the course rule (Sunday 23:59) closest to Moodle’s time', asyn
   assert.equal(at('2026-11-02T23:59:00+02:00'), '2026-11-01 23:59'); // Moodle: Monday 23:59
   assert.equal(at('2026-11-09T12:59:00+02:00'), '2026-11-08 23:59'); // Moodle: Monday 12:59
   assert.equal(at('2026-11-01T23:59:00+02:00'), '2026-11-01 23:59'); // already right
+});
+
+test('Moodle links: the event on its day in Moodle’s calendar; a pasted link is kept', () => {
+  const now = new Date(2026, 9, 14, 12);
+  const events = parseIcs(ics([{ uid: 54051, summary: 'Ex 01 2025-26 is due', start: '20261012T085839Z', cat: '83335-EE' }]));
+  const url = 'https://moodle.huji.ac.il/2026-27/calendar/view.php?view=day&time=1791795519#event_54051';
+  assert.equal(moodleUrl(events[0]), url);
+  assert.equal(icsTaskChanges(semRaw, events, [], { now })[0].d.url, url); // new task
+  const old = { id: 'ics-54051', due: '2026-10-12T11:58', dueDate: new Date(2026, 9, 12, 11, 58) };
+  assert.deepEqual(icsTaskChanges(semRaw, events, [old], { now }), [{ id: 'ics-54051', d: { url } }]); // backfilled
+  assert.deepEqual(icsTaskChanges(semRaw, events, [{ ...old, url }], { now }), []);
+  const pasted = 'https://moodle.huji.ac.il/2026-27/mod/assign/view.php?id=1';
+  assert.deepEqual(icsTaskChanges(semRaw, events, [{ ...old, url: pasted }], { now }), []);
+  assert.equal(moodleUrl({ uid: '5@evil.example/x', start: new Date() }), null); // only HUJI's Moodle
 });

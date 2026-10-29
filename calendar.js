@@ -91,11 +91,14 @@ export function buildCalendar(sem, progress) {
     const when = timed
       ? [`DTSTART:${utc(task.dueDate)}`, `DTEND:${utc(new Date(+task.dueDate + (task.kind === 'exam' ? 3 * 3600e3 : 15 * 60e3)))}`]
       : [`DTSTART;VALUE=DATE:${dateOnly(task.dueDate)}`];
+    const link = /^https:\/\//.test(task.url || '') ? task.url : '';
+    const desc = [task.note, link && `במודל: ${link}`].filter(Boolean).join('\n');
     add([
       `UID:task-${task.id}@semester-tracker`,
       ...when,
       `SUMMARY:${text(title)}`,
-      task.note ? `DESCRIPTION:${text(task.note)}` : null,
+      desc ? `DESCRIPTION:${text(desc)}` : null,
+      link ? `URL:${link}` : null,
       c ? `CATEGORIES:${text(c.short)}` : null,
     ].filter(Boolean));
   }

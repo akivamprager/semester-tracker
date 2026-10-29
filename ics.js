@@ -58,6 +58,16 @@ export const cleanTitle = (summary) =>
     .replace(/\s+\d{4}-\d{2}\b/g, '')
     .trim();
 
+// Moodle's calendar on the event's day, scrolled to it ("עבור לפעילות" opens the assignment).
+// The export has no link of its own; the site comes from the UID ("54051@moodle.huji.ac.il/2026-27").
+export function moodleUrl(ev) {
+  const m = (ev.uid || '').match(/^(\d+)@([a-z0-9.-]+)(\/[\w-]+)?$/i);
+  if (!m || !/(^|\.)huji\.ac\.il$/i.test(m[2])) return null;
+  return `https://${m[2]}${m[3] || ''}/calendar/view.php?view=day&time=${Math.floor(ev.start / 1000)}#event_${m[1]}`;
+}
+// a link the user pasted (anything but our calendar link) is kept
+const autoUrl = (url) => !url || url.includes('/calendar/view.php');
+
 // Returns [{ id, d }] — task data to merge into `<sem>/taskdata/<id>`:
 // for new tasks the full task, for existing tasks only the changed date field.
 // A course's own deadline rule over Moodle's time, e.g. Intro to EE "Sunday 23:59" while Moodle
@@ -90,9 +100,12 @@ export function icsTaskChanges(sem, events, existingTasks, { now } = {}) {
       const id = rule.task.replace(/\{(\d)\}/g, (_, n) => groups[n]);
       const current = byId.get(id)?.[rule.field];
       const currentStamp = current instanceof Date ? localStamp(current) : current;
-      if (byId.has(id) && currentStamp !== stamp) {
-        changes.push({ id, d: { [rule.field]: stamp } });
-      }
+      if (!byId.has(id)) continue;
+      const d = {};
+      if (currentStamp !== stamp) d[rule.field] = stamp;
+      const url = rule.field === 'due' ? moodleUrl(ev) : null;
+      if (url && autoUrl(byId.get(id).url) && byId.get(id).url !== url) d.url = url;
+      if (Object.keys(d).length) changes.push({ id, d });
       continue;
     }
     if (deadlineTitle(ev.summary) === null) continue;
@@ -103,18 +116,22 @@ export function icsTaskChanges(sem, events, existingTasks, { now } = {}) {
       && (!r.from || ev.start >= new Date(`${r.from}T00:00:00`)));
     const stamp = dueRule ? localStamp(ruleDue(ev.start, dueRule)) : localStamp(ev.start);
     const existing = byId.get(id);
+    const url = moodleUrl(ev);
     const gone = deleted.get(id) || (existing?.deleted ? existing : null);
     if (gone) {
       // Deleted in Moodle earlier and published again: only with a new, upcoming date (an
       // outdated export still holding the deleted copy must not bring it back).
       // judged by Moodle's own date (before any course rule): a re-publish changes it, an old copy doesn't
       if (gone.due !== localStamp(ev.start) && (!now || ev.start > now)) {
-        changes.push({ id, d: { course, title: cleanTitle(ev.summary), kind: 'hw', due: stamp, note: 'פורסם מחדש במודל', deleted: false } });
+        changes.push({ id, d: { course, title: cleanTitle(ev.summary), kind: 'hw', due: stamp, note: 'פורסם מחדש במודל', url, deleted: false } });
       }
     } else if (!existing) {
-      changes.push({ id, d: { course, title: cleanTitle(ev.summary), kind: 'hw', due: stamp, note: 'מהמודל' } });
-    } else if (existing.due !== stamp) {
-      changes.push({ id, d: { due: stamp } });
+      changes.push({ id, d: { course, title: cleanTitle(ev.summary), kind: 'hw', due: stamp, note: 'מהמודל', url } });
+    } else {
+      const d = {};
+      if (existing.due !== stamp) d.due = stamp;
+      if (url && autoUrl(existing.url) && existing.url !== url) d.url = url;
+      if (Object.keys(d).length) changes.push({ id, d });
     }
   }
   // Deleted in Moodle: an upcoming `ics-` task inside the export's time window that the export

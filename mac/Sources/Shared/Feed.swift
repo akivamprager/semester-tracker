@@ -34,6 +34,7 @@ struct CatchUp: Codable, Identifiable {
 struct TaskItem: Codable, Identifiable {
     var course, short, emoji, color, key, title, kind: String
     var due: Date
+    var url: String? // the assignment in Moodle
     var id: String { key }
 }
 

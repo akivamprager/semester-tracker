@@ -71,6 +71,7 @@ export function buildWidget(sem, progress, now) {
       return {
         ...(c ? courseInfo(c) : { course: t.course || '', short: '', emoji: '📌', color: '' }),
         key: `${sem.id}/task/${t.id}`, title: t.title, kind: t.kind, due: iso(t.dueDate),
+        ...(/^https:\/\//.test(t.url || '') ? { url: t.url } : {}),
       };
     });
 
