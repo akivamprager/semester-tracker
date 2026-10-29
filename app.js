@@ -1,4 +1,4 @@
-import { computeUnits, mergeTasks, sessionsBetween, gapsOn, atHome, homeSession, inPersonRule, dayNote, homeDays, HOME_PREFS_KEY, personalBetween, personalOn, DAY_LABELS } from './schedule.js';
+import { computeUnits, mergeTasks, sessionsBetween, gapsOn, atHome, homeSession, inPersonRule, dayNote, homeDays, HOME_PREFS_KEY, personalBetween, personalOn, DAY_LABELS, httpsOnly, taskUrl } from './schedule.js';
 import { dailySummary } from './summary.js';
 import { badgeCount, badgePrefs, PREFS_KEY } from './badge.js';
 import { buildCalendar } from './calendar.js';
@@ -161,7 +161,7 @@ function taskRow(t, courses) {
       ${isExam && !t.done ? readinessLine(t, courses) : ''}
     </div>
     <div class="task-side">
-      ${taskLink(t)}
+      ${taskLink(t, course)}
       <button class="link" data-action="edit-task" data-id="${esc(t.id)}">✎</button>
     </div>
   </div>`;
@@ -181,11 +181,13 @@ function readinessLine(t, courses) {
     : `חומר: ${r.done}/${r.total} שיעורים נצפו${r.owed.length ? ` · להשלים: ${esc(missing)}` : ''}${r.upcoming ? ` · עוד ${r.upcoming} יתקיימו לפני` : ''}`}</div>`;
 }
 
-// Moodle: the event in Moodle's calendar (→ "עבור לפעילות"), or a link pasted in the task form.
-function taskLink(t) {
-  if (!/^https:\/\//.test(t.url || '')) return '';
-  const label = t.url.includes('/calendar/view.php') ? 'מודל ↗' : 'מטלה ↗';
-  return `<a class="link task-link" href="${esc(t.url)}" target="_blank" rel="noopener">${label}</a>`;
+// Moodle: the event in Moodle's calendar (→ "עבור לפעילות"), a link pasted in the task form,
+// else the course's Moodle page.
+function taskLink(t, course) {
+  const url = taskUrl(t, course);
+  if (!url) return '';
+  const label = url === t.url && !url.includes('/calendar/view.php') ? 'מטלה ↗' : 'מודל ↗';
+  return `<a class="link task-link" href="${esc(url)}" target="_blank" rel="noopener">${label}</a>`;
 }
 
 function taskForm(t, courses) {
@@ -667,7 +669,10 @@ function viewCourses(courses) {
           <span>✓ ${u.label} ${u.n}${u.topic ? ' · ' + esc(u.topic) : ''}</span>
           <button class="link" data-action="mark" data-key="${u.key}" data-s="">בטל</button>
         </div>`).join('')}</details>` : ''}
-      ${c.url ? `<a class="link" href="${esc(c.url)}" target="_blank" rel="noopener">שנתון ↗</a>` : ''}
+      <div class="row course-links">
+        ${httpsOnly(c.moodle) ? `<a class="link" href="${esc(c.moodle)}" target="_blank" rel="noopener">מודל ↗</a>` : ''}
+        ${c.url ? `<a class="link" href="${esc(c.url)}" target="_blank" rel="noopener">שנתון ↗</a>` : ''}
+      </div>
     </section>`;
   }).join('');
 }

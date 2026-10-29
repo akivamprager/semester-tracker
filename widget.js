@@ -6,7 +6,7 @@
 // Items carry their progress `key`; the Mac app marks one done by writing
 // progress[key] = { s: 'done', t } (the same entry the web app writes).
 
-import { computeUnits, mergeTasks, homeSession, inPersonRule, personalBetween } from './schedule.js';
+import { computeUnits, mergeTasks, homeSession, inPersonRule, personalBetween, taskUrl } from './schedule.js';
 import { planDay, prayerPrefs, prayerKey, PRAYER_LABELS } from './prayer.js';
 import { recKey, sessionKey, viewerUrl } from './recordings.js';
 
@@ -71,7 +71,7 @@ export function buildWidget(sem, progress, now) {
       return {
         ...(c ? courseInfo(c) : { course: t.course || '', short: '', emoji: '📌', color: '' }),
         key: `${sem.id}/task/${t.id}`, title: t.title, kind: t.kind, due: iso(t.dueDate),
-        ...(/^https:\/\//.test(t.url || '') ? { url: t.url } : {}),
+        ...(taskUrl(t, c) ? { url: taskUrl(t, c) } : {}),
       };
     });
 

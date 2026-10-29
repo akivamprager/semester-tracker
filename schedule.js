@@ -122,6 +122,7 @@ export function computeUnits(sem, now) {
       emoji: course.emoji || '📚',
       color: course.color || DEFAULT_COLORS[ci % DEFAULT_COLORS.length],
       url: course.url,
+      moodle: course.moodle,
       info: course.info || [],
       quizMaterial: course.quizMaterial || 'all', // 'recitation': quizzes cover only what was practiced
       types,
@@ -231,6 +232,11 @@ function weeklyTasks(sem, rule) {
 // All tasks for a semester: built-in ones merged with the user's additions/edits from the
 // synced progress map (see app.js for the key layout). Tasks with `showFrom` stay hidden
 // until then.
+// Links from the data files / Moodle are opened only if they are web pages.
+export const httpsOnly = (url) => (/^https:\/\//.test(url || '') ? url : '');
+// A task's link: its own (Moodle event or pasted), else its course's Moodle page ("moodle").
+export const taskUrl = (t, course) => httpsOnly(t.url) || httpsOnly(course?.moodle);
+
 export function mergeTasks(sem, courses, progress, now, { includeHidden = false } = {}) {
   const prefix = `${sem.id}/taskdata/`;
   const byId = new Map(builtinTasks(sem, courses).map((t) => [t.id, t]));

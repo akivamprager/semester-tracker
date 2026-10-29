@@ -2,7 +2,7 @@
 // Written to the sync gist as calendar.ics (by the app on sync and by tools/morning.mjs),
 // so Google Calendar / Apple Calendar can subscribe to its raw URL.
 // Output is deterministic (no "now" inside) so it's only re-uploaded when it changes.
-import { computeUnits, mergeTasks, ymd, homeSession, inPersonRule, personalBetween } from './schedule.js';
+import { computeUnits, mergeTasks, ymd, homeSession, inPersonRule, personalBetween, taskUrl } from './schedule.js';
 import { planSemester, prayerPrefs, prayerKey, PRAYER_LABELS } from './prayer.js';
 
 export const CALENDAR_FILE = 'calendar.ics';
@@ -91,7 +91,7 @@ export function buildCalendar(sem, progress) {
     const when = timed
       ? [`DTSTART:${utc(task.dueDate)}`, `DTEND:${utc(new Date(+task.dueDate + (task.kind === 'exam' ? 3 * 3600e3 : 15 * 60e3)))}`]
       : [`DTSTART;VALUE=DATE:${dateOnly(task.dueDate)}`];
-    const link = /^https:\/\//.test(task.url || '') ? task.url : '';
+    const link = taskUrl(task, c);
     const desc = [task.note, link && `במודל: ${link}`].filter(Boolean).join('\n');
     add([
       `UID:task-${task.id}@semester-tracker`,

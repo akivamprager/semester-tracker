@@ -697,6 +697,7 @@
    "emoji": "🎲",
    "color": "#8b5cf6",
    "url": "https://shnaton.huji.ac.il/course/80430",
+   "moodle": "https://moodle.huji.ac.il/2026-27/course/view.php?id=2043",
    "myGroups": {
     "lecture": "1-01",
     "recitation": "2-04"
@@ -860,6 +861,7 @@
    "emoji": "🌊",
    "color": "#0d9488",
    "url": "https://shnaton.huji.ac.il/course/83325",
+   "moodle": "https://moodle.huji.ac.il/2026-27/course/view.php?id=1399",
    "myGroups": {
     "lecture": "1-01",
     "recitation": "2-03"
@@ -940,6 +942,7 @@
    "emoji": "⚡",
    "color": "#d97706",
    "url": "https://shnaton.huji.ac.il/course/83335",
+   "moodle": "https://moodle.huji.ac.il/2026-27/course/view.php?id=1398",
    "myGroups": {
     "lecture": "1-01",
     "recitation": "2-03"
@@ -1017,6 +1020,7 @@
    "emoji": "🌳",
    "color": "#16a34a",
    "url": "https://shnaton.huji.ac.il/course/67109",
+   "moodle": "https://moodle.huji.ac.il/2026-27/course/view.php?id=2585",
    "myGroups": {
     "lecture": "1-03",
     "recitation": "2-09"
@@ -1129,6 +1133,7 @@
    "emoji": "💻",
    "color": "#dc2626",
    "url": "https://shnaton.huji.ac.il/course/67315",
+   "moodle": "https://moodle.huji.ac.il/2026-27/course/view.php?id=5384",
    "myGroups": {
     "lecture": "1-03",
     "recitation": "2-12"
