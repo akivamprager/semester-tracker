@@ -158,7 +158,7 @@ struct Panel: View {
                             }
                             Spacer()
                             if let u = t.url {
-                                Button { open(u) } label: { Image(systemName: "arrow.up.forward.square") }.help("פתח במודל")
+                                Button { self.open(u) } label: { Image(systemName: "arrow.up.forward.square") }.help("פתח במודל")
                             }
                             if t.kind != "exam" { doneButton(t.key) }
                         }
