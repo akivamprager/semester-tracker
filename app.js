@@ -159,9 +159,11 @@ function taskRow(t, courses) {
       <div class="meta when">${t.kind === 'practice' && t.dueDate ? 'יעד: ' : ''}${when}${t.estimated && t.kind !== 'practice' ? ' · <span class="est">משוער</span>' : ''}</div>
       ${t.note ? `<div class="meta">${esc(t.note)}</div>` : ''}
       ${isExam && !t.done ? readinessLine(t, courses) : ''}
-      ${taskLink(t)}
     </div>
-    <button class="link" data-action="edit-task" data-id="${esc(t.id)}">✎</button>
+    <div class="task-side">
+      ${taskLink(t)}
+      <button class="link" data-action="edit-task" data-id="${esc(t.id)}">✎</button>
+    </div>
   </div>`;
 }
 
@@ -182,7 +184,7 @@ function readinessLine(t, courses) {
 // Moodle: the event in Moodle's calendar (→ "עבור לפעילות"), or a link pasted in the task form.
 function taskLink(t) {
   if (!/^https:\/\//.test(t.url || '')) return '';
-  const label = t.url.includes('/calendar/view.php') ? 'במודל ↗' : 'פתח מטלה ↗';
+  const label = t.url.includes('/calendar/view.php') ? 'מודל ↗' : 'מטלה ↗';
   return `<a class="link task-link" href="${esc(t.url)}" target="_blank" rel="noopener">${label}</a>`;
 }
 

@@ -125,7 +125,8 @@ p.help { font-size: 13px; color: var(--muted); line-height: 1.5; }
 .task { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--line); }
 .card h2 + .task, .task:first-of-type { border-top: none; }
 .task-body { flex: 1; min-width: 0; }
-.task-link { display: inline-block; margin-top: 3px; text-decoration: none; }
+.task-side { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.task-link { text-decoration: none; white-space: nowrap; }
 .task-check { width: 22px; height: 22px; margin-top: 2px; accent-color: var(--ok); flex-shrink: 0; }
 .task-icon { width: 22px; text-align: center; flex-shrink: 0; }
 .task.is-done .name { text-decoration: line-through; color: var(--muted); }
