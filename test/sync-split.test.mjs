@@ -85,3 +85,25 @@ test('two private gists from a race are merged into the oldest', async () => {
   assert.deepEqual(JSON.parse(gists.get('p1').files['push.json']).subs.map((s) => s.endpoint), ['e1', 'e2']);
   assert.equal(gists.get('p2').description, sync.OLD_DESC);
 });
+
+test('calendar + widget: one upload, nothing downloaded, unchanged files skipped', async () => {
+  reset();
+  add('priv', 'semester-tracker-progress', { 'progress.json': '{}' });
+  add('pub', 'semester-tracker-published', { 'calendar.ics': 'OLD' });
+  store.set('tracker.token', 'tok');
+  const sync = await fresh();
+  await sync.sync(); // the start's listing is shared with the published lookup
+  const calls = [];
+  const real = globalThis.fetch;
+  globalThis.fetch = (url, opts = {}) => { calls.push(`${opts.method || 'GET'} ${new URL(String(url)).pathname}`); return real(url, opts); };
+  try {
+    const url = await sync.publish({ calendar: 'CAL', widget: { data: { a: 1 }, content: '{"a":1}' } });
+    assert.ok(url.includes('/me/pub/'));
+    assert.deepEqual(calls, ['PATCH /gists/pub']);
+    assert.equal(gists.get('pub').files['calendar.ics'], 'CAL');
+    assert.equal(gists.get('pub').files['widget.json'], '{"a":1}');
+    calls.length = 0;
+    await sync.publish({ calendar: 'CAL', widget: { data: { a: 1 }, content: '{"a":1}' } });
+    assert.deepEqual(calls, []); // nothing changed
+  } finally { globalThis.fetch = real; }
+});

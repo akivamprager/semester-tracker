@@ -68,26 +68,37 @@ async function gh(path, opts = {}) {
 
 // All gists with this description, oldest first — when a race between two devices left two,
 // everyone (app, job, script, Mac app) agrees on the oldest.
-async function listGists(description) {
-  const out = [];
-  for (let page = 1; page < 10; page++) {
-    const list = await gh(`/gists?per_page=100&page=${page}`);
-    out.push(...list.filter((g) => g.description === description));
-    if (list.length < 100) break;
+// One listing per app start serves both lookups (private + published); `fresh` reads it again.
+let listing = null;
+async function listGists(description, { fresh = false } = {}) {
+  if (fresh || !listing) {
+    listing = (async () => {
+      const all = [];
+      for (let page = 1; page < 10; page++) {
+        const list = await gh(`/gists?per_page=100&page=${page}`);
+        all.push(...list);
+        if (list.length < 100) break;
+      }
+      return all;
+    })();
+    listing.catch(() => { listing = null; });
   }
-  return out.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+  return (await listing)
+    .filter((g) => g.description === description)
+    .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
 }
 
-const createGist = (description, files) => gh('/gists', {
-  method: 'POST',
-  body: JSON.stringify({ description, public: false, files }),
-});
+const createGist = async (description, files) => {
+  listing = null;
+  return gh('/gists', { method: 'POST', body: JSON.stringify({ description, public: false, files }) });
+};
 
 const fileText = async (f) => (f.truncated ? (await fetch(f.raw_url)).text() : f.content);
 const isCombined = (g) => Object.keys(g.files || {}).some((f) => PUBLISHED_FILES.includes(f));
 
 // Renamed so nothing picks it up again; ⚙️ lists it (from GitHub) until the user deletes it.
 async function retire(g, description = OLD_DESC) {
+  listing = null;
   await gh(`/gists/${g.id}`, { method: 'PATCH', body: JSON.stringify({ description }) });
 }
 
@@ -173,17 +184,22 @@ async function splitOldGist(old) {
 
 // The gist for calendar.ics / widget.json: the oldest with its description (created when first
 // needed); extras from a race are renamed (they hold only published data).
+// Only its id and owner are needed (uploads replace whole files), so after the first check
+// per start nothing is downloaded.
+const LS_PUBLISHED_OWNER = 'tracker.publishedOwner';
 let publishedChecked = false;
 async function publishedGist() {
   const cached = localStorage.getItem(LS_PUBLISHED);
-  if (cached && publishedChecked) return gh(`/gists/${cached}`);
+  const owner = localStorage.getItem(LS_PUBLISHED_OWNER);
+  if (cached && owner && publishedChecked) return { id: cached, owner };
   const all = await listGists(PUBLISHED_DESC);
-  const gist = all.length ? await gh(`/gists/${all[0].id}`)
-    : await createGist(PUBLISHED_DESC, { 'calendar.ics': { content: 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n' } });
+  const gist = all[0]
+    || await createGist(PUBLISHED_DESC, { 'calendar.ics': { content: 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n' } });
   for (const g of all.slice(1)) await retire(g, PUBLISHED_DUP_DESC);
   localStorage.setItem(LS_PUBLISHED, gist.id);
+  localStorage.setItem(LS_PUBLISHED_OWNER, gist.owner.login);
   publishedChecked = true;
-  return gist;
+  return { id: gist.id, owner: gist.owner.login };
 }
 
 // Retired gists that still exist (⚙️ asks to delete them) — read from GitHub, so every device
@@ -191,7 +207,7 @@ async function publishedGist() {
 export async function oldGists() {
   if (!getToken()) return [];
   try {
-    const all = [...await listGists(OLD_DESC), ...await listGists(PUBLISHED_DUP_DESC)];
+    const all = [...await listGists(OLD_DESC, { fresh: true }), ...await listGists(PUBLISHED_DUP_DESC)];
     return all.map((g) => ({ id: g.id, url: g.html_url || `https://gist.github.com/${g.id}` }));
   } catch { return []; } // offline: ask next time
 }
@@ -281,28 +297,37 @@ export function calendarInfo() {
   try { return JSON.parse(localStorage.getItem(LS_CAL)) || {}; } catch { return {}; }
 }
 
-export async function publishCalendar(content, fileName = 'calendar.ics') {
+// Calendar and widget go up together in one request, and only the files that changed.
+// Returns the calendar's subscription URL.
+const LS_WIDGET = 'tracker.widget'; // last uploaded widget data
+export async function publish({ calendar = null, widget = null } = {}) {
   const info = calendarInfo();
   const pub = localStorage.getItem(LS_PUBLISHED);
-  if (info.url && pub && info.url.includes(`/${pub}/`) && info.published === content) return info.url;
-  const gist = await publishedGist();
-  if (gist.files[fileName]?.content !== content) {
-    await gh(`/gists/${gist.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ files: { [fileName]: { content } } }),
-    });
+  const files = {};
+  if (calendar != null && !(info.url && pub && info.url.includes(`/${pub}/`) && info.published === calendar)) {
+    files['calendar.ics'] = { content: calendar };
   }
-  const url = `https://gist.githubusercontent.com/${gist.owner.login}/${gist.id}/raw/${fileName}`;
-  localStorage.setItem(LS_CAL, JSON.stringify({ url, published: content }));
+  const widgetKey = widget && JSON.stringify(widget.data);
+  if (widget && localStorage.getItem(LS_WIDGET) !== widgetKey) files['widget.json'] = { content: widget.content };
+  if (!Object.keys(files).length) return info.url;
+  let gist = await publishedGist();
+  const upload = () => gh(`/gists/${gist.id}`, { method: 'PATCH', body: JSON.stringify({ files }) });
+  try {
+    await upload();
+  } catch (e) {
+    if (!/GitHub 404/.test(e.message)) throw e;
+    publishedChecked = false; // deleted meanwhile: look it up (or create it) again
+    gist = await publishedGist();
+    await upload();
+  }
+  let url = info.url;
+  if (files['calendar.ics']) {
+    url = `https://gist.githubusercontent.com/${gist.owner}/${gist.id}/raw/calendar.ics`;
+    localStorage.setItem(LS_CAL, JSON.stringify({ url, published: calendar }));
+  }
+  if (files['widget.json']) localStorage.setItem(LS_WIDGET, widgetKey);
   return url;
 }
 
-// Summary for the Mac menu bar app / widget (widget.js). Uploaded only when it changed.
-const LS_WIDGET = 'tracker.widget';
-export async function publishWidget(data, content) {
-  const key = JSON.stringify(data);
-  if (localStorage.getItem(LS_WIDGET) === key) return;
-  const gist = await publishedGist();
-  await gh(`/gists/${gist.id}`, { method: 'PATCH', body: JSON.stringify({ files: { 'widget.json': { content } } }) });
-  localStorage.setItem(LS_WIDGET, key);
-}
+export const publishCalendar = (content) => publish({ calendar: content });
+export const publishWidget = (data, content) => publish({ widget: { data, content } });

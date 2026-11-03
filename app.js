@@ -113,20 +113,29 @@ async function runSync() {
   if (!store.getToken()) { state.sync = { status: 'off', msg: '' }; renderChip(); return; }
   if (syncing) { syncAgain = true; return; }
   syncing = true;
-  state.sync = { status: 'busy', msg: '' };
-  renderChip();
+  // check-offs are already saved on the device; "מסנכרן…" only if the cloud takes a moment
+  const busy = setTimeout(() => { state.sync = { status: 'busy', msg: '' }; renderChip(); }, 700);
   try {
     state.progress = await store.sync();
-    if (calendarEnabled()) await store.publishCalendar(buildCalendar(state.sem, state.progress));
-    // the Mac menu bar app reads this; failing to update it must not fail the sync
-    const widget = buildWidget(state.sem, state.progress, now());
-    await store.publishWidget(widget, widgetFile(widget, now())).catch(() => {});
     state.sync = { status: 'ok', msg: '' };
   } catch (e) {
     state.sync = { status: 'err', msg: e.message };
   }
-  syncing = false;
+  clearTimeout(busy);
   if (!state.editing) render(); else renderChip();
+  if (state.sync.status === 'ok') {
+    // calendar + Mac widget: one upload in the background, after the chip already shows ✓
+    const widget = buildWidget(state.sem, state.progress, now());
+    await store.publish({
+      calendar: calendarEnabled() ? buildCalendar(state.sem, state.progress) : null,
+      widget: { data: widget, content: widgetFile(widget, now()) },
+    }).catch((e) => {
+      if (!calendarEnabled()) return; // only the widget: not worth an error, the next sync retries
+      state.sync = { status: 'err', msg: e.message };
+      renderChip();
+    });
+  }
+  syncing = false;
   if (syncAgain) { syncAgain = false; runSync(); }
 }
 
@@ -186,15 +195,9 @@ function readinessLine(t, courses) {
 function taskLink(t, course) {
   const url = taskUrl(t, course);
   if (!url) return '';
-  const label = url === t.url && !url.includes('/calendar/view.php') ? 'פתח את המטלה' : 'פתח במודל';
-  return `<a class="task-link" href="${esc(url)}" target="_blank" rel="noopener" title="${label}" aria-label="${label}">${MOODLE_ICON}</a>`;
+  const label = url === t.url && !url.includes('/calendar/view.php') ? 'מטלה ↗' : 'מודל ↗';
+  return `<a class="link task-link" href="${esc(url)}" target="_blank" rel="noopener">${label}</a>`;
 }
-// Moodle's logo (cap over an "m"), traced; muted like the rest of the meta text (style.css)
-const MOODLE_ICON = `<svg viewBox="158 160 584 424" width="19" height="14" aria-hidden="true"><g fill="currentColor">`
-  + '<path d="M163 287L305 190L497 168L430 228L258 287Z"/><path d="M258 287L263 335L375 363L448 298L430 228Z"/>'
-  + '<rect x="186" y="287" width="24" height="240"/><path d="M282 370L355 392V577H282Z"/>'
-  + '<path d="M430 340L470 292L492 290C510 275 560 263 605 263C680 263 738 320 738 395V577H666V395C666 362 640 334 605 334C572 334 545 362 545 395V577H473V385Z"/>'
-  + '</g></svg>';
 
 function taskForm(t, courses) {
   const [date, time] = (t.due || '').split('T');
