@@ -7,6 +7,7 @@
 // Inbox entry: <sem>/inbox/mail-<id> = { s: 'set', d: { kind: 'mail', v, icon, text, body, link, from, course, at, read } }
 
 import { parseSubmission, matchSubmission } from './insights.js';
+import { cleanTitle } from './ics.js';
 
 export const MAIL_FILE = 'mail.json';
 const MOODLE_SENDER = 'noreply@moodle.huji.ac.il';
@@ -72,6 +73,43 @@ export function mailBody(m) {
   return { body: text, link };
 }
 
+// ---------- direct links to assignments ----------
+// Moodle's emails carry an activity's own page — due reminders, the weekly "to submit" list,
+// submission confirmations, "quiz opens" — while the calendar export only gives its day.
+// Returns [{ course, name, url }].
+const ACTIVITY_URL = /https:\/\/moodle\.huji\.ac\.il\/[\w-]+\/mod\/(?:assign|quiz)\/view\.php\?id=\d+/g;
+export function assignmentLinks(m) {
+  if (m.from !== MOODLE_SENDER) return [];
+  const urls = (m.text || '').match(ACTIVITY_URL) || [];
+  if (!urls.length) return [];
+  const flat = (m.text || '').replace(/\s+/g, ' ');
+  // the weekly list: "* NAME בקורס 80430_1 - …", one link per item, in order
+  const items = [...flat.matchAll(/\* (.+?) בקורס (\d{5})/g)];
+  if (items.length) return items.filter((_, i) => urls[i]).map((x, i) => ({ course: x[2], name: x[1], url: urls[i] }));
+  const one = flat.match(/המטלה (.+?) בקורס (\d{5})/) // due reminder
+    || flat.match(/The quiz (.+?) in course (\d{5})/i); // quiz opens
+  if (one) return [{ course: one[2], name: one[1], url: urls[0] }];
+  const sub = parseSubmission(m); // "אישור הגשת המטלה 'X'"
+  return sub?.course ? [{ course: sub.course, name: sub.name, url: urls[0] }] : [];
+}
+
+const norm = (s) => cleanTitle(s || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+
+// The task an activity belongs to: through the semester's Moodle rules (e.g. "C LAB WEEK 4"
+// → 67315-lab-4), else the one task of that course with the same name.
+export function linkedTask(sem, found, tasks) {
+  for (const r of sem.icsRules || []) {
+    if (!r.task || r.field !== 'due') continue;
+    const re = new RegExp(r.match, 'i');
+    const g = `${found.name} closes`.match(re) || `${found.name} is due`.match(re);
+    if (!g) continue;
+    const id = r.task.replace(/\{(\d)\}/g, (_, n) => g[n]);
+    return tasks.find((t) => t.id === id) || null;
+  }
+  const same = tasks.filter((t) => t.course === found.course && norm(t.title) === norm(found.name));
+  return same.length === 1 ? same[0] : null;
+}
+
 // New (or outdated) inbox entries. Emails about one of the courses are "loud" (unread +
 // push if recent); everything else (general university mail, last year's courses) is
 // listed already read, without a push. Noise is hidden.
@@ -112,6 +150,18 @@ export function mailInboxUpdates(sem, mail, progress, now, tasks = []) {
       },
     };
     if (!prev && loud && !task && +now - new Date(m.date) < PUSH_WITHIN_MS) notify.push({ subject: updates[key].d.text, course });
+  }
+  // direct links (every email each time, so new tasks pick up links from older emails); a link
+  // the user pasted is kept, only Moodle's calendar-day link (or none) is replaced
+  const linked = new Set();
+  for (const m of mail.messages || []) {
+    for (const found of assignmentLinks(m)) {
+      const t = linkedTask(sem, found, tasks);
+      if (!t || linked.has(t.id) || t.url === found.url || (t.url && !t.url.includes('/calendar/view.php'))) continue;
+      linked.add(t.id);
+      const k = `${sem.id}/taskdata/${t.id}`;
+      updates[k] = { s: 'set', t: +now, d: { ...(progress[k]?.d || {}), url: found.url } };
+    }
   }
   return { updates, notify };
 }

@@ -62,3 +62,22 @@ test('mailInboxUpdates: noise hidden, course prefix dropped, outdated entries re
   assert.equal(d('k').read, true); // was read before the rebuild
   assert.deepEqual(notify, []); // rebuilt ≠ new; o is quiet; n is noise
 });
+
+test('direct links: Moodle emails → the task (by rule or same name); pasted links kept', async () => {
+  const { assignmentLinks, linkedTask } = await import('../mail.js');
+  const M = 'noreply@moodle.huji.ac.il';
+  const remind = { from: M, subject: 'מועד הגשה יום שני, 2 נובמבר 2026, 23:59: תרגיל 02 2025-26', text: 'שלום,\nהמטלה תרגיל 02 2025-26 בקורס 83335 - מבוא להנדסת\nחשמל נדרשת להגשה בהקרוב.\nLinks:\n------\n[1]\nhttps://moodle.huji.ac.il/2026-27/mod/assign/view.php?id=155987&action=view' };
+  const list = { from: M, subject: 'רשימת מטלות להגשה בשבע הימים הקרובים', text: '* תרגיל 3 הגשה בקורס 80430_1 - מבוא\nעד תאריך: 23:59\n* תרגיל 03 בקורס 83335 - מבוא\nLinks:\n[1]\nhttps://moodle.huji.ac.il/2026-27/mod/assign/view.php?id=1\n[2]\nhttps://moodle.huji.ac.il/2026-27/mod/assign/view.php?id=2' };
+  const quiz = { from: M, subject: 'Opens on …: C Lab week 4', text: 'The quiz C LAB WEEK 4 in course 67315_1 - סי is opening soon.\n[1] https://moodle.huji.ac.il/2026-27/mod/quiz/view.php?id=83507' };
+  assert.deepEqual(assignmentLinks(remind), [{ course: '83335', name: 'תרגיל 02 2025-26', url: 'https://moodle.huji.ac.il/2026-27/mod/assign/view.php?id=155987' }]);
+  assert.deepEqual(assignmentLinks(list).map((x) => [x.name, x.url.slice(-4)]), [['תרגיל 3 הגשה', 'id=1'], ['תרגיל 03', 'id=2']]);
+  assert.deepEqual(assignmentLinks({ ...remind, from: 'someone@else' }), []);
+  const tasks = [{ id: 'ics-54053', course: '83335', title: 'תרגיל 02' }, { id: '67315-lab-4', course: '67315', title: 'מעבדה 4 (CodeRunner)' }, { id: '80430-ex3', course: '80430', title: 'תרגיל 3 בהסתברות' }];
+  assert.equal(linkedTask(sem, assignmentLinks(remind)[0], tasks).id, 'ics-54053');
+  assert.equal(linkedTask(sem, assignmentLinks(quiz)[0], tasks).id, '67315-lab-4'); // through icsRules
+  assert.equal(linkedTask(sem, assignmentLinks(list)[0], tasks).id, '80430-ex3'); // through icsRules
+  const pasted = 'https://moodle.huji.ac.il/2026-27/mod/assign/view.php?id=9';
+  const { updates } = mailInboxUpdates(sem, { messages: [{ ...remind, id: 'r', date: '2026-10-31T22:24:12Z' }] }, {}, new Date('2026-11-01T12:00:00Z'),
+    [{ ...tasks[0], url: pasted }]);
+  assert.equal(Object.keys(updates).some((k) => k.includes('/taskdata/')), false);
+});
