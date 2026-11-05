@@ -133,13 +133,6 @@
   },
   {
    "course": "80430",
-   "group": "2-06",
-   "from": "2026-10-15",
-   "room": "שפרינצק 215",
-   "note": "הודעת מזכירות 15.10 (במקום קנדה עליון)"
-  },
-  {
-   "course": "80430",
    "group": "2-03",
    "from": "2026-10-26",
    "room": "מתמטיקה 2",
@@ -769,14 +762,14 @@
     {
      "code": "2-01",
      "type": "recitation",
-     "lecturer": "",
+     "lecturer": "נתנאל לוי",
      "from": "2026-10-26",
      "slots": [
       {
        "day": 1,
        "start": "12:00",
        "end": "13:45",
-       "room": "לוי 07"
+       "room": "ספרייה 44"
       }
      ],
      "to": "2027-01-07"
@@ -784,7 +777,7 @@
     {
      "code": "2-02",
      "type": "recitation",
-     "lecturer": "",
+     "lecturer": "תומר קנדל",
      "from": "2026-10-26",
      "slots": [
       {
@@ -799,7 +792,7 @@
     {
      "code": "2-03",
      "type": "recitation",
-     "lecturer": "",
+     "lecturer": "נתנאל לוי",
      "from": "2026-10-26",
      "slots": [
       {
@@ -814,7 +807,7 @@
     {
      "code": "2-04",
      "type": "recitation",
-     "lecturer": "",
+     "lecturer": "נתנאל לוי",
      "from": "2026-10-26",
      "slots": [
       {
@@ -829,7 +822,7 @@
     {
      "code": "2-05",
      "type": "recitation",
-     "lecturer": "",
+     "lecturer": "תומר קנדל",
      "from": "2026-10-26",
      "slots": [
       {
@@ -844,7 +837,7 @@
     {
      "code": "2-06",
      "type": "recitation",
-     "lecturer": "",
+     "lecturer": "שחר בוכריס",
      "from": "2026-10-26",
      "slots": [
       {
