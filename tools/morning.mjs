@@ -24,7 +24,7 @@ import { WIDGET_FILE, buildWidget, widgetFile, sameWidget } from '../widget.js';
 import { TOKEN_FILE, encrypt, decrypt, refreshToken, folderSessions } from './panopto-lib.mjs';
 import { merge } from '../sync.js';
 import { isShabbat } from '../prayer.js';
-import { SHNATON_FILE, SHNATON_API, courseSnapshot, diffShnaton } from '../shnaton.js';
+import { SHNATON_FILE, SHNATON_API, courseSnapshot, diffShnaton, keepPlausible } from '../shnaton.js';
 
 const SEND_HOUR = 7;
 const SEND_UNTIL = 11; // a "good morning" summary arriving later than this is useless
@@ -72,6 +72,7 @@ const fullJson = async (gist, name) => {
   if (!f) return {};
   if (!f.truncated) return JSON.parse(f.content);
   const res = await fetch(f.raw_url, { headers: { Authorization: `Bearer ${process.env.GIST_TOKEN}` } });
+  if (!res.ok) throw new Error(`${name}: raw ${res.status}`); // never continue with an empty copy
   return res.json();
 };
 const writeFiles = (gist, files) => gh(`/gists/${gist.id}`, {
@@ -118,7 +119,7 @@ let pushChanged = false;
 const index = JSON.parse(readFileSync(new URL('../semesters/index.json', import.meta.url)));
 const entry = index.semesters.find((s) => s.id === index.default) || index.semesters[0];
 const sem = JSON.parse(readFileSync(new URL(`../semesters/${entry.file}`, import.meta.url)));
-let progress = fileJson(gist, 'progress.json');
+let progress = await fullJson(gist, 'progress.json');
 
 // ---- 1. Moodle ----
 if (process.env.MOODLE_ICS_URL && !calendarOnly) {
@@ -162,7 +163,7 @@ if (process.env.MOODLE_ICS_URL && !calendarOnly) {
 
     // c. save: re-read progress first so app changes made meanwhile aren't overwritten
     gist = await gh(`/gists/${gist.id}`);
-    progress = merge(fileJson(gist, 'progress.json'), updates);
+    progress = merge(await fullJson(gist, 'progress.json'), updates);
     await writeFiles(gist, { 'progress.json': JSON.stringify(progress), [FEED_FILE]: JSON.stringify(feedSnapshot(events)) });
   } catch (e) {
     console.error('Moodle import failed:', e.message); // never block the rest of the run
@@ -183,7 +184,7 @@ if (!calendarOnly && gist.files[MAIL_FILE]) {
     }
     if (Object.keys(updates).length) {
       gist = await gh(`/gists/${gist.id}`);
-      progress = merge(fileJson(gist, 'progress.json'), updates);
+      progress = merge(await fullJson(gist, 'progress.json'), updates);
       await writeFiles(gist, { 'progress.json': JSON.stringify(progress) });
     }
     if (toNotify.length) {
@@ -211,8 +212,10 @@ if (!calendarOnly && sem.shnatonYear) {
     const res = await fetch(`${SHNATON_API}/courses/groups-with-sessions?year=${year}&courseIds=${ids.map((x) => x[1]).join(',')}`);
     if (!res.ok) throw new Error(`Shnaton ${res.status}`);
     const all = await res.json();
-    const snap = Object.fromEntries(ids.map(([code, id]) => [code, courseSnapshot(all[id])]));
     const prev = gist.files[SHNATON_FILE] ? await fullJson(gist, SHNATON_FILE) : null;
+    // a course that came back (nearly) empty is a glitch of the API, not a change: keep the old copy
+    const { snap, skipped } = keepPlausible(prev, Object.fromEntries(ids.map(([code, id]) => [code, courseSnapshot(all[id])])));
+    if (skipped.length) console.log(`Shnaton: ${skipped.length} course(s) looked incomplete — kept the previous copy`);
     const names = Object.fromEntries(sem.courses.map((c) => [c.code, c.short]));
     const changes = prev ? diffShnaton(prev, snap, ymd(now), names) : [];
     console.log(`Shnaton: ${changes.length} change(s)${prev ? '' : ' (first fetch — saved as the baseline)'}`);
@@ -229,7 +232,7 @@ if (!calendarOnly && sem.shnatonYear) {
       pushChanged = true;
     }
     gist = await gh(`/gists/${gist.id}`);
-    progress = merge(fileJson(gist, 'progress.json'), updates);
+    progress = merge(await fullJson(gist, 'progress.json'), updates);
     const files = { 'progress.json': JSON.stringify(progress) };
     if (JSON.stringify(snap) !== JSON.stringify(prev)) files[SHNATON_FILE] = JSON.stringify(snap);
     await writeFiles(gist, files);
@@ -270,7 +273,7 @@ if (!calendarOnly && sem.panopto && process.env.PANOPTO_KEY && gist.files[TOKEN_
   }
   try {
     gist = await gh(`/gists/${gist.id}`);
-    progress = merge(fileJson(gist, 'progress.json'), updates);
+    progress = merge(await fullJson(gist, 'progress.json'), updates);
     await writeFiles(gist, { 'progress.json': JSON.stringify(progress) });
   } catch (e) {
     console.error('Panopto save failed:', e.message);
@@ -325,7 +328,7 @@ if (!sendMorning) {
   pushChanged = true;
   // shown in the app's Settings ("sent today at 07:12 to 3 devices")
   gist = await gh(`/gists/${gist.id}`);
-  progress = merge(fileJson(gist, 'progress.json'), {
+  progress = merge(await fullJson(gist, 'progress.json'), {
     'status/morning': { s: 'set', t: Date.now(), d: { at: new Date().toISOString(), devices: push.subs?.length || 0, sent: !!(summary || force) } },
   });
   await writeFiles(gist, { 'progress.json': JSON.stringify(progress) });

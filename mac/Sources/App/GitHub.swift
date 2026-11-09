@@ -25,9 +25,14 @@ enum GitHub {
         if progressFile["truncated"] as? Bool == true, let raw = progressFile["raw_url"] as? String, let url = URL(string: raw) {
             var req = URLRequest(url: url)
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            progressText = String(decoding: try await URLSession.shared.data(for: req).0, as: UTF8.self)
+            let (data, res) = try await URLSession.shared.data(for: req)
+            guard (res as? HTTPURLResponse)?.statusCode == 200 else { throw Failure(message: "progress.json לא נטען — לא נשמר כלום") }
+            progressText = String(decoding: data, as: UTF8.self)
         }
-        var progress = (try? JSONSerialization.jsonObject(with: Data(progressText.utf8))) as? [String: Any] ?? [:]
+        // never write back a copy that didn't parse — that would wipe all progress
+        guard var progress = (try? JSONSerialization.jsonObject(with: Data(progressText.utf8))) as? [String: Any] else {
+            throw Failure(message: "progress.json לא נקרא — לא נשמר כלום")
+        }
         let t = Int(Date().timeIntervalSince1970 * 1000)
         for key in keys { progress[key] = ["s": "done", "t": t] }
 

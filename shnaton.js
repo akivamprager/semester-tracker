@@ -46,6 +46,22 @@ export function courseSnapshot(groups) {
   return out;
 }
 
+// Sessions (weekly slots + dated meetings) in one course's snapshot.
+const size = (course) => Object.values(course || {}).reduce((n, g) => n + g.slots.length + Object.keys(g.dates).length, 0);
+
+// The API sometimes answers with a course's groups but no sessions (25.10.2026: every session
+// "removed", then all "added" again — 1,700 notifications). A course that lost more than half of
+// its sessions at once keeps the previous snapshot; a real change of that size gets a manual look.
+export function keepPlausible(prev, next) {
+  const snap = { ...next };
+  const skipped = [];
+  for (const code of Object.keys(next)) {
+    const before = size(prev?.[code]);
+    if (before && size(next[code]) < before / 2) { snap[code] = prev[code]; skipped.push(code); }
+  }
+  return { snap, skipped };
+}
+
 const slotText = (s) => {
   const [d, a, b, room] = s.split('|');
   return `יום ${DAYS[d] || d} ${a}–${b}${room ? ` ב${room}` : ''}`;

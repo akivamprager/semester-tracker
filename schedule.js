@@ -282,8 +282,6 @@ export function ownSessionsOn(courses, date) {
     .sort((a, b) => a.start - b.start);
 }
 
-// Free stretches of at least `minMinutes` between the user's own sessions that day.
-// The usual 15-minute break between back-to-back classes is not a gap.
 // Notes for a specific day (an election day, a quiz day…), shown in the app, the morning
 // summary and the calendar:  "dayNotes": [{ "date", "title", "lines": [...] }]
 export const dayNote = (sem, date) => (sem.dayNotes || []).find((n) => n.date === ymd(date)) || null;
@@ -333,6 +331,8 @@ export const personalOn = (sem, date) => {
   return personalBetween(sem, d, new Date(+d + 864e5));
 };
 
+// Free stretches of at least `minMinutes` between the user's own sessions that day.
+// The usual 15-minute break between back-to-back classes is not a gap.
 // `extra`: other busy stretches that day ({ start, end }, e.g. personalOn) — not gaps either.
 export function gapsOn(courses, date, minMinutes = 30, extra = []) {
   const own = [...ownSessionsOn(courses, date), ...extra].sort((a, b) => a.start - b.start);

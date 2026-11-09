@@ -1028,7 +1028,7 @@ function inboxHtml(entries) {
   const rows = entries.map((m) => {
     const c = courses.find((x) => x.code === m.course);
     return `<div class="inbox-item ${m.read ? '' : 'unread'}">
-      <span class="inbox-icon" aria-hidden="true">${m.icon || '📥'}</span>
+      <span class="inbox-icon" aria-hidden="true">${esc(m.icon || '📥')}</span>
       <div class="inbox-body">
         <div class="inbox-text">${esc(m.text)}</div>
         <div class="meta">${c ? `<span class="course-tag colored" ${courseStyle(c)}>${c.emoji} <bdi>${esc(c.short)}</bdi></span> · ` : ''}${m.from ? `${esc(m.from)} · ` : ''}${agoLabel(m.at)}</div>
@@ -1594,6 +1594,12 @@ function fillSettingsCards() {
 // calendar.ics in the sync gist (see calendar.js); the GitHub Action keeps it fresh too.
 const CAL_PREFS_KEY = 'prefs/calendar';
 const GCAL_SCRIPT_KEY = 'prefs/gcal-script'; // user confirmed the Apps Script companion is set up
+// The same Google script copies the emails (writes mail.json at least every 3 hours, shown as
+// status/mail) — so a stale "last checked" means the calendar copy has stopped too.
+const scriptStalled = () => {
+  const at = state.progress['status/mail']?.d?.at;
+  return !!at && now() - new Date(at) > 8 * 3600e3;
+};
 const calendarEnabled = () => !!state.progress[CAL_PREFS_KEY]?.d?.enabled && !!store.getToken();
 
 function calendarCard() {
@@ -1614,7 +1620,10 @@ function calendarCard() {
   const scriptUrl = 'https://github.com/akivamprager/semester-tracker/blob/main/tools/google-apps-script.gs';
   return `<section class="card"><h2>📆 יומן (Google / Apple)</h2>
     <p class="help">קובץ היומן פעיל ✓ — מתעדכן בכל סנכרון ובכל ריצה של המשימה האוטומטית.</p>
-    ${script
+    ${script && scriptStalled()
+      ? `<div class="status-line warn">⚠️ <b>הסקריפט של Google לא רץ</b> מאז ${agoLabel(state.progress['status/mail'].d.at)} — גם היומן לא מתעדכן.
+          לבדוק ב-script.google.com ← Executions (שגיאת 401 = הטוקן פג: טוקן חדש ב-Script properties).</div>`
+      : script
       ? `<div class="status-line ok">✓ <b>Google Calendar</b> מסונכרן כל שעה דרך הסקריפט — היומן "הסמסטרון", צבע לפי קורס, תזכורות: 15 דק׳ לפני שיעור; הגשה — יום ו-3 שעות לפני; בחינה — שבוע, יום ושעה לפני (בלי תזכורות בשבת).
           <button class="link" data-action="gcal-script" data-on="0">לא הגדרתי</button></div>`
       : `<details class="setup">

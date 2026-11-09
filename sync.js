@@ -36,11 +36,18 @@ export function saveLocal(progress) {
   localStorage.setItem(LS_PROGRESS, JSON.stringify(progress));
 }
 
-export function merge(a, b) {
+// Notifications the user cleared (🔔 → נקה הכל) are dropped after a while, so progress.json
+// stays small (GitHub cuts gist files off at 1 MB). Every writer merges through here — the app,
+// the job, an import — so a dropped entry isn't brought back by another copy.
+const INBOX_KEEP_MS = 14 * 864e5;
+const stale = (k, v, now) => k.includes('/inbox/') && v?.d?.hidden && now - (Date.parse(v.d.at) || v.t || 0) > INBOX_KEEP_MS;
+
+export function merge(a, b, now = Date.now()) {
   const out = { ...a };
   for (const [k, v] of Object.entries(b || {})) {
     if (!out[k] || v.t > out[k].t) out[k] = v;
   }
+  for (const [k, v] of Object.entries(out)) if (stale(k, v, now)) delete out[k];
   return out;
 }
 
@@ -50,6 +57,8 @@ export function setToken(token) {
   else localStorage.removeItem(LS_TOKEN);
   localStorage.removeItem(LS_GIST);
   localStorage.removeItem(LS_PUBLISHED);
+  localStorage.removeItem(LS_PUBLISHED_OWNER);
+  localStorage.removeItem(LS_WIDGET); // another account's gist: upload everything again
 }
 
 async function gh(path, opts = {}) {
@@ -188,11 +197,11 @@ async function splitOldGist(old) {
 // per start nothing is downloaded.
 const LS_PUBLISHED_OWNER = 'tracker.publishedOwner';
 let publishedChecked = false;
-async function publishedGist() {
+async function publishedGist({ fresh = false } = {}) {
   const cached = localStorage.getItem(LS_PUBLISHED);
   const owner = localStorage.getItem(LS_PUBLISHED_OWNER);
   if (cached && owner && publishedChecked) return { id: cached, owner };
-  const all = await listGists(PUBLISHED_DESC);
+  const all = await listGists(PUBLISHED_DESC, { fresh });
   const gist = all[0]
     || await createGist(PUBLISHED_DESC, { 'calendar.ics': { content: 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n' } });
   for (const g of all.slice(1)) await retire(g, PUBLISHED_DUP_DESC);
@@ -251,9 +260,8 @@ export async function sync() {
   // Re-read local only now, so check-offs made during the request aren't lost.
   const merged = merge(loadLocal(), remote);
   saveLocal(merged);
-  const changed = Object.entries(merged).some(
-    ([k, v]) => !remote[k] || remote[k].t !== v.t,
-  );
+  const changed = Object.entries(merged).some(([k, v]) => !remote[k] || remote[k].t !== v.t)
+    || Object.keys(remote).some((k) => !merged[k]); // old cleared notifications dropped
   if (changed) await push(id, merged);
   return merged;
 }
@@ -316,8 +324,8 @@ export async function publish({ calendar = null, widget = null } = {}) {
     await upload();
   } catch (e) {
     if (!/GitHub 404/.test(e.message)) throw e;
-    publishedChecked = false; // deleted meanwhile: look it up (or create it) again
-    gist = await publishedGist();
+    publishedChecked = false; // deleted meanwhile: look it up (or create it) again — from a new listing
+    gist = await publishedGist({ fresh: true });
     await upload();
   }
   let url = info.url;
