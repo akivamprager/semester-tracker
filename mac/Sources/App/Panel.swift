@@ -259,7 +259,7 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 if mode == MenuBarMode.hidden.rawValue {
-                    Text("הסמל ייעלם עם סגירת החלון. כדי להחזיר אותו: ⚙️ בווידג׳ט (בינוני או גדול), או לפתוח את האפליקציה שוב.")
+                    Text("וידג׳ט בלבד: הסמל ייעלם עם סגירת החלון. כדי להחזיר אותו: ⚙️ בווידג׳ט (בינוני או גדול), או לפתוח את האפליקציה שוב.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }

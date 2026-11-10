@@ -6,16 +6,18 @@ import ServiceManagement
 import SwiftUI
 import WidgetKit
 
-/// What the menu bar shows: "full" = icon + next class, "icon" = icon only,
+/// What the menu bar shows: "full" = icon + next class, "icon" = icon only, "text" = the text
+/// without the icon (the icon comes back only when there's no text, so the item never vanishes),
 /// "hidden" = nothing (widget only; ⚙️ in the widget or opening the app brings it back).
 enum MenuBarMode: String, CaseIterable {
-    case full, icon, hidden
+    case full, icon, text, hidden
     static let key = "menuBarMode"
     var label: String {
         switch self {
         case .full: return "סמל וטקסט"
         case .icon: return "סמל בלבד"
-        case .hidden: return "ללא (וידג׳ט בלבד)"
+        case .text: return "טקסט בלבד"
+        case .hidden: return "ללא"
         }
     }
 }
@@ -36,10 +38,11 @@ struct HasemestronApp: App {
                 .environmentObject(model)
                 .environment(\.layoutDirection, .rightToLeft)
         } label: {
+            let title = mode == MenuBarMode.icon.rawValue ? "" : model.menuTitle
+            let text = [showHebrewDate ? HebrewDate.text(model.now) : "", title].filter { !$0.isEmpty }.joined(separator: " · ")
             HStack(spacing: 4) {
-                Image(systemName: "graduationcap.fill")
-                if showHebrewDate { Text(HebrewDate.text(model.now)) }
-                if mode == MenuBarMode.full.rawValue, !model.menuTitle.isEmpty { Text(model.menuTitle) }
+                if mode != MenuBarMode.text.rawValue || text.isEmpty { Image(systemName: "graduationcap.fill") }
+                if !text.isEmpty { Text(text) }
             }
         }
         .menuBarExtraStyle(.window)
