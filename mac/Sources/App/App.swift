@@ -28,6 +28,7 @@ struct HasemestronApp: App {
     @StateObject private var model = Model()
     @AppStorage(MenuBarMode.key) private var mode = MenuBarMode.full.rawValue
     @AppStorage(HebrewDate.key) private var showHebrewDate = false
+    @AppStorage("menuClass") private var showClass = true
 
     var body: some Scene {
         MenuBarExtra(isInserted: Binding(
@@ -38,7 +39,7 @@ struct HasemestronApp: App {
                 .environmentObject(model)
                 .environment(\.layoutDirection, .rightToLeft)
         } label: {
-            let title = mode == MenuBarMode.icon.rawValue ? "" : model.menuTitle
+            let title = mode == MenuBarMode.icon.rawValue || !showClass ? "" : model.menuTitle
             let text = [showHebrewDate ? HebrewDate.text(model.now) : "", title].filter { !$0.isEmpty }.joined(separator: " · ")
             HStack(spacing: 4) {
                 if mode != MenuBarMode.text.rawValue || text.isEmpty { Image(systemName: "graduationcap.fill") }

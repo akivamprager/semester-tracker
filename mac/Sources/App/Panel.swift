@@ -247,6 +247,7 @@ struct SettingsView: View {
     @State private var atLogin = false
     @AppStorage(MenuBarMode.key) private var mode = MenuBarMode.full.rawValue
     @AppStorage(HebrewDate.key) private var hebrewDate = false
+    @AppStorage("menuClass") private var showClass = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -266,6 +267,9 @@ struct SettingsView: View {
             if mode != MenuBarMode.hidden.rawValue {
                 Toggle("תאריך עברי ליד הסמל (\(HebrewDate.text(model.now)))", isOn: $hebrewDate)
                     .help("מתחלף בשקיעה")
+            }
+            if mode == MenuBarMode.full.rawValue || mode == MenuBarMode.text.rawValue {
+                Toggle("השיעור הבא ליד הסמל (או כמה להשלים)", isOn: $showClass)
             }
             Toggle("הפעל בכניסה למחשב", isOn: $atLogin)
                 .onChange(of: atLogin) { _, on in model.setLaunchAtLogin(on) }
