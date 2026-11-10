@@ -246,6 +246,7 @@ struct SettingsView: View {
     @State private var token = ""
     @State private var atLogin = false
     @AppStorage(MenuBarMode.key) private var mode = MenuBarMode.full.rawValue
+    @AppStorage(HebrewDate.key) private var hebrewDate = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -261,6 +262,10 @@ struct SettingsView: View {
                     Text("הסמל ייעלם עם סגירת החלון. כדי להחזיר אותו: ⚙️ בווידג׳ט (בינוני או גדול), או לפתוח את האפליקציה שוב.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
+            }
+            if mode != MenuBarMode.hidden.rawValue {
+                Toggle("תאריך עברי ליד הסמל (\(HebrewDate.text(model.now)))", isOn: $hebrewDate)
+                    .help("מתחלף בשקיעה")
             }
             Toggle("הפעל בכניסה למחשב", isOn: $atLogin)
                 .onChange(of: atLogin) { _, on in model.setLaunchAtLogin(on) }

@@ -25,6 +25,7 @@ struct HasemestronApp: App {
     @NSApplicationDelegateAdaptor private var delegate: AppDelegate
     @StateObject private var model = Model()
     @AppStorage(MenuBarMode.key) private var mode = MenuBarMode.full.rawValue
+    @AppStorage(HebrewDate.key) private var showHebrewDate = false
 
     var body: some Scene {
         MenuBarExtra(isInserted: Binding(
@@ -37,10 +38,44 @@ struct HasemestronApp: App {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "graduationcap.fill")
+                if showHebrewDate { Text(HebrewDate.text(model.now)) }
                 if mode == MenuBarMode.full.rawValue, !model.menuTitle.isEmpty { Text(model.menuTitle) }
             }
         }
         .menuBarExtraStyle(.window)
+    }
+}
+
+/// Optional (⚙️): today's Hebrew date next to the icon, e.g. "ל׳ בחשון" — macOS's own Hebrew
+/// calendar and numerals; after sunset (Givat Ram) it already shows the next day.
+enum HebrewDate {
+    static let key = "hebrewDate"
+    private static let lat = 31.7767, lon = 35.1981
+    private static let formatter: DateFormatter = {
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .hebrew)
+        f.locale = Locale(identifier: "he_IL@numbers=hebr")
+        f.timeZone = TimeZone(identifier: "Asia/Jerusalem")
+        f.dateFormat = "d בMMMM"
+        return f
+    }()
+
+    static func text(_ now: Date) -> String {
+        formatter.string(from: now >= sunset(on: now) ? now.addingTimeInterval(86400) : now)
+    }
+
+    /// Sunset that day (sunrise equation, about a minute off at most).
+    static func sunset(on date: Date) -> Date {
+        let rad = Double.pi / 180
+        let n = (date.timeIntervalSince1970 / 86400 + 2440587.5 - 2451545.0 + 0.0008).rounded()
+        let jStar = n - lon / 360
+        let m = (357.5291 + 0.98560028 * jStar).truncatingRemainder(dividingBy: 360)
+        let c = 1.9148 * sin(m * rad) + 0.02 * sin(2 * m * rad) + 0.0003 * sin(3 * m * rad)
+        let l = (m + c + 180 + 102.9372).truncatingRemainder(dividingBy: 360)
+        let transit = 2451545.0 + jStar + 0.0053 * sin(m * rad) - 0.0069 * sin(2 * l * rad)
+        let decl = asin(sin(l * rad) * sin(23.4397 * rad))
+        let h = acos((sin(-0.833 * rad) - sin(lat * rad) * sin(decl)) / (cos(lat * rad) * cos(decl))) / rad
+        return Date(timeIntervalSince1970: (transit + h / 360 - 2440587.5) * 86400)
     }
 }
 
