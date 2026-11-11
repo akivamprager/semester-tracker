@@ -1,5 +1,5 @@
 import { computeUnits, mergeTasks, sessionsBetween, gapsOn, atHome, homeSession, inPersonRule, dayNote, homeDays, HOME_PREFS_KEY, personalBetween, personalOn, DAY_LABELS, httpsOnly, taskUrl } from './schedule.js';
-import { dailySummary } from './summary.js';
+import { dailySummary, morningTitle } from './summary.js';
 import { badgeCount, badgePrefs, PREFS_KEY } from './badge.js';
 import { buildCalendar } from './calendar.js';
 import { planDay, prayerPrefs, prayerKey, PRAYER_PREFS_KEY, PRAYER_LABELS } from './prayer.js';
@@ -1886,7 +1886,7 @@ async function pushOff() {
 
 async function pushTest() {
   const reg = await pushRegistration();
-  const s = dailySummary(state.sem, state.progress, now()) || { title: 'בוקר טוב!', body: 'אין היום שום דבר פתוח 🎉' };
+  const s = dailySummary(state.sem, state.progress, now()) || { title: morningTitle(now()), body: 'אין היום שום דבר פתוח 🎉' };
   await reg.showNotification(s.title, {
     body: s.body, tag: 'morning', icon: 'icon-192.png', dir: 'rtl', lang: 'he',
     actions: [{ action: 'schedule', title: '📅 מערכת' }, { action: 'tasks', title: '✏️ משימות' }],

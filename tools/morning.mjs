@@ -13,7 +13,7 @@
 //      FORCE=true (send the morning summary now), EVENT (push = calendar only).
 import { readFileSync } from 'node:fs';
 import webpush from 'web-push';
-import { dailySummary } from '../summary.js';
+import { dailySummary, morningTitle } from '../summary.js';
 import { ymd, computeUnits, mergeTasks } from '../schedule.js';
 import { buildCalendar, CALENDAR_FILE } from '../calendar.js';
 import { parseIcs, icsTaskChanges } from '../ics.js';
@@ -320,7 +320,7 @@ if (!sendMorning) {
 } else {
   const summary = dailySummary(sem, progress, now);
   if (summary || force) {
-    await sendPush(push, summary || { title: 'בוקר טוב!', body: 'אין היום שום דבר פתוח 🎉' });
+    await sendPush(push, summary || { title: morningTitle(now), body: 'אין היום שום דבר פתוח 🎉' });
   } else {
     console.log('Nothing to report today.');
   }

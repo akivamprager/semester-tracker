@@ -22,6 +22,21 @@ function when(t, now) {
   return `יום ${DAY_LABELS[t.dueDate.getDay()]}${time}`;
 }
 
+// "א׳ בכסלו", "ט״ו בשבט" — Intl gives the Hebrew calendar but (in Node and most browsers)
+// not Hebrew numerals, so the day is spelled out here.
+const ONES = ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט'];
+const TENS = ['', 'י', 'כ', 'ל'];
+const hebrewMonth = new Intl.DateTimeFormat('he-IL-u-ca-hebrew', { month: 'long' });
+const hebrewDayNum = new Intl.DateTimeFormat('en-u-ca-hebrew', { day: 'numeric' });
+export function hebrewDate(d) {
+  const n = Number(hebrewDayNum.format(d));
+  const letters = n === 15 ? 'טו' : n === 16 ? 'טז' : TENS[Math.floor(n / 10)] + ONES[n % 10];
+  const day = letters.length === 1 ? letters + '׳' : letters.slice(0, -1) + '״' + letters.slice(-1);
+  return `${day} ב${hebrewMonth.format(d)}`;
+}
+
+export const morningTitle = (now) => `בוקר טוב! יום ${DAY_LABELS[now.getDay()]}, ${hebrewDate(now)} · ${now.getDate()}.${now.getMonth() + 1}`;
+
 // Returns { title, body } or null when there is nothing to report.
 export function dailySummary(sem, progress, now) {
   const courses = computeUnits(sem, now);
@@ -103,7 +118,7 @@ export function dailySummary(sem, progress, now) {
 
   if (!lines.length) return null;
   return {
-    title: `בוקר טוב! יום ${DAY_LABELS[now.getDay()]} ${now.getDate()}.${now.getMonth() + 1}`,
+    title: morningTitle(now),
     body: lines.join('\n'),
     badge: badgeCount(sem, courses, progress, now).total, // same number the app shows on its icon
   };
