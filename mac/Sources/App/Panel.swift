@@ -13,7 +13,7 @@ struct Panel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
-            Divider()
+            Divider().padding(.horizontal, 14) // inset, like the system's menu bar items
             Group {
                 if showSettings {
                     ScrollView { SettingsView(close: { showSettings = false }) }
@@ -25,6 +25,7 @@ struct Panel: View {
                             tasks(s)
                             prayers(s)
                         }
+                        .buttonStyle(HoverButtonStyle(filled: true))
                         .padding(14)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -35,10 +36,11 @@ struct Panel: View {
                 }
             }
             .frame(height: Panel.contentHeight)
-            Divider()
+            Divider().padding(.horizontal, 14)
             footer
         }
         .frame(width: 340)
+        .background(PanelBackground().ignoresSafeArea()) // Liquid Glass, like Weather's (Glass.swift)
         .task { await model.refresh() }
     }
 
@@ -63,7 +65,7 @@ struct Panel: View {
                     .rotationEffect(.degrees(model.loading ? 180 : 0))
                     .animation(.easeInOut(duration: 0.4), value: model.loading)
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(HoverButtonStyle())
             .help("רענן")
         }
         .padding(.horizontal, 14)
@@ -81,8 +83,8 @@ struct Panel: View {
             Button { showSettings.toggle() } label: { Image(systemName: "gearshape") }.help("הגדרות")
             Button { NSApp.terminate(nil) } label: { Image(systemName: "power") }.help("יציאה")
         }
-        .buttonStyle(.borderless)
-        .padding(.horizontal, 14)
+        .buttonStyle(HoverButtonStyle())
+        .padding(.horizontal, 7) // + the buttons' own padding = lined up with the content
         .frame(height: 24)
         .padding(.vertical, 8)
     }
@@ -187,9 +189,11 @@ struct Panel: View {
 
     @ViewBuilder private func doneButton(_ key: String) -> some View {
         if model.hasToken {
-            Button("✓") { Task { await model.markDone(key) } }
-                .foregroundStyle(.green)
-                .help("סיימתי")
+            Button { Task { await model.markDone(key) } } label: {
+                Image(systemName: "checkmark").fontWeight(.bold)
+            }
+            .foregroundStyle(Color.doneGreen)
+            .help("סיימתי")
         }
     }
 
@@ -200,6 +204,49 @@ struct Panel: View {
 }
 
 // ---------- small building blocks ----------
+extension Color {
+    /// The ✓ buttons: the system green is too light on glass in light mode, so a deeper one there.
+    static let doneGreen = Color(nsColor: NSColor(name: nil) { look in
+        look.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? .systemGreen : NSColor(srgbRed: 0.1, green: 0.55, blue: 0.22, alpha: 1)
+    })
+}
+
+/// Like the buttons in the system's menu bar items: a rounded highlight under the pointer,
+/// darker while pressed. `filled` keeps a light fill at rest too (▶ / ✓ in the lists).
+struct HoverButtonStyle: ButtonStyle {
+    var filled = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        Look(configuration: configuration, filled: filled)
+    }
+
+    private struct Look: View {
+        let configuration: ButtonStyleConfiguration
+        let filled: Bool
+        @State private var hover = false
+        @Environment(\.isEnabled) private var enabled
+
+        var body: some View {
+            let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
+            configuration.label
+                .frame(minWidth: filled ? 16 : nil)
+                .padding(.horizontal, filled ? 8 : 7)
+                .padding(.vertical, 4)
+                .background(shape.fill(Color.primary.opacity(fill)))
+                .contentShape(shape)
+                .opacity(enabled ? 1 : 0.4)
+                .onHover { hover = $0 && enabled }
+                .animation(.easeOut(duration: 0.12), value: hover)
+        }
+
+        private var fill: Double {
+            if configuration.isPressed { return 0.18 }
+            if hover { return filled ? 0.13 : 0.09 }
+            return filled ? 0.06 : 0
+        }
+    }
+}
+
 private struct Section<Content: View>: View {
     let title: String
     @ViewBuilder let content: Content
