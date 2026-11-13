@@ -97,6 +97,11 @@ const taskDoneKey = (id) => `${state.sem.id}/task/${id}`;
 const allTasks = (courses) => mergeTasks(state.sem, courses, state.progress, now());
 
 const byDue = (a, b) => (a.dueDate || Infinity) - (b.dueDate || Infinity);
+// Real deadlines (homework, quizzes) before ungraded practice, whose date is only a personal goal.
+const byUrgency = (a, b) => (a.kind === 'practice') - (b.kind === 'practice') || byDue(a, b);
+// Graded work or an exam due within the next two days (shown bolder).
+const dueSoon = (t) => t.kind !== 'practice' && !t.done && t.dueDate
+  && t.dueDate >= now() && t.dueDate - now() <= 2 * 864e5;
 
 // ---------- sync ----------
 let syncTimer = null;
@@ -159,7 +164,7 @@ function taskRow(t, courses) {
     : 'אין מועד עדיין';
   const search = `${t.title} ${course?.short || ''} ${course?.code || ''} ${t.note || ''}`.toLowerCase();
   const swipe = !isExam && !t.done ? ` data-swipe-key="${esc(taskDoneKey(t.id))}" data-swipe-label="${esc(t.title)}"` : '';
-  return `<div class="task ${t.done ? 'is-done' : ''} ${overdue ? 'overdue' : ''}" data-search="${esc(search)}"${swipe}>
+  return `<div class="task ${t.done ? 'is-done' : ''} ${overdue ? 'overdue' : ''} ${dueSoon(t) ? 'due-soon' : ''}" data-search="${esc(search)}"${swipe}>
     ${isExam
       ? '<span class="task-icon">📝</span>'
       : `<input type="checkbox" class="task-check" data-action="toggle-task" data-id="${esc(t.id)}" ${t.done ? 'checked' : ''}>`}
@@ -236,7 +241,7 @@ function viewTasks(courses) {
   const isPractice = (t) => t.kind === 'practice';
   const groups = [
     ['באיחור', open.filter((t) => !isPractice(t) && t.dueDate && t.dueDate < t0)],
-    ['השבוע הקרוב', open.filter((t) => t.dueDate && t.dueDate <= week && (isPractice(t) || t.dueDate >= t0))],
+    ['השבוע הקרוב', open.filter((t) => t.dueDate && t.dueDate <= week && (isPractice(t) || t.dueDate >= t0)).sort(byUrgency)],
     ['בהמשך', open.filter((t) => t.dueDate && t.dueDate > week)],
     ['ללא מועד', open.filter((t) => !t.dueDate)],
   ];
@@ -266,7 +271,7 @@ function viewTodo(courses, { withSoon = true } = {}) {
   const week = new Date(t0); week.setDate(week.getDate() + 7);
   const soon = allTasks(courses)
     .filter((t) => !t.done && t.dueDate && t.dueDate <= week && (t.kind !== 'exam' || t.dueDate >= t0))
-    .sort(byDue);
+    .sort(byUrgency);
   const soonCard = withSoon && soon.length ? `<section class="card soon">
       <h2>מטלות ובחינות קרובות <button class="link" data-tab-link="tasks">לכל המשימות</button></h2>
       ${soon.map((t) => taskRow(t, courses)).join('')}
