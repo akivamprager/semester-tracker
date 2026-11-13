@@ -411,9 +411,10 @@ function viewToday(courses) {
     return n ? `<div class="meta">הבא: ${n.course.emoji} <bdi>${esc(n.course.short)}</bdi> ${n.type.label} · ${fmt(n.start)}${roomText(n.occ)}</div>` : '';
   })();
 
-  // to hand in: overdue, today and tomorrow; exams within a week (with readiness)
+  // to hand in: overdue, today and tomorrow, graded work due the day after too (the bold ones);
+  // exams within a week (with readiness)
   const tasks = allTasks(courses).filter((t) => !t.done && t.dueDate
-    && ((t.kind !== 'exam' && t.dueDate < dayAfter) || (t.kind === 'exam' && t.dueDate >= t0 && t.dueDate < week)))
+    && ((t.kind !== 'exam' && (t.dueDate < dayAfter || dueSoon(t))) || (t.kind === 'exam' && t.dueDate >= t0 && t.dueDate < week)))
     .sort(byUrgency);
 
   // to catch up: the oldest few
