@@ -180,13 +180,15 @@ export function builtinTasks(sem, units) {
       const u = type?.units[n - 1];
       if (!u?.own) return;
       const at = u.own.start;
+      // overrides["2"] = { due, title, note }: one quiz announced differently (e.g. one hall and hour for all groups)
+      const o = rule.overrides?.[i + 1] || {};
       tasks.push({
         id: `${rule.id}-${i + 1}`,
         course: rule.course,
         kind: 'exam',
-        title: rule.examTitle.replace('{n}', i + 1),
-        due: `${ymd(at)}T${p(at.getHours())}:${p(at.getMinutes())}`,
-        note: [rule.note, rule.notes?.[i]].filter(Boolean).join(' · '),
+        title: o.title || rule.examTitle.replace('{n}', i + 1),
+        due: o.due || `${ymd(at)}T${p(at.getHours())}:${p(at.getMinutes())}`,
+        note: o.note || [rule.note, rule.notes?.[i]].filter(Boolean).join(' · '),
       });
     });
   }
@@ -293,7 +295,8 @@ export const homeDays = (progress) => progress?.[HOME_PREFS_KEY]?.d?.days || [];
 export const atHome = (progress, date) => homeDays(progress).includes(new Date(date).getDay());
 
 // Sessions that must be attended in person (a quiz in the recitation, attendance taken):
-//   "inPerson": [{ "id", "course", "type", "units": [3, 6, …], "takenElsewhere"?, "label", "examTitle", "note", "notes" }]
+//   "inPerson": [{ "id", "course", "type", "units": [3, 6, …], "takenElsewhere"?, "label", "examTitle", "note", "notes",
+//                  "overrides"?: { "2": { "due"?, "title"?, "note"? } } }]
 // by unit number (= the n-th lesson of the user's group), so it follows a change of group.
 // "takenElsewhere": units whose quiz was already done in another group (no duty in yours).
 export const inPersonRule = (sem, code, type, n) =>

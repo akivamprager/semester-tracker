@@ -55,5 +55,6 @@ test('in-person sessions (Waves quizzes) override a home day: shown, ❗ in the 
   // quiz 1 was taken in another group (takenElsewhere): Monday's recitation 3 is a home one again
   assert.match(ics, /SUMMARY:🏠 🌊 גלים · תרגול 3\r/);
   const quizzes = mergeTasks(mon, computeUnits(mon, quizDay), {}, quizDay).filter((t) => t.id.startsWith('83325-quiz'));
-  assert.deepEqual(quizzes.map((t) => t.due), ['2026-10-26T10:00', '2026-11-16T10:00', '2026-12-14T10:00', '2027-01-04T10:00']);
+  // quiz 2 has an override: one hall and hour for every group (Sunday 15.11 15:55)
+  assert.deepEqual(quizzes.map((t) => t.due), ['2026-10-26T10:00', '2026-11-15T15:55', '2026-12-14T10:00', '2027-01-04T10:00']);
 });
