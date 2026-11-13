@@ -99,9 +99,9 @@ const allTasks = (courses) => mergeTasks(state.sem, courses, state.progress, now
 const byDue = (a, b) => (a.dueDate || Infinity) - (b.dueDate || Infinity);
 // Real deadlines (homework, quizzes) before ungraded practice, whose date is only a personal goal.
 const byUrgency = (a, b) => (a.kind === 'practice') - (b.kind === 'practice') || byDue(a, b);
-// Graded work or an exam due within the next two days (shown bolder).
+// Graded work or an exam due today, tomorrow or the day after ("בעוד 2 ימים") — shown bolder.
 const dueSoon = (t) => t.kind !== 'practice' && !t.done && t.dueDate
-  && t.dueDate >= now() && t.dueDate - now() <= 2 * 864e5;
+  && t.dueDate >= now() && dayDiff(t.dueDate) <= 2;
 
 // ---------- sync ----------
 let syncTimer = null;
@@ -414,7 +414,7 @@ function viewToday(courses) {
   // to hand in: overdue, today and tomorrow; exams within a week (with readiness)
   const tasks = allTasks(courses).filter((t) => !t.done && t.dueDate
     && ((t.kind !== 'exam' && t.dueDate < dayAfter) || (t.kind === 'exam' && t.dueDate >= t0 && t.dueDate < week)))
-    .sort(byDue);
+    .sort(byUrgency);
 
   // to catch up: the oldest few
   const bl = backlog(state.sem, courses, state.progress);
@@ -1783,7 +1783,7 @@ function shareTasksText() {
   const week = new Date(now()); week.setDate(week.getDate() + 7);
   const list = allTasks(courses)
     .filter((t) => !t.done && t.dueDate && t.dueDate >= now() && t.dueDate <= week)
-    .sort(byDue);
+    .sort(byUrgency);
   const short = (code) => courses.find((c) => c.code === code)?.short || '';
   return `מטלות ובחינות לשבוע הקרוב:\n${list.map((t) =>
     `• ${t.kind === 'exam' ? '📝 ' : ''}${t.title} (${short(t.course)}) — ${fmt(t.dueDate, t.due.includes('T'))}`).join('\n')}`;
