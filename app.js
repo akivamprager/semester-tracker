@@ -1133,11 +1133,32 @@ function render() {
 
 // ---------- events ----------
 function switchTab(tab) {
-  state.tab = tab;
-  state.editing = null;
-  document.getElementById('main').innerHTML = '';
-  render();
-  window.scrollTo(0, 0);
+  const main = document.getElementById('main');
+  let done = false;
+  const go = () => {
+    if (done) return;
+    done = true;
+    if (main.style.viewTransitionName) main.style.viewTransitionName = 'page-new';
+    state.tab = tab;
+    state.editing = null;
+    main.innerHTML = '';
+    render();
+    window.scrollTo(0, 0);
+  };
+  // Like swiping between tabs in a native app: the whole page is pushed sideways and the next one
+  // follows it in (style.css). The old and new page are separate snapshots, each sliding from where
+  // it is on screen — so a scrolled-down page doesn't jump or stretch on the way out.
+  const from = TABS.indexOf(shownTab());
+  if (tab === state.tab || !document.startViewTransition || document.hidden
+    || matchMedia('(prefers-reduced-motion: reduce)').matches) return go();
+  const root = document.documentElement;
+  root.dataset.nav = TABS.indexOf(tab) > from ? 'forward' : 'back';
+  main.style.viewTransitionName = 'page-old';
+  const vt = document.startViewTransition(go);
+  // If the page isn't drawing frames (backgrounded mid-tap), skip the animation — the tab still switches.
+  const stuck = setTimeout(() => { vt.skipTransition(); go(); }, 800);
+  vt.ready.catch(() => {}); // a skipped animation isn't an error
+  vt.finished.finally(() => { clearTimeout(stuck); delete root.dataset.nav; main.style.viewTransitionName = ''; });
 }
 
 document.querySelector('nav').addEventListener('click', (e) => {

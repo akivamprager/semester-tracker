@@ -582,3 +582,20 @@ ol.help li { margin: 3px 0; }
 .day-note ul { margin: 6px 0 2px; padding-inline-start: 18px; line-height: 1.6; font-size: 14px; }
 
 .course-links { gap: 16px; }
+
+/* ---------- tab switch animation (view transitions: Chrome/Android, Safari 18+) ----------
+   Like a native tab pager: the current page is pushed off the side and the next one slides in
+   right behind it, same speed, decelerating as it lands. Header stays; the tab highlight
+   cross-fades. Tabs run right to left (RTL): a tab further left comes in from the left. */
+nav { view-transition-name: tabs; }
+::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+::view-transition-group(tabs) { animation-duration: 200ms; z-index: 2; } /* sliding pages pass under the sticky tab bar */
+::view-transition-old(page-old) { animation: 340ms cubic-bezier(.2, .8, .2, 1) both page-out; }
+::view-transition-new(page-new) { animation: 340ms cubic-bezier(.2, .8, .2, 1) both page-in; }
+@keyframes page-out { to { transform: translateX(var(--nav-out)); } }
+@keyframes page-in { from { transform: translateX(var(--nav-in)); } }
+:root[data-nav=forward] { --nav-out: 100vw; --nav-in: -100vw; }
+:root[data-nav=back] { --nav-out: -100vw; --nav-in: 100vw; }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(page-old), ::view-transition-new(page-new) { animation: none; }
+}
