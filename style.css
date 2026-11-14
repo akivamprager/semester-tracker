@@ -599,3 +599,10 @@ nav { view-transition-name: tabs; }
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(page-old), ::view-transition-new(page-new) { animation: none; }
 }
+
+/* swiping between tabs (app.js, "swipe the page sideways"): horizontal drags on the page go to the
+   app, vertical ones still scroll; the thrown-off page is a still copy sliding under the tab bar */
+@media (pointer: coarse) { main { touch-action: pan-y pinch-zoom; } }
+html { overflow-x: clip; }
+main.paging { will-change: transform; }
+.page-ghost { position: fixed; box-sizing: border-box; margin: 0; padding: 0 12px 24px; max-width: none; pointer-events: none; z-index: 1; }
