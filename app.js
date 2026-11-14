@@ -1132,12 +1132,14 @@ function render() {
 }
 
 // ---------- events ----------
-function switchTab(tab) {
+// dx: the page is already shifted that far by a trackpad swipe — the slide continues from there.
+function switchTab(tab, dx = 0) {
   const main = document.getElementById('main');
   let done = false;
   const go = () => {
     if (done) return;
     done = true;
+    main.style.transform = '';
     if (main.style.viewTransitionName) main.style.viewTransitionName = 'page-new';
     state.tab = tab;
     state.editing = null;
@@ -1152,13 +1154,24 @@ function switchTab(tab) {
   if (tab === state.tab || !document.startViewTransition || document.hidden
     || matchMedia('(prefers-reduced-motion: reduce)').matches) return go();
   const root = document.documentElement;
-  root.dataset.nav = TABS.indexOf(tab) > from ? 'forward' : 'back';
+  root.dataset.nav = (dx ? dx > 0 : TABS.indexOf(tab) > from) ? 'forward' : 'back';
+  if (dx) { // the old page's snapshot already sits dx over; both pages move the rest of the way
+    const dir = Math.sign(dx);
+    root.style.setProperty('--nav-out', `${dir * innerWidth - dx}px`);
+    root.style.setProperty('--nav-in', `${dx - dir * innerWidth}px`);
+  }
   main.style.viewTransitionName = 'page-old';
   const vt = document.startViewTransition(go);
   // If the page isn't drawing frames (backgrounded mid-tap), skip the animation — the tab still switches.
   const stuck = setTimeout(() => { vt.skipTransition(); go(); }, 800);
   vt.ready.catch(() => {}); // a skipped animation isn't an error
-  vt.finished.finally(() => { clearTimeout(stuck); delete root.dataset.nav; main.style.viewTransitionName = ''; });
+  vt.finished.finally(() => {
+    clearTimeout(stuck);
+    delete root.dataset.nav;
+    root.style.removeProperty('--nav-out');
+    root.style.removeProperty('--nav-in');
+    main.style.viewTransitionName = '';
+  });
 }
 
 document.querySelector('nav').addEventListener('click', (e) => {
@@ -1501,13 +1514,14 @@ document.addEventListener('pointerup', endSwipe);
 document.addEventListener('pointercancel', endSwipe);
 
 // ---------- two-finger trackpad swipe sideways to change tabs ----------
-// The page follows the fingers; past a threshold it's thrown off and the next tab slides in right
-// behind it, otherwise it springs back. Tabs run right to left (RTL): fingers moving right bring
-// in the next tab (from the left), moving left the previous one. The trackpad keeps sending
-// "momentum" events after the fingers lift — they're swallowed until the swipe goes quiet.
-const PAGE_EASE = 'cubic-bezier(.2, .8, .2, 1)';
-let wheel = null;   // { raw, dx, timer, done } for the swipe in progress
-let paging = false; // a page animation is running
+// The page follows the fingers (one update per frame). The browser never says when the fingers
+// lift: the trackpad just goes on sending ever-smaller "momentum" scrolls. So the moment the
+// scrolls start dying down counts as letting go: far enough (or flung) → the slide to the next tab
+// continues from where the page is (switchTab), else it springs back. The leftover momentum is
+// ignored until the trackpad goes quiet. Tabs run right to left (RTL): fingers moving right bring
+// in the next tab, moving left the previous one.
+let wheel = null; // the swipe in progress
+let wheelFrame = 0;
 const navTabs = () => [...document.querySelectorAll('nav button[data-tab]')]
   .filter((b) => b.offsetParent).map((b) => b.dataset.tab);
 const tabBeside = (dx) => {
@@ -1515,60 +1529,41 @@ const tabBeside = (dx) => {
   const i = tabs.indexOf(shownTab());
   return i < 0 || !dx ? null : tabs[i + (dx > 0 ? 1 : -1)] || null;
 };
+const showShift = () => {
+  wheelFrame = 0;
+  if (wheel && !wheel.released) document.getElementById('main').style.transform = `translateX(${wheel.dx}px)`;
+};
 document.addEventListener('wheel', (e) => {
-  if (e.ctrlKey || state.editing || paging) return; // ctrl = pinch zoom
+  if (e.ctrlKey || state.editing) return; // ctrl = pinch zoom
   if (!wheel) {
-    if (Math.abs(e.deltaX) <= Math.abs(e.deltaY) || e.target.closest('textarea, select')) return;
-    wheel = { raw: 0, dx: 0, done: false };
+    if (Math.abs(e.deltaX) < 2 || Math.abs(e.deltaX) <= Math.abs(e.deltaY) * 1.2
+      || e.target.closest('textarea, select') || document.documentElement.dataset.nav) return;
+    wheel = { raw: 0, dx: 0, last: 0, peak: 0, slower: 0, released: false };
   }
-  clearTimeout(wheel.timer);
-  wheel.timer = setTimeout(endWheel, 160);
-  if (wheel.done) return; // momentum after a switch
-  wheel.raw -= e.deltaX;
-  const to = tabBeside(wheel.raw);
-  wheel.dx = to ? wheel.raw : wheel.raw / 4; // rubber band at the first/last tab
-  document.getElementById('main').style.transform = `translateX(${wheel.dx}px)`;
-  if (to && Math.abs(wheel.raw) > Math.min(160, innerWidth * 0.2)) {
-    wheel.done = true;
-    pageTo(to, wheel.dx);
-  }
+  clearTimeout(wheel.quiet);
+  wheel.quiet = setTimeout(() => { const w = wheel; wheel = null; if (w) letGo(w); }, 200);
+  if (wheel.released) return; // momentum after letting go
+  const d = -e.deltaX * (e.deltaMode === 1 ? 16 : 1);
+  const mag = Math.abs(d);
+  wheel.slower = mag < Math.abs(wheel.last) ? wheel.slower + 1 : 0;
+  wheel.last = d;
+  wheel.peak = Math.max(wheel.peak, mag);
+  wheel.raw += d;
+  wheel.dx = tabBeside(wheel.raw) ? wheel.raw : wheel.raw / 4; // rubber band at the first/last tab
+  if (!wheelFrame) wheelFrame = requestAnimationFrame(showShift);
+  if (wheel.slower >= 3 && mag < wheel.peak * 0.5) letGo(wheel); // dying down: fingers lifted
 }, { passive: true });
-function endWheel() {
-  const w = wheel;
-  wheel = null;
-  if (!w || w.done) return;
+function letGo(w) {
+  if (w.released) return;
+  w.released = true;
   const main = document.getElementById('main');
+  const to = tabBeside(w.raw);
+  const far = Math.abs(w.raw) > Math.min(120, innerWidth * 0.15);
+  const flung = w.peak > 30 && Math.abs(w.raw) > 40;
+  if (to && (far || flung)) return switchTab(to, w.dx);
   main.style.transform = '';
-  if (w.dx) main.animate([{ transform: `translateX(${w.dx}px)` }, { transform: 'none' }], { duration: 240, easing: PAGE_EASE });
-}
-// Throw the page (currently shifted by dx) off that way and slide tab `to` in right behind it.
-function pageTo(to, dx) {
-  const main = document.getElementById('main');
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { main.style.transform = ''; return switchTab(to); }
-  paging = true;
-  const dir = Math.sign(dx);
-  const w = innerWidth;
-  const dur = 300;
-  // the old page: a still copy that keeps going
-  const r = main.getBoundingClientRect(); // includes the current shift
-  main.style.transform = '';
-  const ghost = main.cloneNode(true);
-  ghost.removeAttribute('id');
-  ghost.className = 'page-ghost';
-  Object.assign(ghost.style, { top: `${r.top}px`, left: `${r.left}px`, width: `${r.width}px`, transform: '' });
-  document.body.append(ghost);
-  ghost.animate([{ transform: 'none' }, { transform: `translateX(${dir * w - dx}px)` }],
-    { duration: dur, easing: PAGE_EASE, fill: 'forwards' }).finished.finally(() => ghost.remove());
-  // the new page follows right behind it
-  state.tab = to;
-  state.editing = null;
-  main.innerHTML = '';
-  render();
-  window.scrollTo(0, 0);
-  main.animate([{ transform: `translateX(${dx - dir * w}px)` }, { transform: 'none' }], { duration: dur, easing: PAGE_EASE })
-    .finished.finally(() => { paging = false; });
-  // if the page stops drawing mid-way (window hidden), don't stay locked
-  setTimeout(() => { paging = false; ghost.remove(); }, dur + 300);
+  if (w.dx) main.animate([{ transform: `translateX(${w.dx}px)` }, { transform: 'none' }],
+    { duration: 260, easing: 'cubic-bezier(.2, .8, .2, 1)' });
 }
 
 async function importIcsFile(file) {
