@@ -599,7 +599,3 @@ nav { view-transition-name: tabs; }
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(page-old), ::view-transition-new(page-new) { animation: none; }
 }
-
-/* two-finger trackpad swipe between tabs (app.js): no browser bounce or back-navigation sideways */
-html, body { overscroll-behavior-x: none; }
-html { overflow-x: clip; }
