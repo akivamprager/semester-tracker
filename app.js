@@ -386,9 +386,10 @@ function progressBar({ held, done, pct }) {
 function owedRow(c, t, u) {
   const v = { ...u, label: t.label, mine: t.mine, options: t.options };
   const label = `${c.short} · ${t.label} ${u.n}`;
+  const pending = u.own && u.own.start > now(); // held elsewhere, not yet in your group
   return `<div class="unit${pending ? ' pending' : ''}" data-swipe-key="${u.key}" data-swipe-label="${esc(label)}">
     <div class="name"><span class="course-tag colored" ${courseStyle(c)}>${c.emoji} <bdi>${esc(c.short)}</bdi></span> ${t.label} ${u.n}${durTag(u.own || u.first)}${u.topic ? ` · <span class="topic">${esc(u.topic)}</span>` : ''}</div>
-    <div class="meta">התקיים: ${fmt(u.first.start)}</div>
+    <div class="meta">התקיים: ${fmt(u.first.start)}${pending ? ` · בקבוצה שלך: ${fmt(u.own.start)} (עוד לא)` : ''}</div>
     <div class="actions">
       <button class="attend" data-action="mark" data-key="${u.key}" data-s="done" data-label="${esc(label)}">✓ סיימתי</button>
       ${watchButton(c, v)}
