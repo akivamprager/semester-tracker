@@ -88,6 +88,9 @@ main { padding: 0 12px 24px; max-width: 640px; margin: 0 auto; }
 .unit:first-of-type { border-top: none; }
 .unit .name { font-weight: 600; }
 .unit .meta { color: var(--muted); font-size: 13px; margin-top: 2px; line-height: 1.5; }
+/* held in another group, not yet in yours */
+.unit.pending .name, .unit.pending .topic { color: var(--muted); font-weight: 500; }
+.unit.pending .meta { opacity: .8; }
 .actions { display: flex; gap: 8px; margin-top: 8px; }
 .actions button, .btn {
   flex: 1; padding: 9px 6px; border-radius: 10px; border: 1px solid var(--line);

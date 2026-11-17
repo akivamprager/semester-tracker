@@ -321,6 +321,8 @@ function viewTodo(courses, { withSoon = true } = {}) {
       </div>`).join('');
     const rows = owed.map((u) => {
       const firstIsMine = u.first.group === u.mine;
+      // Held in another group but not yet in yours: still listed (you can watch it early), grayed out.
+      const pending = !firstIsMine && !u.first.missed && u.own && u.own.end > t0 && !runningKeys.has(u.key);
       let where;
       if (u.first.missed) where = `במקום ${fmt(u.first.start)} (בוטל)${u.first.note ? `: ${esc(u.first.note)}` : ''}`;
       else if (firstIsMine) where = `התקיים בקבוצה שלך: ${fmt(u.first.start)}`;
@@ -332,7 +334,7 @@ function viewTodo(courses, { withSoon = true } = {}) {
             ? `בקבוצה שלך: בוטל (${fmt(u.ownMissed.start, false)})${u.ownMissed.note ? ` — ${esc(u.ownMissed.note)}` : ''}`
             : 'אין מפגש מקביל בקבוצה שלך (בגלל חג/ביטול)';
       }
-      return `<div class="unit" data-swipe-key="${u.key}" data-swipe-label="${esc(`${c.short} · ${u.label} ${u.n}`)}">
+      return `<div class="unit${pending ? ' pending' : ''}" data-swipe-key="${u.key}" data-swipe-label="${esc(`${c.short} · ${u.label} ${u.n}`)}">
         <div class="name">${u.label} ${u.n}${durTag(u.own || u.first)}${runningKeys.has(u.key) ? ' <span class="pill live"><span class="live-dot" aria-hidden="true"></span>מתקיים עכשיו</span>' : ''}${u.topic ? ` · <span class="topic">${esc(u.topic)}</span>` : ''}</div>
         <div class="meta">${where}</div>
         <div class="actions">
@@ -384,7 +386,7 @@ function progressBar({ held, done, pct }) {
 function owedRow(c, t, u) {
   const v = { ...u, label: t.label, mine: t.mine, options: t.options };
   const label = `${c.short} · ${t.label} ${u.n}`;
-  return `<div class="unit" data-swipe-key="${u.key}" data-swipe-label="${esc(label)}">
+  return `<div class="unit${pending ? ' pending' : ''}" data-swipe-key="${u.key}" data-swipe-label="${esc(label)}">
     <div class="name"><span class="course-tag colored" ${courseStyle(c)}>${c.emoji} <bdi>${esc(c.short)}</bdi></span> ${t.label} ${u.n}${durTag(u.own || u.first)}${u.topic ? ` · <span class="topic">${esc(u.topic)}</span>` : ''}</div>
     <div class="meta">התקיים: ${fmt(u.first.start)}</div>
     <div class="actions">
