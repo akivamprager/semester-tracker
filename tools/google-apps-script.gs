@@ -3,6 +3,8 @@
  *
  *  • every hour: copies the app's calendar (calendar.ics in your sync gist) into a real Google
  *    calendar "הסמסטרון" — adds / updates / removes events, colors by course, reminders.
+ *    What you change in an event yourself (e.g. add a location) is kept, unless the app's own
+ *    value for that part changes later (e.g. the time moves).
  *    (A link-subscribed calendar is refreshed by Google only every ~8–24h; this is ≤1h.)
  *  • 07:00–07:30 daily: starts the morning job on GitHub (the morning push) — on time,
  *    unlike GitHub's own scheduler.
@@ -240,19 +242,23 @@ function syncCalendar() {
         ? cal.createAllDayEvent(e.title, e.start, { location: e.location, description: e.description })
         : cal.createEvent(e.title, e.start, e.end, { location: e.location, description: e.description });
       ev.setTag('uid', e.uid);
+      ev.setTag('base', JSON.stringify(fieldHashes_(e)));
       decorate_(ev, e);
       created++;
       Utilities.sleep(120); // Google rate-limits bursts of event creation
-    } else if (differs_(cur, e)) {
-      cur.setTitle(e.title);
-      if (e.allDay) cur.setAllDayDate(e.start); else cur.setTime(e.start, e.end);
-      cur.setLocation(e.location);
-      cur.setDescription(e.description);
-      decorate_(cur, e);
-      updated++;
-      Utilities.sleep(80);
     } else {
-      unchanged++;
+      const todo = changedFields_(cur, e);
+      if (todo.size || cur.getTag('rv') !== REMINDERS_VERSION) {
+        if (todo.has('title')) cur.setTitle(e.title);
+        if (todo.has('time')) { if (e.allDay) cur.setAllDayDate(e.start); else cur.setTime(e.start, e.end); }
+        if (todo.has('location')) cur.setLocation(e.location);
+        if (todo.has('description')) cur.setDescription(e.description);
+        decorate_(cur, e);
+        updated++;
+        Utilities.sleep(80);
+      } else {
+        unchanged++;
+      }
     }
   }
   // Only remove leftovers after a complete pass (a timed-out run hasn't seen everything).
@@ -274,12 +280,48 @@ function getCalendar_() {
   return cal;
 }
 
-function differs_(ev, e) {
-  if (ev.getTag('rv') !== REMINDERS_VERSION) return true;
-  if (ev.getTitle() !== e.title || (ev.getLocation() || '') !== e.location
-    || (ev.getDescription() || '') !== e.description || ev.isAllDayEvent() !== e.allDay) return true;
-  if (e.allDay) return ev.getAllDayStartDate().getTime() !== e.start.getTime();
-  return ev.getStartTime().getTime() !== e.start.getTime() || ev.getEndTime().getTime() !== e.end.getTime();
+// Your own edits in Google Calendar win. Each event remembers (tag "base") what the app said for
+// each part the last time it was synced: title, time, location, notes. A part is rewritten only
+// when the app's value for it changed since then (e.g. the class moved) — so a location you
+// typed in yourself stays until the app's location for that event changes.
+function changedFields_(ev, e) {
+  const now = fieldHashes_(e);
+  const todo = new Set();
+  let base;
+  try { base = JSON.parse(ev.getTag('base') || 'null'); } catch (err) { base = null; }
+  if (!base) { // synced before this rule existed: it already matched the app, so keep it as it is
+    ev.setTag('base', JSON.stringify(now));
+    return todo;
+  }
+  const inCal = {
+    title: ev.getTitle(),
+    time: timeKey_(ev.isAllDayEvent(), ev.isAllDayEvent() ? ev.getAllDayStartDate() : ev.getStartTime(),
+      ev.isAllDayEvent() ? null : ev.getEndTime()),
+    location: ev.getLocation() || '',
+    description: ev.getDescription() || '',
+  };
+  for (const f in now) {
+    if (now[f] !== base[f] && hash_(inCal[f]) !== now[f]) todo.add(f);
+  }
+  if (Object.keys(now).some((f) => now[f] !== base[f])) ev.setTag('base', JSON.stringify(now));
+  return todo;
+}
+
+function fieldHashes_(e) {
+  return {
+    title: hash_(e.title),
+    time: hash_(timeKey_(e.allDay, e.start, e.end)),
+    location: hash_(e.location),
+    description: hash_(e.description),
+  };
+}
+
+function timeKey_(allDay, start, end) {
+  return allDay ? 'd' + start.getTime() : start.getTime() + '-' + end.getTime();
+}
+
+function hash_(text) {
+  return Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, String(text), Utilities.Charset.UTF_8)).slice(0, 12);
 }
 
 // Color by course; reminders: classes/prayers 15 min, deadlines/exams a day before; none once done.
