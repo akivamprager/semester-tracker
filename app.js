@@ -346,7 +346,7 @@ function viewTodo(courses, { withSoon = true } = {}) {
     }).join('');
     const pr = courseProgress(c, state.progress);
     const mins = bl.byCourse[c.code]?.minutes || 0;
-    return { sortKey, html: `<section class="card course" ${courseStyle(c)}>
+    return { code: c.code, sortKey, html: `<section class="card course" data-course="${c.code}" ${courseStyle(c)}>
       <h2>${courseTitle(c)} <small>${owed.length ? `${owed.length} להשלים · ${hoursLabel(mins)}` : live.length ? '<span class="live-dot" aria-hidden="true"></span>עכשיו' : 'מעודכן ✓'}</small></h2>
       ${progressBar(pr)}
       ${liveRows}${rows}
@@ -355,7 +355,7 @@ function viewTodo(courses, { withSoon = true } = {}) {
     </section>` };
   })
     .filter(Boolean)
-    .sort((a, b) => a.sortKey[0] - b.sortKey[0] || a.sortKey[1] - b.sortKey[1])
+    .sort((a, b) => heldOrder(a.code, b.code) || a.sortKey[0] - b.sortKey[0] || a.sortKey[1] - b.sortKey[1])
     .map((card) => card.html)
     .join('');
   document.getElementById('todo-count').textContent = total || '';
@@ -1406,8 +1406,39 @@ function toast(msg, { action, ms = 4000 } = {}) {
   toast.timer = setTimeout(() => el.classList.remove('show'), ms);
 }
 
+// After ✓ the course cards keep their places for a moment, so you see what you marked; then
+// they slide into their new order.
+const ORDER_HOLD_MS = 1500;
+let orderHold = null;
+function heldOrder(a, b) {
+  if (!orderHold) return 0;
+  const i = orderHold.codes.indexOf(a), j = orderHold.codes.indexOf(b);
+  return i < 0 || j < 0 ? 0 : i - j;
+}
+function holdCardOrder() {
+  const codes = [...document.querySelectorAll('.card.course[data-course]')].map((el) => el.dataset.course);
+  if (!codes.length) return;
+  orderHold = { codes };
+  clearTimeout(holdCardOrder.timer);
+  holdCardOrder.timer = setTimeout(releaseCardOrder, ORDER_HOLD_MS);
+}
+function releaseCardOrder() {
+  if (!orderHold) return;
+  if (state.editing || document.activeElement?.id === 'task-search') { holdCardOrder.timer = setTimeout(releaseCardOrder, 500); return; }
+  const cards = () => new Map([...document.querySelectorAll('.card.course[data-course]')].map((el) => [el.dataset.course, el]));
+  const before = new Map([...cards()].map(([k, el]) => [k, el.getBoundingClientRect().top]));
+  orderHold = null;
+  render();
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  for (const [k, el] of cards()) {
+    const dy = (before.get(k) ?? el.getBoundingClientRect().top) - el.getBoundingClientRect().top;
+    if (Math.abs(dy) > 1) el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 450, easing: 'cubic-bezier(.2,.8,.2,1)' });
+  }
+}
+
 // Mark lesson units done, with a few seconds to undo (restores the previous entries).
 function markDone(keys, label) {
+  holdCardOrder();
   const before = keys.map((k) => [k, state.progress[k]]);
   const owedBefore = backlog(state.sem, computeUnits(state.sem, now()), state.progress);
   const t = Date.now();
@@ -1433,6 +1464,7 @@ function markDone(keys, label) {
         // Undo = a newer entry with the old status, so other devices pick it up too.
         for (const [k, prev] of before) state.progress[k] = { s: prev?.s ?? null, t: t2 };
         store.saveLocal(state.progress);
+        holdCardOrder();
         render();
         scheduleSync();
       },
