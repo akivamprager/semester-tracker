@@ -29,6 +29,7 @@ struct HasemestronApp: App {
     @AppStorage(MenuBarMode.key) private var mode = MenuBarMode.full.rawValue
     @AppStorage(HebrewDate.key) private var showHebrewDate = false
     @AppStorage("menuClass") private var showClass = true
+    @AppStorage(Holiday.key) private var showHoliday = true
 
     var body: some Scene {
         MenuBarExtra(isInserted: Binding(
@@ -40,7 +41,9 @@ struct HasemestronApp: App {
                 .environment(\.layoutDirection, .rightToLeft)
         } label: {
             let title = mode == MenuBarMode.icon.rawValue || !showClass ? "" : model.menuTitle
-            let text = [showHebrewDate ? HebrewDate.text(model.now) : "", title].filter { !$0.isEmpty }.joined(separator: " · ")
+            let day = [showHoliday ? Holiday.emoji(model.now) : "", showHebrewDate ? HebrewDate.text(model.now) : ""]
+                .filter { !$0.isEmpty }.joined(separator: " ")
+            let text = [day, title].filter { !$0.isEmpty }.joined(separator: " · ")
             HStack(spacing: 4) {
                 if mode != MenuBarMode.text.rawValue || text.isEmpty { Image(systemName: "graduationcap.fill") }
                 if !text.isEmpty { Text(text) }
@@ -64,9 +67,10 @@ enum HebrewDate {
         return f
     }()
 
-    static func text(_ now: Date) -> String {
-        formatter.string(from: now >= sunset(on: now) ? now.addingTimeInterval(86400) : now)
-    }
+    static func text(_ now: Date) -> String { formatter.string(from: day(now)) }
+
+    /// a moment inside the current Hebrew day: after sunset that's already tomorrow
+    static func day(_ now: Date) -> Date { now >= sunset(on: now) ? now.addingTimeInterval(86400) : now }
 
     /// Sunset that day (sunrise equation, about a minute off at most).
     static func sunset(on date: Date) -> Date {
@@ -80,6 +84,63 @@ enum HebrewDate {
         let decl = asin(sin(l * rad) * sin(23.4397 * rad))
         let h = acos((sin(-0.833 * rad) - sin(lat * rad) * sin(decl)) / (cos(lat * rad) * cos(decl))) / rad
         return Date(timeIntervalSince1970: (transit + h / 360 - 2440587.5) * 86400)
+    }
+}
+
+/// Optional (⚙️, on by default): an emoji next to the icon on holidays and Rosh Chodesh, by the
+/// Israeli calendar, switching at sunset like the Hebrew date (so Hanukkah's first candle shows
+/// from the evening it's lit). Purim shows on both the 14th and Shushan Purim (Jerusalem).
+enum Holiday {
+    static let key = "holidayEmoji"
+    private static let cal: Calendar = {
+        var c = Calendar(identifier: .hebrew)
+        c.timeZone = TimeZone(identifier: "Asia/Jerusalem")!
+        return c
+    }()
+
+    static func emoji(_ now: Date) -> String {
+        let d = HebrewDate.day(now)
+        let c = cal.dateComponents([.year, .month, .day], from: d)
+        guard let y = c.year, let m = c.month, let day = c.day else { return "" }
+        var out: [String] = []
+        if let e = holiday(y, m, day, d) { out.append(e) }
+        // Rosh Chodesh: the 30th of a month and the 1st of the next (not Rosh Hashana)
+        if day == 30 || (day == 1 && m != 1) { out.append("🌙") }
+        return out.joined()
+    }
+
+    // months: 1 Tishrei … 3 Kislev, 4 Tevet, 5 Shevat, 6 Adar I (leap years), 7 Adar / Adar II,
+    // 8 Nisan, 9 Iyar, 10 Sivan, 11 Tammuz, 12 Av, 13 Elul
+    private static func holiday(_ y: Int, _ m: Int, _ day: Int, _ d: Date) -> String? {
+        switch (m, day) {
+        case (1, 1...2): return "🍎"           // Rosh Hashana
+        case (1, 10): return "🕊️"              // Yom Kippur
+        case (1, 15...21): return "🌿"         // Sukkot
+        case (1, 22): return "📜"              // Shemini Atzeret / Simchat Torah
+        case (5, 15): return "🌳"              // Tu BiShvat
+        case (7, 14...15): return "🎭"         // Purim, Shushan Purim
+        case (8, 15...21): return "🫓"         // Pesach
+        case (9, 18): return "🔥"              // Lag BaOmer
+        case (9, 28): return "🇮🇱"             // Yom Yerushalayim
+        case (10, 6): return "🌾"              // Shavuot
+        default: break
+        }
+        // Hanukkah: 8 days from 25 Kislev (Kislev has 29 or 30 days)
+        if let start = date(y, 3, 25), (0...7).contains(days(from: start, to: d)) { return "🕯️" }
+        // Yom HaAtzmaut: 5 Iyar, moved off Friday/Saturday to Thursday and off Monday to Tuesday
+        if m == 9, let fifth = date(y, 9, 5) {
+            let shift = [6: -1, 7: -2, 2: 1][cal.component(.weekday, from: fifth)] ?? 0
+            if day == 5 + shift { return "🇮🇱" }
+        }
+        return nil
+    }
+
+    private static func date(_ y: Int, _ m: Int, _ day: Int) -> Date? {
+        cal.date(from: DateComponents(year: y, month: m, day: day, hour: 12))
+    }
+
+    private static func days(from a: Date, to b: Date) -> Int {
+        cal.dateComponents([.day], from: cal.startOfDay(for: a), to: cal.startOfDay(for: b)).day ?? -1
     }
 }
 

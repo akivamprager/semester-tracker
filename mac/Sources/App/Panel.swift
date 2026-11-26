@@ -295,6 +295,7 @@ struct SettingsView: View {
     @AppStorage(MenuBarMode.key) private var mode = MenuBarMode.full.rawValue
     @AppStorage(HebrewDate.key) private var hebrewDate = false
     @AppStorage("menuClass") private var showClass = true
+    @AppStorage(Holiday.key) private var showHoliday = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -314,6 +315,8 @@ struct SettingsView: View {
             if mode != MenuBarMode.hidden.rawValue {
                 Toggle("תאריך עברי ליד הסמל (\(HebrewDate.text(model.now)))", isOn: $hebrewDate)
                     .help("מתחלף בשקיעה")
+                Toggle("סמל בחגים ובראש חודש (🕯️ 🍎 🎭 🫓 🌙 …)", isOn: $showHoliday)
+                    .help("מתחלף בשקיעה, לפי לוח השנה בארץ")
             }
             if mode == MenuBarMode.full.rawValue || mode == MenuBarMode.text.rawValue {
                 Toggle("השיעור הבא ליד הסמל (או כמה להשלים)", isOn: $showClass)
