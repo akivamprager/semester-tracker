@@ -18,14 +18,30 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
 
 const clean = (s) => String(s || '').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
 
-async function downloadRecording({ id, folder, name, screens }) {
+// Diagnose mode (⌥-click in the tracker): no video, just a report of what Panopto sends, saved
+// as Downloads/הקלטות/_diagnose.json. Addresses are kept without their query (no signed tokens).
+let report = null;
+const bare = (u) => { try { const x = new URL(u); return x.host + x.pathname; } catch { return String(u).split('?')[0]; } };
+const note = (k, v) => { if (report) (report[k] ??= []).push(v); };
+
+async function downloadRecording({ id, folder, name, screens, diagnose }) {
   if (!GUID.test(id || '')) throw new Error('bad-id');
+  report = diagnose ? { id, at: new Date().toISOString(), screens } : null;
   let streams = [];
   try {
     streams = await viaDeliveryInfo(id);
   } catch (e) {
-    if (e.message === 'login') throw e;
+    note('deliveryInfoError', String(e.message || e));
+    if (e.message === 'login' && !diagnose) throw e;
     console.warn('DeliveryInfo:', e);
+  }
+  if (diagnose) {
+    try { note('viewerTab', (await viaViewerTab(id)).map((s) => ({ ...s, url: bare(s.url) }))); } catch (e) { note('viewerTabError', String(e.message || e)); }
+    for (const s of streams) note('picked', { label: s.label, url: bare(s.url), bytes: await sizeOf(s.url) });
+    const file = 'הקלטות/_diagnose.json';
+    await chrome.downloads.download({ url: 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(report, null, 1)), filename: file, conflictAction: 'overwrite' });
+    report = null;
+    return { ok: true, diagnosed: true, file };
   }
   if (!streams.length) streams = await viaViewerTab(id);
   if (!streams.length) throw new Error('no-streams');
@@ -55,6 +71,8 @@ async function viaDeliveryInfo(id) {
   const j = await res.json();
   if (j.ErrorCode) throw new Error(/auth|log ?in|sign ?in|access/i.test(j.ErrorMessage || '') || j.ErrorCode === 1 ? 'login' : j.ErrorMessage || 'error ' + j.ErrorCode);
   const list = j.Delivery?.Streams || [];
+  note('deliveryStreams', list.map((s) => ({ ...Object.fromEntries(Object.entries(s).filter(([k, v]) => typeof v !== 'object' || v === null)), StreamUrl: bare(s.StreamUrl || ''), StreamHttpUrl: bare(s.StreamHttpUrl || '') })));
+  note('podcastStreams', (j.Delivery?.PodcastStreams || []).map((s) => ({ Tag: s.Tag, Name: s.Name, url: bare(s.StreamUrl || '') })));
   const out = [];
   let screens = 0;
   for (const s of list) {
@@ -87,6 +105,7 @@ const getText = async (url) => {
 async function fromHls(masterUrl) {
   const base = new URL(masterUrl);
   const text = await getText(masterUrl);
+  note('masterPlaylists', { url: bare(masterUrl), text: text.replace(/\?[^\s"]*/g, '') });
   if (!text.includes('#EXT-X-STREAM-INF')) return { video: await wholeFile(masterUrl, text) };
   const lines = text.split(/\r?\n/);
   let best = null, bw = -1, audioGroup = null;
@@ -115,6 +134,10 @@ async function wholeFile(playlistUrl, text) {
   if (segs.length === 1 && /\.mp4/i.test(segs[0])) return resolve(segs[0], base);
   if (!segs.length && map) return resolve(map, base);
   return null; // many separate segment files: not one downloadable file
+}
+
+async function sizeOf(url) {
+  try { const r = await fetch(url, { method: 'HEAD', credentials: 'include' }); return +r.headers.get('content-length') || null; } catch { return null; }
 }
 
 // ---------- 2. fallback: the original extension's way ----------

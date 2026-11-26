@@ -919,7 +919,7 @@ const dlLink = (id, info, cls = 'dl') => {
 };
 
 let dlSeq = 0;
-function requestDownload(btn) {
+function requestDownload(btn, diagnose = false) {
   const id = btn.dataset.dl;
   if (dlBusy.has(id)) return;
   dlBusy.add(id);
@@ -929,7 +929,9 @@ function requestDownload(btn) {
     window.removeEventListener('message', onMsg);
     clearTimeout(timer);
     dlBusy.delete(id);
-    if (res?.ok) {
+    if (res?.ok && res.diagnosed) {
+      toast(`🔍 נשמר דוח: הורדות/${res.file}`, { ms: 6000 });
+    } else if (res?.ok) {
       noteDownloaded(id);
       toast(`✓ ההורדה התחילה${res.files > 1 ? ` (${res.files} קבצים)` : ''} → הורדות/${res.folder}`, { ms: 5000 });
     } else if (res?.error === 'login') {
@@ -944,7 +946,7 @@ function requestDownload(btn) {
   const onMsg = (e) => { if (e.source === window && e.data?.type === 'semestron-dl-result' && e.data.reqId === reqId) done(e.data.res); };
   const timer = setTimeout(() => done({ ok: false, error: 'timeout' }), 60000);
   window.addEventListener('message', onMsg);
-  window.postMessage({ type: 'semestron-dl', reqId, payload: { id, name: btn.dataset.dlName, folder: btn.dataset.dlFolder, screens: !!btn.dataset.dlScreens } }, location.origin);
+  window.postMessage({ type: 'semestron-dl', reqId, payload: { id, name: btn.dataset.dlName, folder: btn.dataset.dlFolder, screens: !!btn.dataset.dlScreens, diagnose } }, location.origin);
 }
 
 // The recording to watch for a unit: own group's, else the group that taught it first, else any.
@@ -1227,7 +1229,7 @@ document.body.addEventListener('click', async (e) => {
   const tabLink = e.target.closest('[data-tab-link]');
   if (tabLink) { switchTab(tabLink.dataset.tabLink); return; }
   const dl = e.target.closest('[data-dl]');
-  if (dl) { requestDownload(dl); return; }
+  if (dl) { requestDownload(dl, e.altKey); return; } // ⌥-click: diagnose only (report, no video)
   const el = e.target.closest('[data-action]');
   if (!el) return;
   const { action, id } = el.dataset;
