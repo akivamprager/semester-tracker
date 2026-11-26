@@ -46,7 +46,7 @@ async function downloadRecording({ id, folder, name, screens, diagnose }) {
   if (!streams.length) streams = await viaViewerTab(id);
   if (!streams.length) throw new Error('no-streams');
   // Most lectures are only the board camera; the screen/slides stream only where it's used.
-  if (!screens) streams = streams.filter((s) => !s.label || s.label === 'שמע').slice(0, 2);
+  if (!screens) streams = streams.filter((s) => !s.label || s.label === 'שמע');
   const dir = (folder || 'הקלטות').split('/').map(clean).filter(Boolean).join('/');
   const base = clean(name) || id;
   for (const s of streams) {
@@ -73,21 +73,63 @@ async function viaDeliveryInfo(id) {
   const list = j.Delivery?.Streams || [];
   note('deliveryStreams', list.map((s) => ({ ...Object.fromEntries(Object.entries(s).filter(([k, v]) => typeof v !== 'object' || v === null)), StreamUrl: bare(s.StreamUrl || ''), StreamHttpUrl: bare(s.StreamHttpUrl || '') })));
   note('podcastStreams', (j.Delivery?.PodcastStreams || []).map((s) => ({ Tag: s.Tag, Name: s.Name, url: bare(s.StreamUrl || '') })));
-  const out = [];
-  let screens = 0;
+  // Tags: DV = the main camera (the board, with the sound); OBJECT = extra screens. A lecture
+  // can have two OBJECT streams: the slides (mostly still → very low bitrate) and a busier
+  // capture we don't want. So: the camera, plus the lowest-bitrate OBJECT stream as the slides.
+  const masters = [];
   for (const s of list) {
-    const label = s.Tag === 'DV' || list.length === 1 ? '' : (++screens > 1 ? `מסך ${screens}` : 'מסך');
     const url = s.StreamUrl || s.StreamHttpUrl;
-    if (!url) continue;
-    if (/\.mp4(\?|$)/i.test(url)) { out.push({ url, label }); continue; }
-    if (/\.m3u8/i.test(url)) {
-      const files = await fromHls(url);
-      if (files.video) out.push({ url: files.video, label });
-      if (files.audio) out.push({ url: files.audio, label: label ? `${label} - שמע` : 'שמע' });
-    }
+    if (!url || !/\.m3u8/i.test(url)) continue;
+    masters.push({ tag: s.Tag, m: await readMaster(url) });
   }
-  // the main video first
-  return out.sort((a, b) => !!a.label - !!b.label);
+  const out = [];
+  const cam = masters.find((x) => x.tag === 'DV') || masters[0];
+  if (cam) out.push(...await pick(cam.m, CAMERA_MAX_HEIGHT, ''));
+  const slides = masters.filter((x) => x !== cam && x.m.variants.length)
+    .sort((a, b) => a.m.variants[0].avg - b.m.variants[0].avg)[0];
+  if (slides) out.push(...await pick(slides.m, Infinity, 'מצגת'));
+  return out;
+}
+
+// The camera in 540p (what the Panopto player itself plays, ~1 GB a lecture; 1080p is ~2.5 GB).
+// Raise to 1080 for the sharpest board. Slides always come in their best quality (they're small).
+const CAMERA_MAX_HEIGHT = 720;
+
+async function readMaster(masterUrl) {
+  const text = await getText(masterUrl);
+  note('masterPlaylists', { url: bare(masterUrl), text: text.replace(/\?[^\s"]*/g, '') });
+  const lines = text.split(/\r?\n/);
+  const variants = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^#EXT-X-STREAM-INF:(.*)$/);
+    if (!m) continue;
+    const bw = +(m[1].match(/(?:^|,)BANDWIDTH=(\d+)/)?.[1] || 0);
+    variants.push({
+      uri: lines[i + 1]?.trim(),
+      bw,
+      avg: +(m[1].match(/AVERAGE-BANDWIDTH=(\d+)/)?.[1] || bw),
+      h: +(m[1].match(/RESOLUTION=\d+x(\d+)/)?.[1] || 0),
+      audio: m[1].match(/AUDIO="([^"]+)"/)?.[1] || null,
+    });
+  }
+  variants.sort((a, b) => b.bw - a.bw); // best first
+  return { url: masterUrl, text, lines, variants };
+}
+
+// master → [{ url, label }]: the best variant up to maxHeight (+ its separate audio, if any).
+async function pick(m, maxHeight, label) {
+  const base = new URL(m.url);
+  if (!m.variants.length) { const v = await wholeFile(m.url, m.text); return v ? [{ url: v, label }] : []; }
+  const v = m.variants.find((x) => !x.h || x.h <= maxHeight) || m.variants[m.variants.length - 1];
+  const out = [];
+  const video = await wholeFile(resolve(v.uri, base));
+  if (video) out.push({ url: video, label });
+  if (v.audio) { // a separate audio track (then the video file is silent)
+    const a = m.lines.find((l) => l.startsWith('#EXT-X-MEDIA:') && /TYPE=AUDIO/.test(l) && l.includes(`GROUP-ID="${v.audio}"`));
+    const uri = a?.match(/URI="([^"]+)"/)?.[1];
+    if (uri) { const f = await wholeFile(resolve(uri, base)); if (f) out.push({ url: f, label: label ? `${label} - שמע` : 'שמע' }); }
+  }
+  return out;
 }
 
 const resolve = (uri, base) => {
@@ -100,30 +142,6 @@ const getText = async (url) => {
   if (!r.ok) throw new Error(`playlist ${r.status}`);
   return r.text();
 };
-
-// master.m3u8 → { video, audio } whole-file .mp4 addresses (best quality).
-async function fromHls(masterUrl) {
-  const base = new URL(masterUrl);
-  const text = await getText(masterUrl);
-  note('masterPlaylists', { url: bare(masterUrl), text: text.replace(/\?[^\s"]*/g, '') });
-  if (!text.includes('#EXT-X-STREAM-INF')) return { video: await wholeFile(masterUrl, text) };
-  const lines = text.split(/\r?\n/);
-  let best = null, bw = -1, audioGroup = null;
-  for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(/^#EXT-X-STREAM-INF:(.*)$/);
-    if (!m) continue;
-    const b = +(m[1].match(/BANDWIDTH=(\d+)/)?.[1] || 0);
-    if (b > bw) { bw = b; best = lines[i + 1]?.trim(); audioGroup = m[1].match(/AUDIO="([^"]+)"/)?.[1] || null; }
-  }
-  const out = {};
-  if (best) { const v = resolve(best, base); out.video = await wholeFile(v); }
-  if (audioGroup) { // a separate audio track (then the video file is silent)
-    const a = lines.find((l) => l.startsWith('#EXT-X-MEDIA:') && /TYPE=AUDIO/.test(l) && l.includes(`GROUP-ID="${audioGroup}"`));
-    const uri = a?.match(/URI="([^"]+)"/)?.[1];
-    if (uri) out.audio = await wholeFile(resolve(uri, base));
-  }
-  return out;
-}
 
 // A media playlist whose segments are byte ranges of one fragmented .mp4 → that file's address.
 async function wholeFile(playlistUrl, text) {
@@ -167,5 +185,6 @@ async function viaViewerTab(id) {
     chrome.tabs.remove(tab.id).catch(() => {});
   }
   if (!found.size && loginPage) throw new Error('login');
-  return [...found].map((url, i) => ({ url, label: i ? (i > 1 ? `מסך ${i}` : 'מסך') : '' }));
+  // can't tell the streams apart here: the first is the camera, the second the slides
+  return [...found].slice(0, 2).map((url, i) => ({ url, label: i ? 'מצגת' : '' }));
 }

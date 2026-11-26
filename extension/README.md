@@ -1,8 +1,13 @@
 # הסמסטרון — recording downloads (Chrome extension)
 
 One tap on **⬇ הורדה** in the tracker downloads that Panopto recording to
-`Downloads/הקלטות/<course>/` — the main (board) video, plus the screen/slides stream only for
-the sessions listed in the semester file's `panopto.screens` (play the two together with LectureSync). For personal offline viewing only.
+`Downloads/הקלטות/<course>/` — the camera (the board, with the sound) in 540p, plus the slides
+(`- מצגת`) only for the sessions listed in the semester file's `panopto.screens`; play the two
+together with LectureSync. When a lecture has two extra screens, the slides are the one with the
+lower bitrate. Camera quality: `CAMERA_MAX_HEIGHT` in background.js (1080 → ~2.5 GB a lecture).
+
+⌥-click on ⬇ = diagnose only: no video, a report in `Downloads/הקלטות/_diagnose.json` (stream
+tags, playlists, sizes; addresses without their signed part). For personal offline viewing only.
 
 Install once, in Chrome on the computer: `chrome://extensions` → Developer mode → **Load unpacked**
 → choose this `extension` folder. You need to be logged in to Panopto in that Chrome
