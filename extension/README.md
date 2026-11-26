@@ -1,10 +1,10 @@
 # הסמסטרון — recording downloads (Chrome extension)
 
 One tap on **⬇ הורדה** in the tracker downloads that Panopto recording to
-`Downloads/הקלטות/<course>/` — the camera (the board, with the sound) in 540p, plus the slides
+`Downloads/הקלטות/<course>/` — the camera (the board, with the sound) in 1080p, plus the slides
 (`- מצגת`) only for the sessions listed in the semester file's `panopto.screens`; play the two
 together with LectureSync. When a lecture has two extra screens, the slides are the one with the
-lower bitrate. Camera quality: `CAMERA_MAX_HEIGHT` in background.js (1080 → ~2.5 GB a lecture).
+lower bitrate. Camera quality: `CAMERA_MAX_HEIGHT` in background.js (720 → 540p, ~1 GB a lecture).
 
 ⌥-click on ⬇ = diagnose only: no video, a report in `Downloads/הקלטות/_diagnose.json` (stream
 tags, playlists, sizes; addresses without their signed part). For personal offline viewing only.

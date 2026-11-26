@@ -938,6 +938,11 @@ function requestDownload(btn, diagnose = false) {
       toast('צריך להתחבר ל-Panopto בכרום פעם אחת, ואז ללחוץ שוב', {
         ms: 8000, action: { label: 'להתחברות', run: () => window.open(`https://${state.sem.panopto.host}/Panopto/Pages/Home.aspx`, '_blank', 'noopener') },
       });
+    } else if (res?.error === 'extension-reloaded' || res?.error === 'timeout') {
+      // the extension was reloaded/updated: this page's link to it is stale until a reload
+      toast(res.error === 'timeout' ? 'אין תשובה מהתוסף — צריך לרענן את הדף ולנסות שוב' : 'התוסף עודכן — צריך לרענן את הדף ולנסות שוב', {
+        ms: 8000, action: { label: '↻ רענן', run: () => location.reload() },
+      });
     } else {
       toast(`ההורדה נכשלה: ${res?.error || 'אין תשובה מהתוסף'}`, { ms: 7000 });
     }

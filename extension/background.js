@@ -91,9 +91,9 @@ async function viaDeliveryInfo(id) {
   return out;
 }
 
-// The camera in 540p (what the Panopto player itself plays, ~1 GB a lecture; 1080p is ~2.5 GB).
-// Raise to 1080 for the sharpest board. Slides always come in their best quality (they're small).
-const CAMERA_MAX_HEIGHT = 720;
+// The camera in its best quality (1080p, ~2.5 GB for a 110-minute lecture; 720 here → 540p, ~1 GB).
+// Slides always come in their best quality too (they are small).
+const CAMERA_MAX_HEIGHT = Infinity;
 
 async function readMaster(masterUrl) {
   const text = await getText(masterUrl);
