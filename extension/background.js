@@ -24,12 +24,12 @@ let report = null;
 const bare = (u) => { try { const x = new URL(u); return x.host + x.pathname; } catch { return String(u).split('?')[0]; } };
 const note = (k, v) => { if (report) (report[k] ??= []).push(v); };
 
-async function downloadRecording({ id, folder, name, screens, diagnose }) {
+async function downloadRecording({ id, folder, name, screens, diagnose, low }) {
   if (!GUID.test(id || '')) throw new Error('bad-id');
   report = diagnose ? { id, at: new Date().toISOString(), screens } : null;
   let streams = [];
   try {
-    streams = await viaDeliveryInfo(id);
+    streams = await viaDeliveryInfo(id, low ? 720 : Infinity);
   } catch (e) {
     note('deliveryInfoError', String(e.message || e));
     if (e.message === 'login' && !diagnose) throw e;
@@ -60,7 +60,7 @@ async function downloadRecording({ id, folder, name, screens, diagnose }) {
 }
 
 // ---------- 1. ask Panopto directly ----------
-async function viaDeliveryInfo(id) {
+async function viaDeliveryInfo(id, camMaxHeight = Infinity) {
   const res = await fetch(`https://${HOST}/Panopto/Pages/Viewer/DeliveryInfo.aspx`, {
     method: 'POST',
     credentials: 'include',
@@ -84,16 +84,15 @@ async function viaDeliveryInfo(id) {
   }
   const out = [];
   const cam = masters.find((x) => x.tag === 'DV') || masters[0];
-  if (cam) out.push(...await pick(cam.m, CAMERA_MAX_HEIGHT, ''));
+  if (cam) out.push(...await pick(cam.m, camMaxHeight, ''));
   const slides = masters.filter((x) => x !== cam && x.m.variants.length)
     .sort((a, b) => a.m.variants[0].avg - b.m.variants[0].avg)[0];
   if (slides) out.push(...await pick(slides.m, Infinity, 'מצגת'));
   return out;
 }
 
-// The camera in its best quality (1080p, ~2.5 GB for a 110-minute lecture; 720 here → 540p, ~1 GB).
-// Slides always come in their best quality too (they are small).
-const CAMERA_MAX_HEIGHT = Infinity;
+// Camera quality: best (1080p, ~2.5 GB for a 110-minute lecture), or with ⌥-click in the
+// tracker ("low") up to 720 → 540p, ~1 GB. Slides always come in their best quality (small).
 
 async function readMaster(masterUrl) {
   const text = await getText(masterUrl);

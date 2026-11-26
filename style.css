@@ -109,6 +109,10 @@ main { padding: 0 12px 24px; max-width: 640px; margin: 0 auto; }
 .actions .dl { background: transparent; }
 .pill.dl { border: none; font: inherit; font-size: inherit; cursor: pointer; }
 .actions .dl.done, .pill.dl.done { color: var(--muted); }
+.dl .dl-lo { display: none; }
+body.alt-held .dl:not(:disabled) .dl-hi { display: none; }
+body.alt-held .dl:not(:disabled) .dl-lo { display: inline; }
+body.alt-held .dl:not(:disabled) { color: var(--warn, #b26b00); border-color: currentColor; }
 a.pill.rec { text-decoration: none; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); font-weight: 600; }
 .btn.primary { background: var(--accent); color: var(--on-color); border: none; }
 .link { background: none; border: none; color: var(--accent); font-size: 13px; padding: 0; }

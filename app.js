@@ -915,11 +915,18 @@ const dlLink = (id, info, cls = 'dl') => {
   const screens = (state.sem.panopto?.screens?.[c.code] || []).includes(type);
   return `<button type="button" class="${cls}${has ? ' done' : ''}" data-dl="${esc(id)}" data-dl-name="${esc(name)}"
     data-dl-folder="${esc(`הקלטות/${course}`)}" data-dl-screens="${screens ? 1 : ''}" ${busy ? 'disabled' : ''}
-    title="${has ? 'כבר הורד — להוריד שוב' : 'הורדה לצפייה בלי אינטרנט'}">${busy ? '⏳ מוריד…' : has ? '✓ הורד' : '⬇ הורדה'}</button>`;
+    title="${has ? 'כבר הורד — להוריד שוב' : 'הורדה לצפייה בלי אינטרנט'} (1080p · עם ⌥: 540p, קובץ קטן יותר)">${busy ? '⏳ מוריד…'
+      : `<span class="dl-hi">${has ? '✓ הורד' : '⬇ הורדה'}</span><span class="dl-lo">⬇ 540p</span>`}</button>`;
 };
 
+// While ⌥ is held, the ⬇ buttons say "540p" — that's what a click will download.
+const altHeld = (on) => document.body.classList.toggle('alt-held', on);
+window.addEventListener('keydown', (e) => { if (e.key === 'Alt') altHeld(!e.shiftKey); else if (e.key === 'Shift') altHeld(false); });
+window.addEventListener('keyup', (e) => { if (e.key === 'Alt') altHeld(false); else if (e.key === 'Shift' && e.altKey) altHeld(true); });
+window.addEventListener('blur', () => altHeld(false));
+
 let dlSeq = 0;
-function requestDownload(btn, diagnose = false) {
+function requestDownload(btn, { diagnose = false, low = false } = {}) {
   const id = btn.dataset.dl;
   if (dlBusy.has(id)) return;
   dlBusy.add(id);
@@ -933,7 +940,7 @@ function requestDownload(btn, diagnose = false) {
       toast(`🔍 נשמר דוח: הורדות/${res.file}`, { ms: 6000 });
     } else if (res?.ok) {
       noteDownloaded(id);
-      toast(`✓ ההורדה התחילה${res.files > 1 ? ` (${res.files} קבצים)` : ''} → הורדות/${res.folder}`, { ms: 5000 });
+      toast(`✓ ההורדה התחילה${low ? ' (540p)' : ''}${res.files > 1 ? ` (${res.files} קבצים)` : ''} → הורדות/${res.folder}`, { ms: 5000 });
     } else if (res?.error === 'login') {
       toast('צריך להתחבר ל-Panopto בכרום פעם אחת, ואז ללחוץ שוב', {
         ms: 8000, action: { label: 'להתחברות', run: () => window.open(`https://${state.sem.panopto.host}/Panopto/Pages/Home.aspx`, '_blank', 'noopener') },
@@ -951,7 +958,7 @@ function requestDownload(btn, diagnose = false) {
   const onMsg = (e) => { if (e.source === window && e.data?.type === 'semestron-dl-result' && e.data.reqId === reqId) done(e.data.res); };
   const timer = setTimeout(() => done({ ok: false, error: 'timeout' }), 60000);
   window.addEventListener('message', onMsg);
-  window.postMessage({ type: 'semestron-dl', reqId, payload: { id, name: btn.dataset.dlName, folder: btn.dataset.dlFolder, screens: !!btn.dataset.dlScreens, diagnose } }, location.origin);
+  window.postMessage({ type: 'semestron-dl', reqId, payload: { id, name: btn.dataset.dlName, folder: btn.dataset.dlFolder, screens: !!btn.dataset.dlScreens, diagnose, low } }, location.origin);
 }
 
 // The recording to watch for a unit: own group's, else the group that taught it first, else any.
@@ -1234,7 +1241,8 @@ document.body.addEventListener('click', async (e) => {
   const tabLink = e.target.closest('[data-tab-link]');
   if (tabLink) { switchTab(tabLink.dataset.tabLink); return; }
   const dl = e.target.closest('[data-dl]');
-  if (dl) { requestDownload(dl, e.altKey); return; } // ⌥-click: diagnose only (report, no video)
+  // click: 1080p · ⌥-click: 540p (smaller file) · ⌥⇧-click: diagnose only (report, no video)
+  if (dl) { requestDownload(dl, { low: e.altKey && !e.shiftKey, diagnose: e.altKey && e.shiftKey }); return; }
   const el = e.target.closest('[data-action]');
   if (!el) return;
   const { action, id } = el.dataset;
