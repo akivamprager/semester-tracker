@@ -1,10 +1,10 @@
-import { computeUnits, mergeTasks, sessionsBetween, gapsOn, atHome, homeSession, inPersonRule, dayNote, homeDays, HOME_PREFS_KEY, personalBetween, personalOn, DAY_LABELS, httpsOnly, taskUrl } from './schedule.js';
+import { computeUnits, mergeTasks, sessionsBetween, gapsOn, atHome, homeSession, inPersonRule, dayNote, homeDays, HOME_PREFS_KEY, personalBetween, personalOn, DAY_LABELS, httpsOnly, taskUrl, ymd } from './schedule.js';
 import { dailySummary, morningTitle } from './summary.js';
 import { badgeCount, badgePrefs, PREFS_KEY } from './badge.js';
 import { buildCalendar } from './calendar.js';
 import { planDay, prayerPrefs, prayerKey, PRAYER_PREFS_KEY, PRAYER_LABELS } from './prayer.js';
 import { parseIcs, icsTaskChanges } from './ics.js';
-import { recKey, sessionKey, viewerUrl, downloadUrl } from './recordings.js';
+import { recKey, sessionKey, viewerUrl } from './recordings.js';
 import { backlog, hoursLabel, courseProgress, readiness, readinessOn, READINESS_KEY } from './insights.js';
 import { buildWidget, widgetFile } from './widget.js';
 import * as store from './sync.js';
@@ -893,19 +893,59 @@ function findUnit(courses, key) {
 const recordingsOf = (code) => state.progress[recKey(state.sem, code)]?.d || null;
 const recIds = (recs, group, o) => (recs && o ? recs[sessionKey(group, o)] || null : null);
 
-// Downloads for offline viewing (personal use, where the course allows it). Which recordings
-// you started downloading is remembered on this device only — the files are in its Downloads.
+// One-tap downloads for offline viewing (personal use). Panopto's own download link is off for
+// these courses (403), so the page asks our Chrome extension (extension/) to fetch the streams
+// with your Panopto login. ⬇ shows only where the extension is installed (desktop Chrome).
+// Which recordings you downloaded is remembered on this device.
 const DL_KEY = 'tracker.downloaded';
 const downloaded = (() => { try { return new Set(JSON.parse(localStorage.getItem(DL_KEY) || '[]')); } catch { return new Set(); } })();
 function noteDownloaded(id) {
   downloaded.add(id);
   try { localStorage.setItem(DL_KEY, JSON.stringify([...downloaded].slice(-300))); } catch { /* private mode */ }
 }
-const dlLink = (id, cls = 'dl') => {
-  const has = downloaded.has(id);
-  return `<a class="${cls}${has ? ' done' : ''}" href="${esc(downloadUrl(state.sem, id))}" target="_blank" rel="noopener" data-dl="${esc(id)}"
-    title="${has ? 'כבר הורדת — אפשר להוריד שוב' : 'הורדה לצפייה בלי אינטרנט'}" aria-label="${has ? 'הורד כבר — להוריד שוב' : 'הורדת ההקלטה'}">${has ? '✓ הורד' : '⬇ הורדה'}</a>`;
+const hasDownloader = () => document.documentElement.dataset.semestronDl === '1';
+const dlBusy = new Set();
+// info: { c, type: 'lecture'|'recitation', label, n, start, part }
+const dlLink = (id, info, cls = 'dl') => {
+  if (!hasDownloader()) return '';
+  const has = downloaded.has(id), busy = dlBusy.has(id);
+  const { c, type, label, n, start, part } = info;
+  const course = c.short.replace(/[\\/]/g, '-'); // "C/C++" → one folder, not two
+  const name = `${course} - ${label} ${n} - ${ymd(start)}${part ? ` חלק ${part}` : ''}`;
+  const screens = (state.sem.panopto?.screens?.[c.code] || []).includes(type);
+  return `<button type="button" class="${cls}${has ? ' done' : ''}" data-dl="${esc(id)}" data-dl-name="${esc(name)}"
+    data-dl-folder="${esc(`הקלטות/${course}`)}" data-dl-screens="${screens ? 1 : ''}" ${busy ? 'disabled' : ''}
+    title="${has ? 'כבר הורד — להוריד שוב' : 'הורדה לצפייה בלי אינטרנט'}">${busy ? '⏳ מוריד…' : has ? '✓ הורד' : '⬇ הורדה'}</button>`;
 };
+
+let dlSeq = 0;
+function requestDownload(btn) {
+  const id = btn.dataset.dl;
+  if (dlBusy.has(id)) return;
+  dlBusy.add(id);
+  render();
+  const reqId = ++dlSeq;
+  const done = (res) => {
+    window.removeEventListener('message', onMsg);
+    clearTimeout(timer);
+    dlBusy.delete(id);
+    if (res?.ok) {
+      noteDownloaded(id);
+      toast(`✓ ההורדה התחילה${res.files > 1 ? ` (${res.files} קבצים)` : ''} → הורדות/${res.folder}`, { ms: 5000 });
+    } else if (res?.error === 'login') {
+      toast('צריך להתחבר ל-Panopto בכרום פעם אחת, ואז ללחוץ שוב', {
+        ms: 8000, action: { label: 'להתחברות', run: () => window.open(`https://${state.sem.panopto.host}/Panopto/Pages/Home.aspx`, '_blank', 'noopener') },
+      });
+    } else {
+      toast(`ההורדה נכשלה: ${res?.error || 'אין תשובה מהתוסף'}`, { ms: 7000 });
+    }
+    render();
+  };
+  const onMsg = (e) => { if (e.source === window && e.data?.type === 'semestron-dl-result' && e.data.reqId === reqId) done(e.data.res); };
+  const timer = setTimeout(() => done({ ok: false, error: 'timeout' }), 60000);
+  window.addEventListener('message', onMsg);
+  window.postMessage({ type: 'semestron-dl', reqId, payload: { id, name: btn.dataset.dlName, folder: btn.dataset.dlFolder, screens: !!btn.dataset.dlScreens } }, location.origin);
+}
 
 // The recording to watch for a unit: own group's, else the group that taught it first, else any.
 function watchButton(c, u) {
@@ -923,7 +963,7 @@ function watchButton(c, u) {
     const ids = recIds(recs, group, occ[i]);
     if (ids) {
       const who = group === u.mine ? 'הקבוצה שלך' : group.lecturer || `קב׳ ${grp(group.code)}`;
-      return `<a class="watch" href="${esc(viewerUrl(state.sem, ids[0][0]))}" target="_blank" rel="noopener" title="${esc(who)}">▶ צפה בהקלטה</a>${dlLink(ids[0][0])}`;
+      return `<a class="watch" href="${esc(viewerUrl(state.sem, ids[0][0]))}" target="_blank" rel="noopener" title="${esc(who)}">▶ צפה בהקלטה</a>${ids.map(([id], k) => dlLink(id, { c, type: u.key.split('/')[2], label: u.label, n: u.n, start: occ[i].start, part: ids.length > 1 ? k + 1 : 0 })).join('')}`;
     }
   }
   return '';
@@ -950,7 +990,7 @@ function sessionRows(courses, key) {
       mine ? '<span class="pill mine">הקבוצה שלך</span>' : '',
       live ? '<span class="pill live"><span class="live-dot" aria-hidden="true"></span>עכשיו</span>' : '',
       // with Panopto data: a link per recording; without it (e.g. a friend's copy): the old hint
-      ids ? ids.map(([id], k) => `<a class="pill rec" href="${esc(viewerUrl(state.sem, id))}" target="_blank" rel="noopener">▶ הקלטה${ids.length > 1 ? ' ' + (k + 1) : ''}</a>${dlLink(id, 'pill rec dl')}`).join('')
+      ids ? ids.map(([id], k) => `<a class="pill rec" href="${esc(viewerUrl(state.sem, id))}" target="_blank" rel="noopener">▶ הקלטה${ids.length > 1 ? ' ' + (k + 1) : ''}</a>${dlLink(id, { c, type: type.type, label: type.label, n: unit.n, start: o.start, part: ids.length > 1 ? k + 1 : 0 }, 'pill rec dl')}`).join('')
         : past ? `<span class="pill">${recs ? 'התקיים · אין הקלטה עדיין' : 'התקיים · יש הקלטה'}</span>` : '',
     ].join('');
     return `<div class="slot ${mine ? 'mine' : ''} ${live ? 'live' : ''} ${past ? 'past' : ''}" ${courseStyle(c)}>
@@ -1187,12 +1227,7 @@ document.body.addEventListener('click', async (e) => {
   const tabLink = e.target.closest('[data-tab-link]');
   if (tabLink) { switchTab(tabLink.dataset.tabLink); return; }
   const dl = e.target.closest('[data-dl]');
-  if (dl) { // the link itself starts the download (in the browser, with your Panopto login)
-    noteDownloaded(dl.dataset.dl);
-    toast('⬇ ההורדה מתחילה — הקובץ יישמר בהורדות. אם נפתח דף התחברות, התחבר ונסה שוב.', { ms: 5000 });
-    setTimeout(render, 400);
-    return;
-  }
+  if (dl) { requestDownload(dl); return; }
   const el = e.target.closest('[data-action]');
   if (!el) return;
   const { action, id } = el.dataset;

@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "הסמסטרון — הורדת הקלטות",
+  "description": "Downloads Panopto recordings from the הסמסטרון tracker in one tap (personal offline viewing).",
+  "version": "1.0.0",
+  "permissions": ["downloads", "webRequest", "scripting", "tabs"],
+  "host_permissions": [
+    "https://huji.cloud.panopto.eu/*",
+    "https://*.panopto.eu/*",
+    "https://*.panopto.com/*",
+    "https://*.cloudfront.net/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://akivamprager.github.io/semester-tracker/*", "http://localhost:8321/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ]
+}
