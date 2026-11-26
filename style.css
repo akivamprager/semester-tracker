@@ -102,6 +102,11 @@ main { padding: 0 12px 24px; max-width: 640px; margin: 0 auto; }
   font-size: 14px; text-align: center; text-decoration: none;
 }
 .actions a.watch:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.actions a.dl {
+  flex: 0 0 auto; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); color: var(--accent);
+  font-size: 14px; text-align: center; text-decoration: none; white-space: nowrap;
+}
+.actions a.dl.done, a.pill.dl.done { color: var(--muted); }
 a.pill.rec { text-decoration: none; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); font-weight: 600; }
 .btn.primary { background: var(--accent); color: var(--on-color); border: none; }
 .link { background: none; border: none; color: var(--accent); font-size: 13px; padding: 0; }

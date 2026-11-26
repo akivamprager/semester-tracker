@@ -4,7 +4,7 @@ import { badgeCount, badgePrefs, PREFS_KEY } from './badge.js';
 import { buildCalendar } from './calendar.js';
 import { planDay, prayerPrefs, prayerKey, PRAYER_PREFS_KEY, PRAYER_LABELS } from './prayer.js';
 import { parseIcs, icsTaskChanges } from './ics.js';
-import { recKey, sessionKey, viewerUrl } from './recordings.js';
+import { recKey, sessionKey, viewerUrl, downloadUrl } from './recordings.js';
 import { backlog, hoursLabel, courseProgress, readiness, readinessOn, READINESS_KEY } from './insights.js';
 import { buildWidget, widgetFile } from './widget.js';
 import * as store from './sync.js';
@@ -893,6 +893,20 @@ function findUnit(courses, key) {
 const recordingsOf = (code) => state.progress[recKey(state.sem, code)]?.d || null;
 const recIds = (recs, group, o) => (recs && o ? recs[sessionKey(group, o)] || null : null);
 
+// Downloads for offline viewing (personal use, where the course allows it). Which recordings
+// you started downloading is remembered on this device only — the files are in its Downloads.
+const DL_KEY = 'tracker.downloaded';
+const downloaded = (() => { try { return new Set(JSON.parse(localStorage.getItem(DL_KEY) || '[]')); } catch { return new Set(); } })();
+function noteDownloaded(id) {
+  downloaded.add(id);
+  try { localStorage.setItem(DL_KEY, JSON.stringify([...downloaded].slice(-300))); } catch { /* private mode */ }
+}
+const dlLink = (id, cls = 'dl') => {
+  const has = downloaded.has(id);
+  return `<a class="${cls}${has ? ' done' : ''}" href="${esc(downloadUrl(state.sem, id))}" target="_blank" rel="noopener" data-dl="${esc(id)}"
+    title="${has ? 'כבר הורדת — אפשר להוריד שוב' : 'הורדה לצפייה בלי אינטרנט'}" aria-label="${has ? 'הורד כבר — להוריד שוב' : 'הורדת ההקלטה'}">${has ? '✓ הורד' : '⬇ הורדה'}</a>`;
+};
+
 // The recording to watch for a unit: own group's, else the group that taught it first, else any.
 function watchButton(c, u) {
   // a recording named for a cancelled session (e.g. last semester's lecture instead)
@@ -909,7 +923,7 @@ function watchButton(c, u) {
     const ids = recIds(recs, group, occ[i]);
     if (ids) {
       const who = group === u.mine ? 'הקבוצה שלך' : group.lecturer || `קב׳ ${grp(group.code)}`;
-      return `<a class="watch" href="${esc(viewerUrl(state.sem, ids[0][0]))}" target="_blank" rel="noopener" title="${esc(who)}">▶ צפה בהקלטה</a>`;
+      return `<a class="watch" href="${esc(viewerUrl(state.sem, ids[0][0]))}" target="_blank" rel="noopener" title="${esc(who)}">▶ צפה בהקלטה</a>${dlLink(ids[0][0])}`;
     }
   }
   return '';
@@ -936,7 +950,7 @@ function sessionRows(courses, key) {
       mine ? '<span class="pill mine">הקבוצה שלך</span>' : '',
       live ? '<span class="pill live"><span class="live-dot" aria-hidden="true"></span>עכשיו</span>' : '',
       // with Panopto data: a link per recording; without it (e.g. a friend's copy): the old hint
-      ids ? ids.map(([id], k) => `<a class="pill rec" href="${esc(viewerUrl(state.sem, id))}" target="_blank" rel="noopener">▶ הקלטה${ids.length > 1 ? ' ' + (k + 1) : ''}</a>`).join('')
+      ids ? ids.map(([id], k) => `<a class="pill rec" href="${esc(viewerUrl(state.sem, id))}" target="_blank" rel="noopener">▶ הקלטה${ids.length > 1 ? ' ' + (k + 1) : ''}</a>${dlLink(id, 'pill rec dl')}`).join('')
         : past ? `<span class="pill">${recs ? 'התקיים · אין הקלטה עדיין' : 'התקיים · יש הקלטה'}</span>` : '',
     ].join('');
     return `<div class="slot ${mine ? 'mine' : ''} ${live ? 'live' : ''} ${past ? 'past' : ''}" ${courseStyle(c)}>
@@ -1172,6 +1186,13 @@ document.querySelector('nav').addEventListener('click', (e) => {
 document.body.addEventListener('click', async (e) => {
   const tabLink = e.target.closest('[data-tab-link]');
   if (tabLink) { switchTab(tabLink.dataset.tabLink); return; }
+  const dl = e.target.closest('[data-dl]');
+  if (dl) { // the link itself starts the download (in the browser, with your Panopto login)
+    noteDownloaded(dl.dataset.dl);
+    toast('⬇ ההורדה מתחילה — הקובץ יישמר בהורדות. אם נפתח דף התחברות, התחבר ונסה שוב.', { ms: 5000 });
+    setTimeout(render, 400);
+    return;
+  }
   const el = e.target.closest('[data-action]');
   if (!el) return;
   const { action, id } = el.dataset;
