@@ -30,6 +30,7 @@ struct HasemestronApp: App {
     @AppStorage(HebrewDate.key) private var showHebrewDate = false
     @AppStorage("menuClass") private var showClass = true
     @AppStorage(Holiday.key) private var showHoliday = true
+    @AppStorage(Hebcal.key) private var showHebcal = true
 
     var body: some Scene {
         MenuBarExtra(isInserted: Binding(
@@ -40,16 +41,27 @@ struct HasemestronApp: App {
                 .environmentObject(model)
                 .environment(\.layoutDirection, .rightToLeft)
         } label: {
-            let title = mode == MenuBarMode.icon.rawValue || !showClass ? "" : model.menuTitle
-            let day = [showHoliday ? Holiday.emoji(model.now) : "", showHebrewDate ? HebrewDate.text(model.now) : ""]
-                .filter { !$0.isEmpty }.joined(separator: " ")
-            let text = [day, title].filter { !$0.isEmpty }.joined(separator: " · ")
+            let text = labelText
             HStack(spacing: 4) {
                 if mode != MenuBarMode.text.rawValue || text.isEmpty { Image(systemName: "graduationcap.fill") }
                 if !text.isEmpty { Text(text) }
             }
         }
         .menuBarExtraStyle(.window)
+    }
+
+    /// e.g. "🕯️ נר שלישי ל׳ בכסלו · הדלקה 16:09 · מבוא 10:00"
+    private var labelText: String {
+        let now = model.now, ev = showHebcal ? model.hebcal : []
+        let title = mode == MenuBarMode.icon.rawValue || !showClass ? "" : model.menuTitle
+        let candle = ev.hanukkah(now) // "🕯️ נר שלישי" in place of the plain 🕯️
+        var emoji = showHoliday ? Holiday.emoji(now) : ""
+        if candle != nil { emoji = emoji.replacingOccurrences(of: "🕯️", with: "") }
+        let day = [candle.map { "🕯️ \($0.name)" } ?? "", emoji, showHebrewDate ? HebrewDate.text(now) : ""]
+            .filter { !$0.isEmpty }.joined(separator: " ")
+        return [day, ev.omer(now)?.title ?? "", ev.candleLighting(now).map { "הדלקה \(Fmt.time($0))" } ?? "",
+                ev.fastEnd(now).map { "סיום הצום \(Fmt.time($0))" } ?? "", title]
+            .filter { !$0.isEmpty }.joined(separator: " · ")
     }
 }
 
@@ -174,6 +186,7 @@ final class Model: ObservableObject {
     @Published var doneHere: Set<String> = [] // checked off here, until the next fetch confirms
     @Published var lastFetch: Date?
     @Published var hasToken = Keychain.token != nil
+    @Published var hebcal = Hebcal.cached()
 
     private var tick: Timer?
 
@@ -206,6 +219,7 @@ final class Model: ObservableObject {
         } catch {
             self.error = summary == nil ? "אין חיבור לנתונים" : "לא מעודכן — אין חיבור"
         }
+        if let ev = await Hebcal.refreshIfStale() { hebcal = ev }
         now = Date()
     }
 

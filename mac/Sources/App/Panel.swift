@@ -23,6 +23,7 @@ struct Panel: View {
                             classes(s)
                             catchUp(s)
                             tasks(s)
+                            shabbat
                             prayers(s)
                         }
                         .buttonStyle(HoverButtonStyle(filled: true))
@@ -170,6 +171,30 @@ struct Panel: View {
         }
     }
 
+    /// From the Hebcal calendar: tonight's Hanukkah candle, the Omer, the next candle lighting.
+    @AppStorage(Hebcal.key) private var showHebcal = true
+    @ViewBuilder private var shabbat: some View {
+        let ev = showHebcal ? model.hebcal : [], now = model.now
+        let candle = ev.hanukkah(now), omer = ev.omer(now), fast = ev.fastEnd(now)
+        let lighting = ev.nextCandleLighting(now).flatMap { $0.timeIntervalSince(now) < 7 * 86400 ? $0 : nil }
+        if candle != nil || omer != nil || lighting != nil || fast != nil {
+            Section(title: "שבת ומועדים") {
+                if let c = candle {
+                    Row(color: "#E0A030") { Text("🕯️ חנוכה: \(c.name) · \(Fmt.time(c.at))").font(.callout) }
+                }
+                if let o = omer {
+                    Row(color: "#C9A227") { Text("🌾 \(o.title)").font(.callout) }
+                }
+                if let f = fast {
+                    Row(color: "#888888") { Text("סיום הצום: \(Fmt.time(f))").font(.callout) }
+                }
+                if let l = lighting {
+                    Row(color: "#E0A030") { Text("🕯️ הדלקת נרות: \(Fmt.day(l))").font(.callout) }
+                }
+            }
+        }
+    }
+
     @ViewBuilder private func prayers(_ s: Summary) -> some View {
         let list = s.todaysPrayers(model.now, done: model.doneHere)
         if !list.isEmpty {
@@ -296,6 +321,7 @@ struct SettingsView: View {
     @AppStorage(HebrewDate.key) private var hebrewDate = false
     @AppStorage("menuClass") private var showClass = true
     @AppStorage(Holiday.key) private var showHoliday = true
+    @AppStorage(Hebcal.key) private var showHebcal = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -317,6 +343,10 @@ struct SettingsView: View {
                     .help("מתחלף בשקיעה")
                 Toggle("סמל בחגים ובראש חודש (🕯️ 🍎 🎭 🫓 🌙 …)", isOn: $showHoliday)
                     .help("מתחלף בשקיעה, לפי לוח השנה בארץ")
+                if Hebcal.configured {
+                    Toggle("זמן הדלקת נרות, נר חנוכה וספירת העומר", isOn: $showHebcal)
+                        .help("מלוח Hebcal (מעלה אדומים)")
+                }
             }
             if mode == MenuBarMode.full.rawValue || mode == MenuBarMode.text.rawValue {
                 Toggle("השיעור הבא ליד הסמל (או כמה להשלים)", isOn: $showClass)
