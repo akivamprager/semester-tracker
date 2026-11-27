@@ -205,7 +205,11 @@ struct Panel: View {
                     Row(color: "#888888") { Text("סיום הצום: \(Fmt.time(f))").font(.callout) }
                 }
                 if let l = lighting {
-                    Row(color: "#E0A030") { Text("🕯️ הדלקת נרות: \(Fmt.day(l))").font(.callout) }
+                    let soon = l.timeIntervalSince(now) <= 3600
+                    Row(color: soon ? "#FF3B30" : "#E0A030") {
+                        Text("🕯️ הדלקת נרות: \(Fmt.day(l))\(soon ? " · \(Fmt.until(l, from: now))" : "")")
+                            .font(.callout.weight(soon ? .semibold : .regular)).foregroundStyle(soon ? Color.red : Color.primary)
+                    }
                 }
             }
         }

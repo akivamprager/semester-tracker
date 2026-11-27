@@ -41,17 +41,19 @@ struct HasemestronApp: App {
                 .environmentObject(model)
                 .environment(\.layoutDirection, .rightToLeft)
         } label: {
-            let text = labelText
+            let (text, red) = labelText
             HStack(spacing: 4) {
-                if mode != MenuBarMode.text.rawValue || text.isEmpty { Image(systemName: "graduationcap.fill") }
+                // the menu bar draws its text in one color, so the red part is a picture, in the icon's place
+                if let red, let img = RedText.image(red) { Image(nsImage: img) }
+                else if mode != MenuBarMode.text.rawValue || text.isEmpty { Image(systemName: "graduationcap.fill") }
                 if !text.isEmpty { Text(text) }
             }
         }
         .menuBarExtraStyle(.window)
     }
 
-    /// e.g. "🕯️ נר שלישי ל׳ בכסלו · הדלקה 16:09 · מבוא 10:00"
-    private var labelText: String {
+    /// e.g. "🕯️ נר שלישי ל׳ בכסלו · הדלקה 16:09 · מבוא 10:00"; `red`: candle lighting within the hour
+    private var labelText: (text: String, red: String?) {
         let now = model.now, ev = showHebcal ? model.hebcal : []
         let title = mode == MenuBarMode.icon.rawValue || !showClass ? "" : model.menuTitle
         let candle = ev.hanukkah(now) // "🕯️ נר שלישי" in place of the plain 🕯️
@@ -60,9 +62,32 @@ struct HasemestronApp: App {
         let day = [candle.map { "🕯️ \($0.name)" } ?? "", emoji, showHebrewDate ? HebrewDate.text(now) : ""]
             .filter { !$0.isEmpty }.joined(separator: " ")
         let fix = model.maintenance.isEmpty ? "" : "🔧"
-        return [[fix, day].filter { !$0.isEmpty }.joined(separator: " "), ev.omer(now)?.title ?? "", ev.candleLighting(now).map { "הדלקה \(Fmt.time($0))" } ?? "",
-                ev.fastEnd(now).map { "סיום הצום \(Fmt.time($0))" } ?? "", title]
+        let lighting = ev.candleLighting(now)
+        let soon = lighting.map { $0.timeIntervalSince(now) <= 3600 } ?? false
+        let lightingText = lighting.map { "הדלקה \(Fmt.time($0))" } ?? ""
+        let text = [[fix, day].filter { !$0.isEmpty }.joined(separator: " "), ev.omer(now)?.title ?? "", soon ? "" : lightingText,
+                    ev.fastEnd(now).map { "סיום הצום \(Fmt.time($0))" } ?? "", title]
             .filter { !$0.isEmpty }.joined(separator: " · ")
+        return (text, soon ? "🕯️ " + lightingText : nil)
+    }
+}
+
+/// Red text for the menu bar, drawn as a (non-template) picture — red reads on light and dark bars.
+@MainActor
+enum RedText {
+    private static var cache: [String: NSImage] = [:]
+
+    static func image(_ text: String) -> NSImage? {
+        if let img = cache[text] { return img }
+        let r = ImageRenderer(content: Text(text)
+            .font(Font(NSFont.menuBarFont(ofSize: 0) as CTFont).weight(.semibold))
+            .foregroundStyle(Color(nsColor: NSColor(srgbRed: 1, green: 0.23, blue: 0.19, alpha: 1)))
+            .environment(\.layoutDirection, .rightToLeft))
+        r.scale = NSScreen.main?.backingScaleFactor ?? 2
+        guard let img = r.nsImage else { return nil }
+        img.isTemplate = false
+        cache = [text: img] // only the current one
+        return img
     }
 }
 
