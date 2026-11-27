@@ -593,6 +593,11 @@ ol.help li { margin: 3px 0; }
 }
 
 .day-note { border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); background: color-mix(in srgb, var(--accent) 7%, var(--card)); }
+.maint { border: 1px solid color-mix(in srgb, var(--warn, #b26b00) 45%, transparent); background: color-mix(in srgb, var(--warn, #b26b00) 8%, var(--card)); }
+.maint-item { padding: 6px 0; border-top: 1px solid var(--line, rgba(127,127,127,.2)); }
+.maint-item:first-of-type { border-top: 0; }
+.maint-item summary { cursor: pointer; font-weight: 600; line-height: 1.5; }
+.maint-item .help { margin: 6px 0; }
 .day-note ul { margin: 6px 0 2px; padding-inline-start: 18px; line-height: 1.6; font-size: 14px; }
 
 .course-links { gap: 16px; }

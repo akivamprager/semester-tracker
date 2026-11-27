@@ -25,6 +25,7 @@ import { TOKEN_FILE, encrypt, decrypt, refreshToken, folderSessions } from './pa
 import { merge } from '../sync.js';
 import { isShabbat } from '../prayer.js';
 import { SHNATON_FILE, SHNATON_API, courseSnapshot, diffShnaton, keepPlausible } from '../shnaton.js';
+import { maintenanceNotices, activeNotices, noticesToPush } from '../maintenance.js';
 
 const SEND_HOUR = 7;
 const SEND_UNTIL = 11; // a "good morning" summary arriving later than this is useless
@@ -48,8 +49,10 @@ async function gh(path, opts = {}) {
     },
   });
   if (!res.ok) throw new Error(`GitHub ${res.status}: ${await res.text()}`);
+  tokenExpiry = res.headers.get('github-authentication-token-expiration') || tokenExpiry;
   return res.json();
 }
+let tokenExpiry = null; // GIST_TOKEN's expiry, as GitHub reports it (none = never expires)
 
 // The oldest gist with this description (the app folds in any duplicates from a race).
 async function findGist(description = GIST_DESC) {
@@ -167,6 +170,13 @@ if (process.env.MOODLE_ICS_URL && !calendarOnly) {
     await writeFiles(gist, { 'progress.json': JSON.stringify(progress), [FEED_FILE]: JSON.stringify(feedSnapshot(events)) });
   } catch (e) {
     console.error('Moodle import failed:', e.message); // never block the rest of the run
+    try { // shown as a maintenance notice (the link may have expired)
+      gist = await gh(`/gists/${gist.id}`);
+      progress = merge(await fullJson(gist, 'progress.json'), {
+        'status/moodle': { s: 'set', t: now.getTime(), d: { ...(progress['status/moodle']?.d || {}), error: 'failed', errorAt: now.toISOString() } },
+      });
+      await writeFiles(gist, { 'progress.json': JSON.stringify(progress) });
+    } catch { /* next run */ }
   }
 }
 
@@ -280,6 +290,50 @@ if (!calendarOnly && sem.panopto && process.env.PANOPTO_KEY && gist.files[TOKEN_
   }
 }
 
+// ---- 1d. once a day: token expiry dates and the repo's last commit (for maintenance notices) ----
+if (!calendarOnly && now - new Date(progress['status/tokens']?.d?.at || 0) > 20 * 3600e3) {
+  try {
+    const mail = gist.files[MAIL_FILE] ? await fullJson(gist, MAIL_FILE) : {};
+    const repo = process.env.GITHUB_REPOSITORY || 'akivamprager/semester-tracker';
+    const [last] = await gh(`/repos/${repo}/commits?per_page=1`);
+    const updates = {
+      // the Google script reports its own tokens in mail.json (null = no expiry)
+      'status/tokens': { s: 'set', t: now.getTime(), d: { at: now.toISOString(), job: tokenExpiry, scriptGist: mail.tokens?.gist || null, scriptGithub: mail.tokens?.github || null } },
+      'status/repo': { s: 'set', t: now.getTime(), d: { lastCommit: last?.commit?.committer?.date || null } },
+    };
+    gist = await gh(`/gists/${gist.id}`);
+    progress = merge(await fullJson(gist, 'progress.json'), updates);
+    await writeFiles(gist, { 'progress.json': JSON.stringify(progress) });
+    console.log(`Maintenance: token ${tokenExpiry ? 'expires ' + tokenExpiry.slice(0, 10) : 'has no expiry'}, last commit ${updates['status/repo'].d.lastCommit?.slice(0, 10)}`);
+  } catch (e) {
+    console.error('Maintenance check failed:', e.message);
+  }
+}
+
+// ---- 1e. maintenance notices → a push when new, then weekly (never on Shabbat or early morning) ----
+if (!calendarOnly && !isShabbat(sem, now) && now.getHours() >= 8) {
+  try {
+    const notices = activeNotices(maintenanceNotices(sem, index, progress, now), progress, now);
+    const due = noticesToPush(notices, push.maint || {}, now);
+    if (due.length) {
+      await sendPush(push, {
+        title: '🔧 הסמסטרון צריך תחזוקה',
+        body: due.slice(0, 4).map((n) => `${n.icon} ${n.title}`).join('\n'),
+        tag: 'maintenance', url: './',
+      });
+      push.maint = Object.fromEntries(notices.map((n) => [n.id, push.maint?.[n.id] || now.toISOString()]));
+      for (const n of due) push.maint[n.id] = now.toISOString();
+      pushChanged = true;
+    } else if (Object.keys(push.maint || {}).some((id) => !notices.find((n) => n.id === id))) {
+      push.maint = Object.fromEntries(notices.map((n) => [n.id, push.maint[n.id]]).filter(([, v]) => v));
+      pushChanged = true;
+    }
+    console.log(`Maintenance: ${notices.length} notice(s), ${due.length} pushed`);
+  } catch (e) {
+    console.error('Maintenance notices failed:', e.message);
+  }
+}
+
 // ---- 2. calendar + Mac widget summary → the published gist ----
 const published = await findGist(PUBLISHED_DESC);
 if (!published) {
@@ -293,7 +347,7 @@ if (!published) {
     }
   }
   try {
-    const widget = buildWidget(sem, progress, now);
+    const widget = buildWidget(sem, progress, now, index);
     if (!sameWidget(published.files[WIDGET_FILE]?.content, widget)) {
       await writeFiles(published, { [WIDGET_FILE]: widgetFile(widget, now) });
       console.log('Widget summary updated');

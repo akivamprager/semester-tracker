@@ -60,6 +60,20 @@ enum GitHub {
         }
     }
 
+    /// When the token expires, as GitHub reports it ("2027-01-15 08:00:00 UTC"); nil = never.
+    /// /rate_limit doesn't count against the rate limit.
+    static func tokenExpiry(token: String) async throws -> Date? {
+        var req = URLRequest(url: URL(string: "https://api.github.com/rate_limit")!)
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (_, res) = try await URLSession.shared.data(for: req)
+        guard let http = res as? HTTPURLResponse, http.statusCode == 200 else { throw Failure(message: "הטוקן לא מתאים") }
+        guard let s = http.value(forHTTPHeaderField: "github-authentication-token-expiration") else { return nil }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd HH:mm:ss zzz"
+        return f.date(from: s)
+    }
+
     /// The private gist's id: cached, checked against its description, else looked up.
     private static func privateGistID(token: String) async throws -> String {
         if let cached = UserDefaults.standard.string(forKey: "privateGistID"),

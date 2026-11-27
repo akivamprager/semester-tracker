@@ -5,8 +5,8 @@
 // A whole version is cached at once, so a fresh index.html never meets a stale app.js.
 // Data (semesters/*.json, push-config.json): the saved copy right away, refreshed from the
 // network in the background; requests with ?fresh go to the network first (refreshData).
-const CACHE = 'tracker-a9a59409';
-const SHELL = ['./', 'index.html', 'guide.html', 'guide.js', 'theme.js', 'style.css', 'app.js', 'schedule.js', 'sync.js', 'summary.js', 'ics.js', 'badge.js', 'calendar.js', 'prayer.js', 'moodle.js', 'recordings.js', 'widget.js', 'insights.js',
+const CACHE = 'tracker-a592f4f8';
+const SHELL = ['./', 'index.html', 'guide.html', 'guide.js', 'theme.js', 'style.css', 'app.js', 'schedule.js', 'sync.js', 'summary.js', 'ics.js', 'badge.js', 'calendar.js', 'prayer.js', 'moodle.js', 'recordings.js', 'widget.js', 'maintenance.js', 'insights.js',
   'manifest.webmanifest', 'icon-192.png', 'semesters/index.json'];
 
 self.addEventListener('install', (e) => {

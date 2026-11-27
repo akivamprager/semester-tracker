@@ -59,7 +59,8 @@ struct HasemestronApp: App {
         if candle != nil { emoji = emoji.replacingOccurrences(of: "🕯️", with: "") }
         let day = [candle.map { "🕯️ \($0.name)" } ?? "", emoji, showHebrewDate ? HebrewDate.text(now) : ""]
             .filter { !$0.isEmpty }.joined(separator: " ")
-        return [day, ev.omer(now)?.title ?? "", ev.candleLighting(now).map { "הדלקה \(Fmt.time($0))" } ?? "",
+        let fix = model.maintenance.isEmpty ? "" : "🔧"
+        return [[fix, day].filter { !$0.isEmpty }.joined(separator: " "), ev.omer(now)?.title ?? "", ev.candleLighting(now).map { "הדלקה \(Fmt.time($0))" } ?? "",
                 ev.fastEnd(now).map { "סיום הצום \(Fmt.time($0))" } ?? "", title]
             .filter { !$0.isEmpty }.joined(separator: " · ")
     }
@@ -220,6 +221,7 @@ final class Model: ObservableObject {
             self.error = summary == nil ? "אין חיבור לנתונים" : "לא מעודכן — אין חיבור"
         }
         if let ev = await Hebcal.refreshIfStale() { hebcal = ev }
+        await checkToken()
         now = Date()
     }
 
@@ -235,9 +237,37 @@ final class Model: ObservableObject {
         }
     }
 
+    /// Notices from the sync data (maintenance.js) plus what only the Mac knows.
+    var maintenance: [Notice] {
+        var list = summary?.maintenance ?? []
+        if let n = Hebcal.notice(hebcal, now: now) { list.append(n) }
+        if let exp = UserDefaults.standard.object(forKey: "tokenExpiry") as? Date, exp.timeIntervalSince(now) < 21 * 86400 {
+            let days = Int(ceil(exp.timeIntervalSince(now) / 86400))
+            list.append(Notice(id: "token/mac", icon: "🔑",
+                               title: days < 0 ? "הטוקן של GitHub באפליקציה ובמק פג" : "הטוקן של GitHub באפליקציה ובמק פג בעוד \(days) ימים",
+                               fix: "טוקן חדש ב-github.com/settings/tokens (הרשאת gist), ולהדביק: באפליקציה ⚙️ ← סנכרון, ובמק ⚙️ ← כפתורי ✓."))
+        }
+        return list
+    }
+
+    /// Once a day: when the Keychain token expires (only the Mac can see it — browsers can't).
+    private func checkToken() async {
+        guard let token = Keychain.token else { UserDefaults.standard.removeObject(forKey: "tokenExpiry"); return }
+        let key = "tokenCheckedAt"
+        if let last = UserDefaults.standard.object(forKey: key) as? Date, Date().timeIntervalSince(last) < 86400 { return }
+        do {
+            let exp = try await GitHub.tokenExpiry(token: token)
+            UserDefaults.standard.set(exp, forKey: "tokenExpiry") // nil removes it (no expiry)
+            UserDefaults.standard.set(Date(), forKey: key)
+        } catch {} // offline or a bad token (✓ will say so) — try again on the next refresh
+    }
+
     func setToken(_ token: String?) {
         Keychain.save(token?.trimmingCharacters(in: .whitespacesAndNewlines))
         hasToken = Keychain.token != nil
+        UserDefaults.standard.removeObject(forKey: "tokenCheckedAt") // check the new one
+        UserDefaults.standard.removeObject(forKey: "tokenExpiry")
+        Task { await checkToken(); now = Date() }
     }
 
     /// next to the clock: the running class, else today's next one, else what's waiting

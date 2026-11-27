@@ -8,6 +8,7 @@ import { recKey, sessionKey, viewerUrl } from './recordings.js';
 import { backlog, hoursLabel, courseProgress, readiness, readinessOn, READINESS_KEY } from './insights.js';
 import { buildWidget, widgetFile } from './widget.js';
 import * as store from './sync.js';
+import { maintenanceNotices, activeNotices, MAINT_SNOOZE_KEY } from './maintenance.js';
 
 const LS_SEMESTER = 'tracker.semester';
 
@@ -130,7 +131,7 @@ async function runSync() {
   if (!state.editing) render(); else renderChip();
   if (state.sync.status === 'ok') {
     // calendar + Mac widget: one upload in the background, after the chip already shows ✓
-    const widget = buildWidget(state.sem, state.progress, now());
+    const widget = buildWidget(state.sem, state.progress, now(), state.index);
     await store.publish({
       calendar: calendarEnabled() ? buildCalendar(state.sem, state.progress) : null,
       widget: { data: widget, content: widgetFile(widget, now()) },
@@ -434,7 +435,7 @@ function viewToday(courses) {
       <ul>${n.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>
     </section>`).join('');
 
-  return `${notes}<section class="card today-head">
+  return `${maintenanceCard()}${notes}<section class="card today-head">
       <h2>${title}</h2>
       ${day.length ? `<div class="slots">${day.map(slotRow).join('')}</div>` : `<div class="empty small">אין יותר שיעורים היום</div>${next}`}
     </section>
@@ -448,6 +449,20 @@ function viewToday(courses) {
         + (owed.length > 3 ? `<button class="link" data-tab-link="todo">לכל ${owed.length} השיעורים ›</button>` : '')
         : '<div class="empty small">הכל מעודכן 🎉</div>'}
     </section>`;
+}
+
+// ---------- maintenance: things that go stale unless I do something (maintenance.js) ----------
+function maintenanceCard() {
+  const list = activeNotices(maintenanceNotices(state.sem, state.index, state.progress, now()), state.progress, now());
+  if (!list.length) return '';
+  return `<section class="card maint">
+    <h2>🔧 צריך לתחזק</h2>
+    ${list.map((n) => `<details class="maint-item">
+      <summary>${n.icon} ${esc(n.title)}</summary>
+      <p class="help">${n.fix}</p>
+      <button class="link" data-action="maint-snooze" data-id="${esc(n.id)}">הזכר לי בעוד שבוע</button>
+    </details>`).join('')}
+  </section>`;
 }
 
 // ---------- header icon: the ring shows how much of what was taught you've done ----------
@@ -1287,6 +1302,11 @@ document.body.addEventListener('click', async (e) => {
       if (navigator.share) await navigator.share({ title: 'הסמסטרון', text: 'אפליקציה למעקב אחרי הרצאות, תרגולים והגשות:', url });
       else { await navigator.clipboard.writeText(url); toast('📋 הקישור למדריך הועתק'); }
     } catch (err) { if (err.name !== 'AbortError') toast('לא הצלחתי לשתף'); }
+  }
+  if (action === 'maint-snooze') {
+    const until = new Date(+now() + 7 * 864e5).toISOString();
+    put(MAINT_SNOOZE_KEY, { s: 'set', d: { ...(state.progress[MAINT_SNOOZE_KEY]?.d || {}), [el.dataset.id]: until } });
+    toast('🔕 נזכיר שוב בעוד שבוע');
   }
   if (action === 'dismiss-welcome') { localStorage.setItem('tracker.welcomed', '1'); render(); }
   if (action === 'horizon') { state.horizon = el.dataset.h; render(); }

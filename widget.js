@@ -9,6 +9,7 @@
 import { computeUnits, mergeTasks, homeSession, inPersonRule, personalBetween, taskUrl } from './schedule.js';
 import { planDay, prayerPrefs, prayerKey, PRAYER_LABELS } from './prayer.js';
 import { recKey, sessionKey, viewerUrl } from './recordings.js';
+import { maintenanceNotices, activeNotices } from './maintenance.js';
 
 export const WIDGET_FILE = 'widget.json';
 const DAYS_AHEAD = 4; // covers a weekend without a refresh
@@ -17,7 +18,8 @@ const TASK_DAYS = 14;
 const iso = (d) => new Date(d).toISOString();
 const courseInfo = (c) => ({ course: c.code, short: c.short, emoji: c.emoji, color: c.color });
 
-export function buildWidget(sem, progress, now) {
+// `index` (semesters/index.json) adds the maintenance notices.
+export function buildWidget(sem, progress, now, index = null) {
   const courses = computeUnits(sem, now);
   const until = new Date(+now + DAYS_AHEAD * 864e5);
   const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);
@@ -98,6 +100,9 @@ export function buildWidget(sem, progress, now) {
     tasks,
     prayers,
     inbox,
+    // plain text (the app's version has a little HTML)
+    maintenance: index ? activeNotices(maintenanceNotices(sem, index, progress, now), progress, now)
+      .map((n) => ({ id: n.id, icon: n.icon, title: n.title, fix: n.fix.replace(/<[^>]+>/g, '') })) : [],
   };
 }
 

@@ -21,6 +21,19 @@ enum Hebcal {
         return c
     }()
 
+    /// A notice when the calendar stopped updating (no download for 3 weeks, or it runs out soon).
+    static func notice(_ events: [HebcalEvent], now: Date = Date()) -> Notice? {
+        guard configured else { return nil }
+        let last = UserDefaults.standard.object(forKey: fetchedKey) as? Date
+        let end = events.last?.date
+        let stale = last.map { now.timeIntervalSince($0) > 21 * 86400 } ?? false
+        let ending = end.map { $0.timeIntervalSince(now) < 120 * 86400 } ?? false
+        guard stale || ending else { return nil }
+        return Notice(id: "hebcal", icon: "🕯️",
+                      title: "לוח Hebcal לא מתעדכן — זמני הדלקה ועומר עלולים להיגמר",
+                      fix: "לבדוק את הכתובת ב-mac/hebcal.local (hebcal.com ← הדלקת נרות ← iCal), ואז build.sh install.")
+    }
+
     static func cached() -> [HebcalEvent] {
         guard let d = UserDefaults.standard.data(forKey: cacheKey) else { return [] }
         return (try? JSONDecoder().decode([HebcalEvent].self, from: d)) ?? []

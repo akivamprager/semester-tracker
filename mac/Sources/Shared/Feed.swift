@@ -11,7 +11,13 @@ struct Summary: Codable {
     var tasks: [TaskItem]
     var prayers: [Prayer]
     var inbox: Int
+    var maintenance: [Notice]? // maintenance.js; missing in older files
     var generatedAt: Date?
+}
+
+/// Something that goes stale unless the user acts (new semester, expiring token…).
+struct Notice: Codable, Identifiable {
+    var id, icon, title, fix: String
 }
 
 struct Session: Codable, Identifiable {

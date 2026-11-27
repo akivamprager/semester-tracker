@@ -149,6 +149,8 @@ function checkMail() {
   const stale = !store.checkedAt || Date.now() - new Date(store.checkedAt) > 3 * 3600e3;
   if (added || stale || store.messages.length < before) { // new, periodic, or something removed
     store.checkedAt = new Date().toISOString();
+    // the tokens' expiry dates, so the app warns before they run out (null = no expiry)
+    store.tokens = { gist: tokenExpiry_('GIST_TOKEN'), github: tokenExpiry_('GITHUB_TOKEN') };
     gist_('patch', gistId, { files: { 'mail.json': { content: JSON.stringify(store, null, 1) } } });
   }
   Logger.log(`Mail: ${added} new`);
@@ -157,6 +159,19 @@ function checkMail() {
   if (added && hour >= 7 && hour <= 23 && PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN')) {
     triggerJob_(false);
   }
+}
+
+// When a token expires, as GitHub reports it on any response ("2027-01-15 08:00:00 UTC").
+// /rate_limit doesn't count against the rate limit.
+function tokenExpiry_(name) {
+  const token = PropertiesService.getScriptProperties().getProperty(name);
+  if (!token) return null;
+  const res = UrlFetchApp.fetch('https://api.github.com/rate_limit', {
+    headers: { Authorization: 'Bearer ' + token.trim(), Accept: 'application/vnd.github+json' }, muteHttpExceptions: true,
+  });
+  const headers = res.getAllHeaders();
+  const key = Object.keys(headers).find((k) => k.toLowerCase() === 'github-authentication-token-expiration');
+  return key ? String(headers[key]) : null;
 }
 
 // No email addresses, no links that carry a key/token, no Moodle footer, limited length.

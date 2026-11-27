@@ -20,6 +20,7 @@ struct Panel: View {
                 } else if let s = model.summary {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 14) {
+                            maintenance
                             classes(s)
                             catchUp(s)
                             tasks(s)
@@ -165,6 +166,21 @@ struct Panel: View {
                             }
                             if t.kind != "exam" { doneButton(t.key) }
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Things to fix before they go stale (maintenance.js + the Mac's own checks).
+    @ViewBuilder private var maintenance: some View {
+        let list = model.maintenance
+        if !list.isEmpty {
+            Section(title: "🔧 צריך לתחזק") {
+                ForEach(list) { n in
+                    Row(color: "#C2410C") {
+                        Text("\(n.icon) \(n.title)").font(.callout.weight(.medium)).fixedSize(horizontal: false, vertical: true)
+                        Text(n.fix).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
